@@ -188,7 +188,11 @@ function Main() {
 
       <View style={{ flex: 1 }}>
         {tab === 'dashboard' && (
-          <DashboardScreen onEditBet={openBet} onOpenSettings={() => setTab('settings')} />
+          <DashboardScreen
+            onEditBet={openBet}
+            onOpenSettings={() => setTab('settings')}
+            onOpenTab={setTab}
+          />
         )}
         {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}

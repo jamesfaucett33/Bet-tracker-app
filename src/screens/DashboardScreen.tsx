@@ -1,10 +1,22 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BetCard } from '../components/BetCard';
 import { ProfitChart } from '../components/ProfitChart';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
-import { formatAmount, formatPct } from '../format';
-import { useLive } from '../live';
+import { formatAmount, formatDate, formatPct, todayISO } from '../format';
+import { useBetPhases } from '../live';
+import { betProfit, betToWin, formatOdds } from '../odds';
+import {
+  bestHits,
+  closeCalls,
+  daysAgoISO,
+  headline,
+  recentWins,
+  settledDay,
+  streaks,
+  tally,
+  Tally,
+  worstBeats,
+} from '../recap';
 import { filterByPeriod, groupBy, Period, profitSeries, summarize } from '../stats';
 import { useStore } from '../store';
 import { useSync } from '../sync';
@@ -12,30 +24,47 @@ import { colors, profitColor, radius, space } from '../theme';
 import { Bet } from '../types';
 
 type Breakdown = 'sport' | 'betType' | 'book';
+type JumpTab = 'upcoming' | 'live' | 'bets';
 
+/** All recap: money on the table, how the day / week / all time went, and the fun stuff. */
 export function DashboardScreen({
   onEditBet,
   onOpenSettings,
+  onOpenTab,
 }: {
   onEditBet: (bet: Bet) => void;
   onOpenSettings?: () => void;
+  onOpenTab?: (tab: JumpTab) => void;
 }) {
   const sync = useSync();
   const { bets, settings } = useStore();
+  const phaseOf = useBetPhases();
   const [period, setPeriod] = useState<Period>('all');
   const [breakdown, setBreakdown] = useState<Breakdown>('sport');
+  const money = (n: number, sign = false) => formatAmount(n, settings, { sign });
+
+  const weekStart = daysAgoISO(6);
+  const today = useMemo(() => tally(bets, todayISO()), [bets]);
+  const week = useMemo(() => tally(bets, weekStart), [bets, weekStart]);
+  const allTime = useMemo(() => tally(bets), [bets]);
+  const vibe = headline(week, today, (n) => money(n));
+
+  // Money still riding.
+  const open = bets.filter((b) => b.status === 'pending');
+  const live = open.filter((b) => phaseOf(b) === 'live');
+  const upcoming = open.filter((b) => phaseOf(b) === 'upcoming');
+  const sum = (list: Bet[], f: (b: Bet) => number) => list.reduce((s, b) => s + f(b), 0);
+
+  const streak = useMemo(() => streaks(bets), [bets]);
+  const wins = useMemo(() => recentWins(bets), [bets]);
+  const close = useMemo(() => closeCalls(bets, daysAgoISO(29)), [bets]);
+  const worst = useMemo(() => worstBeats(bets, weekStart), [bets, weekStart]);
+  const best = useMemo(() => bestHits(bets), [bets]);
+  const allSummary = useMemo(() => summarize(bets), [bets]);
 
   const periodBets = useMemo(() => filterByPeriod(bets, period), [bets, period]);
-  const s = useMemo(() => summarize(periodBets), [periodBets]);
-  const allTime = useMemo(() => summarize(bets), [bets]);
   const series = useMemo(() => profitSeries(periodBets), [periodBets]);
   const groups = useMemo(() => groupBy(periodBets, (b) => b[breakdown]), [periodBets, breakdown]);
-  const pendingBets = useMemo(() => bets.filter((b) => b.status === 'pending'), [bets]);
-  const { games } = useLive();
-  const liveBets = pendingBets.filter((b) => games.get(b.id)?.state === 'in');
-  const otherOpen = pendingBets.filter((b) => games.get(b.id)?.state !== 'in');
-
-  const bankroll = settings.startingBankroll + allTime.profit;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -48,6 +77,147 @@ export function DashboardScreen({
           </Text>
         </Pressable>
       ) : null}
+
+      <View style={styles.vibe}>
+        <Text style={styles.vibeEmoji}>{vibe.emoji}</Text>
+        <Text style={styles.vibeText}>{vibe.text}</Text>
+      </View>
+
+      {/* Up / down: today, last 7 days, all time */}
+      <View style={styles.row3}>
+        <PLTile label="Today" t={today} money={money} />
+        <PLTile label="7 days" t={week} money={money} />
+        <PLTile label="All time" t={allTime} money={money} big />
+      </View>
+
+      {/* On the table */}
+      <SectionTitle>On the table</SectionTitle>
+      <Card style={{ padding: 0 }}>
+        <View style={styles.tableTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tableLabel}>Riding right now</Text>
+            <Text style={styles.tableValue}>{money(sum(open, (b) => b.stake))}</Text>
+            <Text style={styles.tableSub}>
+              {open.length} open ticket{open.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.tableLabel}>Could win</Text>
+            <Text style={[styles.tableValue, { color: colors.accent }]}>
+              {money(sum(open, betToWin))}
+            </Text>
+            <Text style={styles.tableSub}>if everything cashes 🙏</Text>
+          </View>
+        </View>
+        <View style={styles.tableSplit}>
+          <Pressable style={styles.tableCell} onPress={() => onOpenTab?.('live')} accessibilityRole="button">
+            <Text style={styles.cellLabel}>🔴 Live · {live.length}</Text>
+            <Text style={styles.cellValue}>{money(sum(live, (b) => b.stake))}</Text>
+            <Text style={styles.cellSub}>to win {money(sum(live, betToWin))}</Text>
+          </Pressable>
+          <View style={styles.vDivider} />
+          <Pressable style={styles.tableCell} onPress={() => onOpenTab?.('upcoming')} accessibilityRole="button">
+            <Text style={styles.cellLabel}>◷ Upcoming · {upcoming.length}</Text>
+            <Text style={styles.cellValue}>{money(sum(upcoming, (b) => b.stake))}</Text>
+            <Text style={styles.cellSub}>to win {money(sum(upcoming, betToWin))}</Text>
+          </Pressable>
+        </View>
+      </Card>
+
+      {/* Fun numbers */}
+      <View style={styles.grid}>
+        <FunStat
+          label="Streak"
+          value={
+            streak.current
+              ? `${streak.current.kind === 'W' ? '🔥' : '🥶'} ${streak.current.kind}${streak.current.n}`
+              : '—'
+          }
+          sub={streak.bestWin > 1 ? `Best run: ${streak.bestWin} straight wins` : streak.bestWin ? 'Best run: 1 win' : undefined}
+        />
+        <FunStat
+          label="Win rate"
+          value={formatPct(allSummary.winRate)}
+          sub={`ROI ${formatPct(allSummary.roi)}`}
+        />
+        <FunStat
+          label="Biggest hit"
+          value={best.biggest ? money(betProfit(best.biggest), true) : '—'}
+          sub={best.biggest?.pick}
+          color={best.biggest ? colors.win : undefined}
+          onPress={best.biggest ? () => onEditBet(best.biggest!) : undefined}
+        />
+        <FunStat
+          label="Longest odds cashed"
+          value={best.longest ? formatOdds(best.longest.odds) : '—'}
+          sub={best.longest?.pick}
+          onPress={best.longest ? () => onEditBet(best.longest!) : undefined}
+        />
+      </View>
+
+      <SectionTitle>🏆 Recent wins</SectionTitle>
+      {wins.length ? (
+        <Card style={{ padding: 0 }}>
+          {wins.map((b, i) => (
+            <RecapRow
+              key={b.id}
+              first={i === 0}
+              title={b.pick}
+              sub={`${formatDate(settledDay(b))} · ${formatOdds(b.odds)} · ${money(b.stake)}`}
+              right={money(betProfit(b), true)}
+              rightColor={colors.win}
+              onPress={() => onEditBet(b)}
+            />
+          ))}
+        </Card>
+      ) : (
+        <Empty text="No wins yet. The first one’s the sweetest. 🍀" />
+      )}
+
+      <SectionTitle>😬 Close calls · one leg away</SectionTitle>
+      {close.length ? (
+        <Card style={{ padding: 0 }}>
+          {close.map((c, i) => (
+            <RecapRow
+              key={c.bet.id}
+              first={i === 0}
+              title={c.bet.pick}
+              sub={`${c.hits} of ${c.legs} hit · busted by ${c.missed}`}
+              right={`${money(c.wouldHavePaid)}`}
+              rightSub="would’ve paid"
+              rightColor={colors.push}
+              onPress={() => onEditBet(c.bet)}
+            />
+          ))}
+        </Card>
+      ) : (
+        <Empty text="No heartbreakers in the last 30 days. Love to see it." />
+      )}
+
+      <SectionTitle>💀 Worst beats this week</SectionTitle>
+      {worst.length ? (
+        <Card style={{ padding: 0 }}>
+          {worst.map((b, i) => (
+            <RecapRow
+              key={b.id}
+              first={i === 0}
+              title={b.pick}
+              sub={`${formatDate(settledDay(b))} · ${formatOdds(b.odds)}${
+                b.legs?.length
+                  ? ` · ${b.legs.filter((l) => l.result === 'hit').length}/${b.legs.length} legs hit`
+                  : ''
+              }`}
+              right={money(-b.stake, true)}
+              rightColor={colors.loss}
+              onPress={() => onEditBet(b)}
+            />
+          ))}
+        </Card>
+      ) : (
+        <Empty text="No losses this week. Don’t jinx it. 🤫" />
+      )}
+
+      <SectionTitle>Profit over time</SectionTitle>
       <Segmented<Period>
         value={period}
         onChange={setPeriod}
@@ -58,78 +228,26 @@ export function DashboardScreen({
           { value: 'all', label: 'All Time' },
         ]}
       />
-
-      {liveBets.length > 0 ? (
-        <>
-          <SectionTitle>🔴 Live Now ({liveBets.length})</SectionTitle>
-          {liveBets.map((b) => (
-            <BetCard key={b.id} bet={b} onPress={() => onEditBet(b)} />
-          ))}
-        </>
-      ) : null}
-
-      <Card style={styles.hero}>
-        <Text style={styles.heroLabel}>Profit / Loss</Text>
-        <Text style={[styles.heroValue, { color: profitColor(s.profit) }]}>
-          {formatAmount(s.profit, settings, { sign: true })}
-        </Text>
-        <Text style={styles.heroSub}>
-          {s.wins}-{s.losses}
-          {s.pushes ? `-${s.pushes}` : ''} record · {formatAmount(s.settledStake, settings)} wagered
-        </Text>
-        <View style={{ marginTop: space.lg }}>
-          <ProfitChart series={series} />
-        </View>
+      <Card style={{ marginTop: space.md }}>
+        <ProfitChart series={series} />
       </Card>
-
-      <View style={styles.grid}>
-        <Stat label="Win Rate" value={formatPct(s.winRate)} />
-        <Stat
-          label="ROI"
-          value={formatPct(s.roi)}
-          color={Number.isFinite(s.roi) ? profitColor(s.roi) : undefined}
-        />
-        <Stat
-          label="Pending"
-          value={`${allTime.pending}`}
-          sub={
-            allTime.pending ? `${formatAmount(allTime.pendingStake, settings)} at risk` : undefined
-          }
-        />
-        <Stat
-          label={settings.startingBankroll ? 'Bankroll' : 'Pending To Win'}
-          value={
-            settings.startingBankroll
-              ? formatAmount(bankroll, settings)
-              : formatAmount(allTime.pendingToWin, settings)
-          }
-        />
-      </View>
 
       <SectionTitle>Breakdown</SectionTitle>
       <View style={styles.chips}>
-        <Chip
-          label="Sport"
-          selected={breakdown === 'sport'}
-          onPress={() => setBreakdown('sport')}
-        />
+        <Chip label="Sport" selected={breakdown === 'sport'} onPress={() => setBreakdown('sport')} />
         <Chip
           label="Bet Type"
           selected={breakdown === 'betType'}
           onPress={() => setBreakdown('betType')}
         />
-        <Chip
-          label="Sportsbook"
-          selected={breakdown === 'book'}
-          onPress={() => setBreakdown('book')}
-        />
+        <Chip label="Sportsbook" selected={breakdown === 'book'} onPress={() => setBreakdown('book')} />
       </View>
       <Card style={{ padding: 0 }}>
         {groups.length === 0 ? (
           <Text style={styles.emptyText}>No bets in this period yet.</Text>
         ) : (
           groups.map((g, i) => (
-            <View key={g.key} style={[styles.groupRow, i > 0 && styles.groupDivider]}>
+            <View key={g.key} style={[styles.groupRow, i > 0 && styles.divider]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.groupName}>{g.key}</Text>
                 <Text style={styles.groupSub}>
@@ -139,47 +257,115 @@ export function DashboardScreen({
                 </Text>
               </View>
               <Text style={[styles.groupProfit, { color: profitColor(g.summary.profit) }]}>
-                {formatAmount(g.summary.profit, settings, { sign: true })}
+                {money(g.summary.profit, true)}
               </Text>
             </View>
           ))
         )}
       </Card>
-
-      {otherOpen.length > 0 ? (
-        <>
-          <SectionTitle>Open Bets ({otherOpen.length})</SectionTitle>
-          {otherOpen.slice(0, 5).map((b) => (
-            <BetCard key={b.id} bet={b} onPress={() => onEditBet(b)} />
-          ))}
-        </>
-      ) : null}
     </ScrollView>
   );
 }
 
-function Stat({
+function PLTile({
+  label,
+  t,
+  money,
+  big,
+}: {
+  label: string;
+  t: Tally;
+  money: (n: number, sign?: boolean) => string;
+  big?: boolean;
+}) {
+  return (
+    <View style={[styles.plTile, big && { borderColor: colors.accent }]}>
+      <Text style={styles.plLabel}>{label}</Text>
+      <Text
+        style={[styles.plValue, { color: t.count ? profitColor(t.profit) : colors.textFaint }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {t.count ? money(t.profit, true) : '$0'}
+      </Text>
+      <Text style={styles.plSub}>
+        {t.count ? `${t.wins}-${t.losses}${t.pushes ? `-${t.pushes}` : ''}` : 'no results'}
+      </Text>
+    </View>
+  );
+}
+
+function FunStat({
   label,
   value,
   sub,
   color,
+  onPress,
 }: {
   label: string;
   value: string;
   sub?: string;
   color?: string;
+  onPress?: () => void;
 }) {
   return (
-    <View style={styles.stat}>
+    <Pressable style={styles.stat} onPress={onPress} disabled={!onPress}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text
-        style={[styles.statValue, color ? { color } : null]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
+      <Text style={[styles.statValue, color ? { color } : null]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
-      {sub ? <Text style={styles.statSub}>{sub}</Text> : null}
+      {sub ? (
+        <Text style={styles.statSub} numberOfLines={1}>
+          {sub}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function RecapRow({
+  title,
+  sub,
+  right,
+  rightSub,
+  rightColor,
+  first,
+  onPress,
+}: {
+  title: string;
+  sub: string;
+  right: string;
+  rightSub?: string;
+  rightColor: string;
+  first: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.recapRow, !first && styles.divider, pressed && { opacity: 0.8 }]}
+      accessibilityRole="button"
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.recapTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.recapSub} numberOfLines={1}>
+          {sub}
+        </Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={[styles.recapRight, { color: rightColor }]}>{right}</Text>
+        {rightSub ? <Text style={styles.recapRightSub}>{rightSub}</Text> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <View style={styles.empty}>
+      <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
 }
@@ -196,11 +382,53 @@ const styles = StyleSheet.create({
   },
   backupTitle: { color: colors.push, fontSize: 15, fontWeight: '800' },
   backupText: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
-  hero: { marginTop: space.lg },
-  heroLabel: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
-  heroValue: { fontSize: 40, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
-  heroSub: { color: colors.textDim, fontSize: 13, marginTop: 2 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: space.md },
+  vibe: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.accent + '66',
+    padding: space.md,
+  },
+  vibeEmoji: { fontSize: 30 },
+  vibeText: { flex: 1, color: colors.text, fontSize: 16, fontWeight: '700', lineHeight: 22 },
+  row3: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  plTile: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space.md,
+    paddingHorizontal: space.sm,
+    alignItems: 'center',
+  },
+  plLabel: {
+    color: colors.textFaint,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  plValue: { fontSize: 21, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
+  plSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  tableTop: { flexDirection: 'row', padding: space.lg, gap: space.md },
+  tableLabel: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
+  tableValue: { color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 2 },
+  tableSub: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
+  tableSplit: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  tableCell: { flex: 1, padding: space.md, alignItems: 'center' },
+  vDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  cellLabel: { color: colors.textDim, fontSize: 12, fontWeight: '700' },
+  cellValue: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
+  cellSub: { color: colors.accent, fontSize: 12, fontWeight: '600', marginTop: 1 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: space.lg },
   stat: {
     flexGrow: 1,
     flexBasis: '45%',
@@ -208,16 +436,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: space.lg,
+    padding: space.md,
   },
   statLabel: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
   statValue: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 4 },
   statSub: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
+  recapRow: { flexDirection: 'row', alignItems: 'center', padding: space.md, gap: space.md },
+  recapTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  recapSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  recapRight: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  recapRightSub: { color: colors.textFaint, fontSize: 11 },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   chips: { flexDirection: 'row', gap: space.sm, marginBottom: space.md, flexWrap: 'wrap' },
   groupRow: { flexDirection: 'row', alignItems: 'center', padding: space.lg, gap: space.md },
-  groupDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   groupName: { color: colors.text, fontSize: 15, fontWeight: '700' },
   groupSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
   groupProfit: { fontSize: 15, fontWeight: '800' },
-  emptyText: { color: colors.textFaint, padding: space.lg, textAlign: 'center' },
+  empty: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  emptyText: { color: colors.textFaint, padding: space.lg, textAlign: 'center', fontSize: 13 },
 });

@@ -12,6 +12,19 @@ import { Bet, BetStatus, DEFAULT_SETTINGS, Settings } from './types';
 
 const STORAGE_KEY = 'bettracker:v1';
 
+/** Remembers when a ticket was decided, for "today" / "this week" recaps. */
+function stampSettled(old: Bet | undefined, next: Bet): Bet {
+  if (next.status === 'pending') {
+    const { settledAt: _drop, ...rest } = next;
+    return rest;
+  }
+  if (next.settledAt) return next;
+  // Logged already settled (an old ticket): its own date is the best guess.
+  if (!old) return next;
+  if (old.status !== 'pending') return old.settledAt ? { ...next, settledAt: old.settledAt } : next;
+  return { ...next, settledAt: Date.now() };
+}
+
 interface PersistedData {
   version: 1;
   bets: Bet[];
@@ -90,9 +103,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [bets, settings, loaded]);
 
   const saveBet = useCallback((input: Bet) => {
-    const bet = { ...input, updatedAt: Date.now() };
     setBets((prev) => {
-      const exists = prev.some((b) => b.id === bet.id);
+      const old = prev.find((b) => b.id === input.id);
+      const bet = { ...stampSettled(old, input), updatedAt: Date.now() };
+      const exists = !!old;
       return sortBets(exists ? prev.map((b) => (b.id === bet.id ? bet : b)) : [...prev, bet]);
     });
   }, []);
@@ -104,7 +118,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const setStatus = useCallback((id: string, status: BetStatus) => {
     setBets((prev) =>
       prev.map((b) =>
-        b.id === id ? { ...b, status, settledBy: undefined, updatedAt: Date.now() } : b,
+        b.id === id
+          ? {
+              ...stampSettled(b, { ...b, status }),
+              settledBy: undefined,
+              updatedAt: Date.now(),
+            }
+          : b,
       ),
     );
   }, []);
