@@ -29,7 +29,7 @@ export const DEFAULT_SPORTS = [
 export interface ParlayLeg {
   id: string;
   pick: string;
-  odds: number; // American odds
+  odds: number | null; // American odds; null when the slip doesn't show per-leg odds
 }
 
 export interface Bet {
@@ -53,6 +53,8 @@ export interface Settings {
   showUnits: boolean;
   books: string[];
   sports: string[];
+  /** The user's own Anthropic API key for bet slip scanning. Never exported. */
+  anthropicApiKey: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -61,4 +63,5 @@ export const DEFAULT_SETTINGS: Settings = {
   showUnits: false,
   books: ['DraftKings', 'FanDuel', 'BetMGM', 'Caesars', 'ESPN Bet', 'Fanatics'],
   sports: DEFAULT_SPORTS,
+  anthropicApiKey: '',
 };

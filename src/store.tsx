@@ -107,7 +107,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const exportData = useCallback(
-    () => JSON.stringify({ version: 1, bets, settings } satisfies PersistedData, null, 2),
+    () =>
+      JSON.stringify(
+        // Never put the API key in a backup file.
+        {
+          version: 1,
+          bets,
+          settings: { ...settings, anthropicApiKey: '' },
+        } satisfies PersistedData,
+        null,
+        2,
+      ),
     [bets, settings],
   );
 
@@ -125,7 +135,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return sortBets([...byId.values()]);
       });
       if (!Array.isArray(data) && data.settings) {
-        setSettings((prev) => ({ ...prev, ...data.settings }));
+        // Keep this device's API key; backups never carry one.
+        const { anthropicApiKey: _ignored, ...imported } = data.settings as Partial<Settings>;
+        setSettings((prev) => ({ ...prev, ...imported }));
       }
       return { ok: true as const, count: valid.length };
     } catch {

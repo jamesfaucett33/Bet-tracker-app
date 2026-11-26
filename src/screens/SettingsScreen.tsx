@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Linking,
   Platform,
   ScrollView,
   Share,
@@ -73,6 +74,8 @@ export function SettingsScreen() {
   const [unit, setUnit] = useState(String(settings.unitSize));
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [apiKey, setApiKey] = useState(settings.anthropicApiKey);
+  const keySaved = !!settings.anthropicApiKey && apiKey === settings.anthropicApiKey;
 
   const doExport = async () => {
     const json = exportData();
@@ -142,6 +145,54 @@ export function SettingsScreen() {
             thumbColor={settings.showUnits ? colors.accent : colors.textDim}
           />
         </View>
+      </Card>
+
+      <SectionTitle>Bet Slip Scanning</SectionTitle>
+      <Card style={{ gap: space.md }}>
+        <Text style={styles.body}>
+          Scan paper tickets or app screenshots to fill in bets automatically. Scanning uses Claude
+          by Anthropic and needs your own API key (each scan costs about a cent).
+        </Text>
+        <Text
+          style={styles.link}
+          onPress={() => Linking.openURL('https://console.anthropic.com/settings/keys')}
+          accessibilityRole="link"
+        >
+          Get an API key at console.anthropic.com →
+        </Text>
+        <TextInput
+          value={apiKey}
+          onChangeText={setApiKey}
+          placeholder="sk-ant-…"
+          placeholderTextColor={colors.textFaint}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={styles.keyInput}
+        />
+        <View style={styles.addRow}>
+          <Button
+            title={keySaved ? 'Key saved ✓' : 'Save Key'}
+            onPress={() => updateSettings({ anthropicApiKey: apiKey.trim() })}
+            disabled={keySaved || !apiKey.trim()}
+            style={{ flex: 1 }}
+          />
+          {settings.anthropicApiKey ? (
+            <Button
+              title="Remove"
+              variant="secondary"
+              onPress={() => {
+                setApiKey('');
+                updateSettings({ anthropicApiKey: '' });
+              }}
+              style={{ paddingHorizontal: 18 }}
+            />
+          ) : null}
+        </View>
+        <Text style={styles.fine}>
+          Your key is stored only on this device and is never included in backups. Slip photos are
+          sent to Anthropic only to read them.
+        </Text>
       </Card>
 
       <ListEditor
@@ -237,6 +288,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   body: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
+  link: { color: colors.accent, fontSize: 14, fontWeight: '600' },
+  fine: { color: colors.textFaint, fontSize: 12, lineHeight: 17 },
+  keyInput: {
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 15,
+  },
   importBox: {
     minHeight: 120,
     backgroundColor: colors.bg,

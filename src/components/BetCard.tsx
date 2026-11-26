@@ -40,8 +40,12 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
           {bet.pick || 'Untitled bet'}
         </Text>
         {bet.legs && bet.legs.length > 0 ? (
-          <Text style={styles.legs} numberOfLines={3}>
-            {bet.legs.map((l) => `• ${l.pick || 'Leg'} (${formatOdds(l.odds)})`).join('\n')}
+          <Text style={styles.legs} numberOfLines={4}>
+            {bet.legs
+              .map(
+                (l) => `• ${l.pick || 'Leg'}${l.odds === null ? '' : ` (${formatOdds(l.odds)})`}`,
+              )
+              .join('\n')}
           </Text>
         ) : null}
 

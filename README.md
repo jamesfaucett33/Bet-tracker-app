@@ -7,8 +7,11 @@ A mobile-first sports bet tracker built with **Expo (React Native)**. One codeba
 
 ## Features
 
+- 📷 **Scan bet slips**: photograph a paper ticket or pick an app screenshot, and the bet is read
+  and filled in for you (uses Claude — see [Bet slip scanning](#bet-slip-scanning))
 - Log bets: sport, bet type, pick, American odds, stake ($ or units), sportsbook, date, notes
-- **Parlays & teasers**: enter each leg and the combined odds are calculated automatically
+- **Parlays & teasers**: enter each leg and the combined odds are calculated automatically, or
+  type the total odds printed on the slip (same game parlays)
 - One-tap settle: **Won / Lost / Push** right from the bet card
 - Dashboard: profit/loss, record, win rate, ROI, profit trend chart, pending exposure
 - Filter by **7 days / 30 days / YTD / all time**
@@ -39,6 +42,26 @@ It opens full-screen with its own icon, just like an app. Bets are saved in that
 that device — use **Settings → Export Backup** occasionally.
 
 > If you rename the repository, update `experiments.baseUrl` in `app.json` to match.
+
+## Bet slip scanning
+
+Tap **+** → **Take Photo** or **Choose Photo** on the New Bet screen. The photo is resized on the
+phone and sent to Claude (Anthropic's AI), which reads the sport, bet type, pick, odds, stake,
+sportsbook, date, parlay legs and ticket number. The form is filled in for you to check before
+saving. If a screenshot has several bets, you can save them all at once.
+
+**Setup:** create an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys)
+(add a few dollars of credit — each scan costs roughly a cent), then paste it in
+**Settings → Bet Slip Scanning**. The key is stored only on your device and is never included in
+backups.
+
+> **Before selling the app:** the key is currently used straight from the phone, which is fine for
+> your own key on your own phone. A public version must send scans through a small server that
+> holds the key (e.g. a Supabase or Cloudflare function) so customers never see it. The scanning
+> code lives in `src/scan.ts`.
+
+QR codes and barcodes on retail tickets only hold a ticket ID for the sportsbook's own systems, so
+the app reads the printed slip instead — this works for every sportsbook, paper or app.
 
 ## Run it locally
 
@@ -75,6 +98,7 @@ src/
   odds.ts                   American odds math (payouts, parlays, implied probability)
   stats.ts                  Win rate, ROI, breakdowns, profit series
   store.tsx                 State + on-device persistence (AsyncStorage)
+  scan.ts                   Bet slip photo → Claude → draft bets
   format.ts, theme.ts       Formatting helpers and colors
   components/               BetCard, ProfitChart, shared UI
   screens/                  Dashboard, Bets, BetForm, Settings
