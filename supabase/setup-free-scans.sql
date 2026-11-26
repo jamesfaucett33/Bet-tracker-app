@@ -1,4 +1,4 @@
--- Free AI scanning + "Go Pro" interest test.
+-- Free AI scanning for beta testers (a capped amount per account).
 -- Run once in the Supabase SQL editor.
 
 -- Every AI scan made on the owner's key, with what it cost.
@@ -19,15 +19,3 @@ create policy "read own usage" on public.scan_usage
 create policy "add own usage" on public.scan_usage
   for insert with check (auth.uid() = user_id);
 grant select, insert on public.scan_usage to authenticated;
-
--- Answers to "Would you subscribe to Pro for $1.99/mo?" (nothing is charged).
-create table if not exists public.pro_interest (
-  user_id uuid primary key default auth.uid() references auth.users on delete cascade,
-  answer text not null check (answer in ('yes', 'maybe', 'no')),
-  email text,
-  updated_at timestamptz not null default now()
-);
-alter table public.pro_interest enable row level security;
-create policy "own interest" on public.pro_interest
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-grant select, insert, update on public.pro_interest to authenticated;

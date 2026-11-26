@@ -1,7 +1,7 @@
 import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatAmount, formatDate } from '../format';
-import { useBetLive } from '../live';
+import { autoSettle, useBetLive } from '../live';
 import { formatChance } from '../chance';
 import { chanceColor, GameHeader, legsSummary, LiveLegs } from './LiveLegs';
 import { betProfit, formatOdds, potentialProfit } from '../odds';
@@ -23,6 +23,8 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const { game, legs: liveLegs, chance } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
   const summary = showLive && game ? legsSummary(liveLegs, game.state) : null;
+  const decision = autoSettle(bet, game);
+  const review = decision && 'review' in decision ? decision.review : null;
 
   return (
     <Pressable
@@ -68,6 +70,11 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
               )
               .join('\n')}
           </Text>
+        ) : null}
+
+        {review ? <Text style={styles.review}>{review}</Text> : null}
+        {bet.settledBy === 'auto' && bet.status !== 'pending' ? (
+          <Text style={styles.auto}>Auto-settled from the final stats · tap to change</Text>
         ) : null}
 
         {bet.trackerUrl ? (
@@ -142,6 +149,8 @@ const styles = StyleSheet.create({
   pick: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
   legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
+  review: { color: colors.push, fontSize: 13, fontWeight: '600', marginTop: space.sm },
+  auto: { color: colors.textFaint, fontSize: 12, marginTop: space.sm },
   tracker: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: space.sm },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   summary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },

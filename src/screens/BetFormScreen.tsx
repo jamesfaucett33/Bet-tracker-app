@@ -22,7 +22,6 @@ import {
 import { canReadOnDevice } from '../ocr';
 import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
 import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
-import { ProPrompt } from '../components/ProPrompt';
 import { readSlip, SlipRead } from '../readSlip';
 import { PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
@@ -109,12 +108,12 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [trackerUrl, setTrackerUrl] = useState<string | undefined>(bet?.trackerUrl);
   // Free AI scanning credit (signed-in users without their own key).
   const [credit, setCredit] = useState<ScanCredit | null>(null);
-  const [showPro, setShowPro] = useState(false);
+  const [showCap, setShowCap] = useState(false);
   const refreshCredit = () => {
     if (settings.anthropicApiKey.trim()) return;
     fetchScanCredit().then((c) => {
       setCredit(c);
-      if (c && c.spent >= c.limit) setShowPro(true);
+      if (c && c.spent >= c.limit) setShowCap(true);
     });
   };
   useEffect(() => {
@@ -288,7 +287,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         found.length === 1 && qr ? qr : deriveTrackerUrl(first.book, first.notes, bets),
       );
       setExtraScans(found.slice(1));
-      if (res.limitReached) setShowPro(true);
+      if (res.limitReached) setShowCap(true);
       refreshCredit();
       setScanNote(
         found.length > 1
@@ -296,7 +295,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           : res.usedAI
             ? 'Slip read with AI. Check the details below, then save.'
             : res.limitReached
-              ? 'Free AI scans used up — read on your phone instead. Double-check every field.'
+              ? 'Beta AI scan cap reached — read on your phone instead. Double-check every field.'
               : 'Slip read on your phone. Double-check every field — sign in (Settings) for AI scanning.',
       );
     } catch (e) {
@@ -316,7 +315,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     for (let i = 0; i < images.length; i++) {
       try {
         const res = await readSlip(images[i], settings.anthropicApiKey);
-        if (res.limitReached) setShowPro(true);
+        if (res.limitReached) setShowCap(true);
         res.bets.forEach((b) =>
           items.push({
             photo: i + 1,
@@ -530,7 +529,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                 {credit && !settings.anthropicApiKey ? (
                   <Text style={styles.creditLine}>
                     {credit.spent >= credit.limit
-                      ? 'Free AI scans used — scans now read on your phone.'
+                      ? 'Beta AI scan cap reached — contact James for options. Scans now read on your phone.'
                       : `✨ AI scanning · about ${scansLeft(credit)} free scan${scansLeft(credit) === 1 ? '' : 's'} left`}
                   </Text>
                 ) : null}
@@ -548,9 +547,16 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           </View>
         ) : null}
 
-        {showPro && !isEdit ? (
+        {showCap && !isEdit ? (
           <View style={{ marginBottom: space.lg }}>
-            <ProPrompt reason="You've used your free AI scans. The free on-phone scanner still works, but AI reads shadows and screenshots far better." />
+            <View style={styles.capBox}>
+              <Text style={styles.capTitle}>Beta scan cap reached</Text>
+              <Text style={styles.capText}>
+                {
+                  "You've reached your free AI scan cap for the beta. Contact James for options. Scans now read on your phone instead — double-check each field."
+                }
+              </Text>
+            </View>
           </View>
         ) : null}
 
@@ -793,6 +799,15 @@ const styles = StyleSheet.create({
   scanTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   scanText: { color: colors.textDim, fontSize: 13, marginTop: 4 },
   scanBtns: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  capBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.push,
+    padding: space.md,
+  },
+  capTitle: { color: colors.push, fontSize: 15, fontWeight: '800' },
+  capText: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   creditLine: { color: colors.textDim, fontSize: 12, fontWeight: '600', marginTop: space.sm },
   scanNote: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: space.md },
   scanning: {

@@ -68,16 +68,3 @@ export async function scanInCloud(image: string): Promise<ScannedBet[]> {
   }
   return parseScanAnswer(String(data?.text ?? ''), String(data?.stop_reason ?? ''));
 }
-
-/** Records a tester's answer to "Would you subscribe for $1.99/mo?". */
-export async function saveProInterest(answer: 'yes' | 'maybe' | 'no'): Promise<boolean> {
-  const sb = getCloudClient();
-  if (!sb) return false;
-  const { data } = await sb.auth.getSession();
-  const user = data.session?.user;
-  if (!user) return false;
-  const { error } = await sb
-    .from('pro_interest')
-    .upsert({ user_id: user.id, answer, email: user.email, updated_at: new Date().toISOString() });
-  return !error;
-}

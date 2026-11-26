@@ -102,7 +102,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setStatus = useCallback((id: string, status: BetStatus) => {
-    setBets((prev) => prev.map((b) => (b.id === id ? { ...b, status, updatedAt: Date.now() } : b)));
+    setBets((prev) =>
+      prev.map((b) =>
+        b.id === id ? { ...b, status, settledBy: undefined, updatedAt: Date.now() } : b,
+      ),
+    );
   }, []);
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {

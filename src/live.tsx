@@ -345,6 +345,42 @@ export function isCovering(p: LegProgress, market?: Market): boolean {
   return p.current !== null && p.target !== null && p.current > p.target;
 }
 
+// ---------- auto-settle ----------
+
+export type SettleDecision = { status: 'won' | 'lost' } | { review: string } | null;
+
+/**
+ * Once a game is final, decides a pending ticket from the final stats: every
+ * leg hit -> won, a leg missed -> lost. A missed player prop where the player
+ * has no stats at all is left for review (they may not have played, and books
+ * void those legs), as is any leg the app can't grade.
+ */
+export function autoSettle(bet: Bet, game: LiveGame | undefined): SettleDecision {
+  if (!game || game.state !== 'post' || bet.status !== 'pending') return null;
+  const legs = betMarkets(bet);
+  if (!legs.length || legs.some((l) => !l.market)) {
+    return { review: "Final — some legs can't be graded automatically. Mark it Won or Lost." };
+  }
+  let missed = false; // a leg clearly lost
+  let noStats: string | null = null; // a missed leg whose player has no stats
+  for (const l of legs) {
+    const p = gradeMarket(l.market, game);
+    if (p.state === 'unknown') return { review: 'Final — mark it Won or Lost.' };
+    if (p.state === 'miss') {
+      if (l.market!.kind === 'player' && !game.players.has(norm(l.market!.player))) {
+        noStats = l.market!.player;
+      } else missed = true;
+    }
+  }
+  // Another leg lost, so a possibly-voided leg doesn't matter: the ticket lost.
+  if (!missed && noStats) {
+    return {
+      review: `Final — ${noStats} has no recorded stats (may not have played, and books usually void that leg). Check your ticket, then mark it.`,
+    };
+  }
+  return { status: missed ? 'lost' : 'won' };
+}
+
 // ---------- provider ----------
 
 interface LiveCtx {
@@ -418,6 +454,12 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
           }
           if (live.state === 'in') anyLive = true;
           result.set(bet.id, live);
+          const decision = autoSettle(bet, live);
+          if (decision && 'status' in decision) {
+            const latest = betsRef.current.find((b) => b.id === bet.id);
+            if (latest && latest.status === 'pending')
+              saveBet({ ...latest, status: decision.status, settledBy: 'auto' });
+          }
         }
         if (!cancelled) {
           setGames(result);

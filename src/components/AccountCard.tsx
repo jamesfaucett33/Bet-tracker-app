@@ -3,7 +3,6 @@ import { fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
-import { ProPrompt } from './ProPrompt';
 import { Button, Card, SectionTitle } from './ui';
 
 function ago(ms: number | null): string {
@@ -69,7 +68,7 @@ export function AccountCard() {
               <Text style={styles.body}>
                 ✨ Free AI scans:{' '}
                 {credit.spent >= credit.limit
-                  ? 'used up (scans now read on your phone)'
+                  ? 'beta cap reached — contact James for options'
                   : `about ${scansLeft(credit)} scan${scansLeft(credit) === 1 ? '' : 's'} left`}{' '}
                 · ${credit.spent.toFixed(2)} of ${credit.limit.toFixed(2)} used
               </Text>
@@ -142,11 +141,6 @@ export function AccountCard() {
           </>
         )}
       </Card>
-      {sync.email ? (
-        <View style={{ marginTop: space.md }}>
-          <ProPrompt />
-        </View>
-      ) : null}
     </>
   );
 }

@@ -87,6 +87,8 @@ export interface Bet {
   trackerUrl?: string;
   /** Last change (ms), used to merge with cloud sync: newest edit wins. */
   updatedAt?: number;
+  /** 'auto' when the app settled it from the game's final stats. */
+  settledBy?: 'auto';
 }
 
 export interface Settings {

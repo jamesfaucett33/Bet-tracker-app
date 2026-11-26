@@ -4,8 +4,8 @@ Project: `zielynjbewfhoerigbzm` (URL and publishable key are in `src/sync.tsx`).
 
 ## Tables
 1. `bets` — cloud sync (created during sync setup).
-2. `scan_usage`, `pro_interest` — free AI scans and the Pro interest test: run
-   `setup-free-scans.sql` in the SQL editor.
+2. `scan_usage` — free AI scans per account: run `setup-free-scans.sql` in the
+   SQL editor.
 
 ## Free AI scanning function (`scan-slip`)
 - Source: `functions/scan-slip/index.ts`, generated from `src/scanSpec.ts` by
@@ -17,5 +17,4 @@ Project: `zielynjbewfhoerigbzm` (URL and publishable key are in `src/sync.tsx`).
 - Free allowance per account: `FREE_CREDIT_USD` at the top of the function.
 
 ## Seeing results
-- Who would pay: Table Editor → `pro_interest`.
 - Spend per tester: Table Editor → `scan_usage` (sum `cost_usd` by `user_id`).
