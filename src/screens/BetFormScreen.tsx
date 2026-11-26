@@ -20,7 +20,8 @@ import {
   potentialProfit,
 } from '../odds';
 import { canReadOnDevice } from '../ocr';
-import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
+import { decodeSlipQr, deriveTrackerUrl } from '../qr';
+import { duplicateMessage, findDuplicate, sameTicket } from '../dupes';
 import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
 import { readSlip, SlipRead } from '../readSlip';
 import { PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
@@ -154,22 +155,9 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const toWin = valid ? (printedToWin ?? potentialProfit(stakeNum, oddsNum)) : 0;
   const implied = impliedProbability(oddsNum);
 
-  const save = (allowDuplicate = false) => {
+  const save = (): boolean => {
     setSubmitted(true);
-    if (!valid) return;
-    // Same printed ticket logged twice (e.g. imported and then scanned)?
-    const ticket = ticketDigits({ notes });
-    const dupe =
-      !allowDuplicate && ticket && bets.find((b) => b.id !== bet?.id && ticketDigits(b) === ticket);
-    if (dupe) {
-      confirm(
-        'Already logged',
-        `You already have this ticket: "${dupe.pick}". Save it again anyway?`,
-        () => save(true),
-        'Save Again',
-      );
-      return;
-    }
+    if (!valid) return false;
     const keptLegs = multiLegType
       ? legs
           .filter((l) => l.pick.trim() || l.odds.trim())
@@ -191,7 +179,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     const finalLegs = keptLegs.length ? keptLegs : undefined;
     const finalPick =
       pick.trim() || (finalLegs ? `${finalLegs.length}-leg ${betType.toLowerCase()}` : '');
-    saveBet({
+    const next: Bet = {
       id: bet?.id ?? uid(),
       createdAt: bet?.createdAt ?? Date.now(),
       date,
@@ -211,8 +199,16 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         !multiLegType && pick.trim() === (bet?.pick ?? scannedPick)
           ? (bet?.market ?? scannedMarket)
           : undefined,
-    });
+    };
+    // The same ticket can never be logged twice.
+    const dupe = findDuplicate(next, bets, bet?.id);
+    if (dupe) {
+      notify('Already logged', duplicateMessage(dupe));
+      return false;
+    }
+    saveBet(next);
     onClose();
+    return true;
   };
 
   const remove = () =>
@@ -347,7 +343,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
 
   const saveBatch = () => {
     if (!batch) return;
-    const seen = new Set(bets.map((b) => ticketDigits(b)).filter(Boolean) as string[]);
+    const kept: Bet[] = [];
     let saved = 0;
     let dupes = 0;
     let incomplete = 0;
@@ -358,12 +354,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         incomplete++;
         continue;
       }
-      const ticket = ticketDigits(b);
-      if (ticket && seen.has(ticket)) {
+      if (findDuplicate(b, [...bets, ...kept])) {
         dupes++;
         continue;
       }
-      if (ticket) seen.add(ticket);
+      kept.push(b);
       saveBet({ ...b, trackerUrl: item.trackerUrl || undefined });
       saved++;
     }
@@ -386,8 +381,16 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     if (!valid) return;
     const others = extraScans.map(scannedToBet);
     const ok = others.filter((b): b is Bet => b !== null);
-    save();
-    ok.forEach(saveBet);
+    if (!save()) return;
+    const kept: Bet[] = [];
+    let dupes = 0;
+    for (const b of ok) {
+      if (findDuplicate(b, [...bets, ...kept])) dupes++;
+      else kept.push(b);
+    }
+    kept.forEach(saveBet);
+    if (dupes)
+      notify('Already logged', `${dupes} bet${dupes === 1 ? ' was' : 's were'} already in your bets and weren't saved again.`);
     const skipped = others.length - ok.length;
     if (skipped > 0)
       notify(
@@ -405,7 +408,20 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       : [book.trim(), ...settings.books];
 
   if (batch) {
-    const ready = batch.items.filter((i) => i.bet && scannedToBet(i.bet));
+    // Which photos repeat a logged ticket or an earlier photo in this batch.
+    const dupeNote = new Map<number, string>();
+    const batchBets: Bet[] = [];
+    batch.items.forEach((it, idx) => {
+      const b = it.bet && scannedToBet(it.bet);
+      if (!b) return;
+      if (findDuplicate(b, bets)) dupeNote.set(idx, 'Already in your bets — won’t be saved');
+      else {
+        const j = batchBets.findIndex((x) => sameTicket(x, b));
+        if (j >= 0) dupeNote.set(idx, 'Same ticket as an earlier photo — won’t be saved twice');
+        else batchBets.push(b);
+      }
+    });
+    const ready = batch.items.filter((i, idx) => i.bet && scannedToBet(i.bet) && !dupeNote.has(idx));
     const reading = batch.done < batch.total;
     return (
       <View style={{ flex: 1 }}>
@@ -434,18 +450,18 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           ) : null}
           {batch.items.map((item, i) => {
             const ok = item.bet && scannedToBet(item.bet);
-            const ticket = item.bet ? ticketDigits({ notes: item.bet.notes }) : null;
-            const dupe = !!ticket && bets.some((b) => ticketDigits(b) === ticket);
+            const dupe = dupeNote.get(i);
             return (
-              <View key={i} style={[styles.batchCard, !ok && { borderColor: colors.loss }]}>
-                <Text style={styles.batchPhoto}>
-                  Photo {item.photo}
-                  {dupe ? ' · already logged, will skip' : ''}
-                </Text>
+              <View
+                key={i}
+                style={[styles.batchCard, (!ok || dupe) && { borderColor: colors.loss }]}
+              >
+                <Text style={styles.batchPhoto}>Photo {item.photo}</Text>
+                {dupe ? <Text style={styles.batchDupe}>🚫 {dupe}</Text> : null}
                 {item.bet ? (
                   <>
                     <Text style={styles.batchTitle}>
-                      {ok ? '✅ ' : '⚠️ '}
+                      {dupe ? '🚫 ' : ok ? '✅ ' : '⚠️ '}
                       {item.bet.pick || item.bet.betType}
                     </Text>
                     <Text style={styles.batchMeta}>
@@ -499,7 +515,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                 disabled={!ready.length}
               />
               <Text style={[styles.scanText, { textAlign: 'center', marginTop: space.sm }]}>
-                Tickets marked ❌ or ⚠️ aren't saved — retake those photos.
+                Tickets marked ❌, ⚠️ or 🚫 aren't saved — retake those photos.
               </Text>
             </>
           ) : null}
@@ -865,6 +881,7 @@ const styles = StyleSheet.create({
   batchPhoto: { color: colors.textFaint, fontSize: 12, fontWeight: '700' },
   batchTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
   batchMeta: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  batchDupe: { color: colors.loss, fontSize: 14, fontWeight: '700', marginTop: 2 },
   batchPay: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: 4 },
   batchPayNote: { color: colors.textDim, fontSize: 12, fontWeight: '400' },
   batchLeg: { color: colors.text, fontSize: 13, marginTop: 3 },

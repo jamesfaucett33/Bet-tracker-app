@@ -34,11 +34,8 @@ export async function decodeSlipQr(jpegBase64: string): Promise<string | null> {
   return null;
 }
 
-/** Ticket number from a bet's notes, digits only ("Ticket 087001-2591-..." -> "0870012591..."). */
-export function ticketDigits(bet: Pick<Bet, 'notes'>): string | null {
-  const m = /ticket\s*#?\s*([\d-]{10,})/i.exec(bet.notes ?? '');
-  return m ? m[1].replace(/-/g, '') : null;
-}
+import { ticketDigits } from './dupes';
+export { ticketDigits };
 
 /**
  * Caesars tracker links are ".../tracker/<region>/ticket/<ticket digits>", so
