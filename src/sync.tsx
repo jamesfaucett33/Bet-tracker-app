@@ -25,8 +25,8 @@ import { Bet } from './types';
 
 // Public project settings (safe to ship in the app; access is enforced by
 // row-level security on the server).
-export const SUPABASE_URL = '';
-export const SUPABASE_KEY = '';
+export const SUPABASE_URL = 'https://zielynjbewfhoerigbzm.supabase.co';
+export const SUPABASE_KEY = 'sb_publishable_0QBt8O7HJwK4IaMurrxX3w_t9ISCUhE';
 
 export const cloudConfigured = () => !!SUPABASE_URL && !!SUPABASE_KEY;
 
