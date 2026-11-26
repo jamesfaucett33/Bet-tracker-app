@@ -145,6 +145,72 @@ function WinBar({ game }: { game: LiveGame }) {
   );
 }
 
+/** The legs of these tickets that are on this game. */
+function legsOnGame(
+  bets: Bet[],
+  game: LiveGame,
+  legGames: Map<string, (LiveGame | undefined)[]>,
+) {
+  const out: { bet: Bet; label: string; market: ReturnType<typeof betMarkets>[number]['market'] }[] =
+    [];
+  for (const bet of bets) {
+    const perLeg = legGames.get(bet.id) ?? [];
+    betMarkets(bet).forEach((m, i) => {
+      const g = perLeg[i] ?? (perLeg.length ? undefined : game);
+      if (g?.eventId === game.eventId) out.push({ bet, label: m.label, market: m.market });
+    });
+  }
+  return out;
+}
+
+/** Every player in your legs on this game: full stat line (live or final) and your props on them. */
+function YourPlayers({ game, bets }: { game: LiveGame; bets: Bet[] }) {
+  const { legGames } = useLive();
+  const players = new Map<
+    string,
+    { name: string; props: { label: string; progress: LegProgress; odds: number | null }[] }
+  >();
+  for (const leg of legsOnGame(bets, game, legGames)) {
+    const m = leg.market;
+    if (m?.kind !== 'player') continue;
+    const key = norm(m.player);
+    const entry = players.get(key) ?? { name: game.playerNames.get(key) ?? m.player, props: [] };
+    const label = `${m.line}+ ${PLAYER_STATS[m.stat].toLowerCase()}`;
+    if (!entry.props.some((p) => p.label === label))
+      entry.props.push({ label, progress: gradeMarket(m, game), odds: null });
+    players.set(key, entry);
+  }
+  if (!players.size) return null;
+  const final = game.state === 'post';
+  return (
+    <>
+      <SectionTitle>Your players · {final ? 'final stats' : 'live stats'}</SectionTitle>
+      <View style={styles.panel}>
+        {[...players.entries()].map(([key, p], i) => (
+          <View key={key} style={[styles.playerRow, i > 0 && styles.divider]}>
+            <Text style={styles.playerName}>{p.name}</Text>
+            <Text style={styles.playerLine}>{statLine(game.players.get(key))}</Text>
+            {p.props.map((prop) => {
+              const st = prop.progress.state;
+              const color =
+                st === 'hit' ? colors.win : st === 'miss' ? colors.loss : colors.textDim;
+              return (
+                <View key={prop.label} style={styles.playerProp}>
+                  <Text style={[styles.playerPropLabel, { color }]}>
+                    {st === 'hit' ? (final ? '✅ ' : '✓ ') : st === 'miss' ? '❌ ' : '• '}
+                    {prop.label}
+                  </Text>
+                  <Text style={[styles.playerPropValue, { color }]}>{prop.progress.text}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    </>
+  );
+}
+
 /** One box per ticket; each leg is graded against its own game. */
 function TicketList({
   title,
@@ -411,6 +477,8 @@ function GameCast({
         <WinBar game={game} />
       </View>
 
+      <YourPlayers game={game} bets={[...gameBets, ...parlayBets]} />
+
       {gameBets.length ? (
         <TicketList
           title={`Your Tickets (${gameBets.length})`}
@@ -510,10 +578,13 @@ function GameRow({
     (m, st) => (st.chance !== null && (m === null || st.chance > m) ? st.chance : m),
     null,
   );
-  // Tickets still open on a finished game are ones the app couldn't grade.
+  // Finished game: how your legs on it went.
+  const here = legsOnGame(tickets, game, legGames).map((l) => gradeMarket(l.market, game).state);
+  const hitN = here.filter((st) => st === 'hit').length;
+  const missN = here.filter((st) => st === 'miss').length;
   const summary =
     game.state === 'post'
-      ? `Final · ${tickets.length} ticket${tickets.length === 1 ? '' : 's'} to settle ✍️`
+      ? `${here.length} leg${here.length === 1 ? '' : 's'} here · ${hitN} ✓${missN ? ` · ${missN} ✗` : ''}`
       : alive.length === 0
       ? `${tickets.length === 1 ? 'Ticket' : 'All tickets'} busted 💀`
       : `${tickets.length} ticket${tickets.length === 1 ? '' : 's'}` +
@@ -557,7 +628,9 @@ function GameRow({
             {
               color:
                 game.state === 'post'
-                  ? colors.push
+                  ? missN
+                    ? colors.loss
+                    : colors.win
                   : alive.length
                     ? best !== null
                       ? chanceColor(best)
@@ -570,7 +643,20 @@ function GameRow({
           {summary}
         </Text>
         <View style={styles.rowDots}>
-          {statuses.map((st, i) => (
+          {game.state === 'post'
+            ? here.map((st, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.legDot,
+                    {
+                      backgroundColor:
+                        st === 'hit' ? colors.win : st === 'miss' ? colors.loss : colors.surfaceAlt,
+                    },
+                  ]}
+                />
+              ))
+            : statuses.map((st, i) => (
             <View
               key={i}
               style={[
@@ -608,7 +694,7 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     new Set((legGames.get(b.id) ?? []).filter(Boolean).map((g) => g!.eventId)).size > 1;
   const phaseOf = useBetPhases();
 
-  // Every game being played right now that has at least one of your legs on it.
+  // Every started game with at least one of your open legs on it.
   const { entries, multiBets } = useMemo(() => {
     const map = new Map<string, GameEntry>();
     const multi: Bet[] = [];
@@ -619,18 +705,19 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     };
     for (const b of bets) {
       if (b.status !== 'pending') continue;
-      if (phaseOf(b) !== 'live') continue;
+      const phase = phaseOf(b);
+      if (phase !== 'live' && phase !== 'settle') continue;
       if (isMulti(b)) {
-        multi.push(b);
+        if (phase === 'live') multi.push(b);
         const seen = new Set<string>();
         for (const g of legGames.get(b.id) ?? []) {
-          if (!g || g.state !== 'in' || seen.has(g.eventId)) continue;
+          if (!g || g.state === 'pre' || seen.has(g.eventId)) continue;
           seen.add(g.eventId);
           entry(g).parlays.push(b);
         }
       } else {
         const g = games.get(b.id);
-        if (!g || g.state !== 'in') continue;
+        if (!g || g.state === 'pre') continue;
         entry(g).single.push(b);
       }
     }
@@ -638,6 +725,8 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bets, games, legGames]);
 
+  const inProgress = entries.filter((e) => e.game.state === 'in');
+  const completed = entries.filter((e) => e.game.state === 'post');
   const updated = entries[0]?.game.updatedAt;
   const ago = updated ? Math.max(0, Math.round((Date.now() - updated) / 1000)) : null;
   const open = selected ? entries.find((e) => e.game.eventId === selected) : undefined;
@@ -692,33 +781,44 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     <ScrollView contentContainerStyle={styles.container}>
       {refreshRow}
 
-      {entries.length === 0 ? (
+      {entries.length === 0 && !multiBets.length ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No games being played</Text>
+          <Text style={styles.emptyTitle}>Nothing live right now</Text>
           <Text style={styles.emptyText}>
             Tickets move here from Upcoming as soon as one of their games kicks off, with a live
             gamecast and every leg tracked.
           </Text>
         </View>
-      ) : (
+      ) : null}
+
+      {inProgress.length ? (
         <>
           <SectionTitle>
-            🔴 {entries.length} game{entries.length === 1 ? '' : 's'} live · tap one for your bets
+            🔴 In progress ({inProgress.length}) · tap a game for your bets
           </SectionTitle>
-          {entries.map((e) => (
+          {inProgress.map((e) => (
             <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
           ))}
         </>
-      )}
+      ) : null}
 
       {multiBets.length ? (
-        <View style={{ marginTop: space.lg }}>
+        <View style={{ marginTop: inProgress.length ? space.lg : 0 }}>
           <TicketList
-            title={`Multi-game parlays (${multiBets.length})`}
+            title={`Your live slips · multi-game (${multiBets.length})`}
             bets={multiBets}
             showGameLines
             onEditBet={onEditBet}
           />
+        </View>
+      ) : null}
+
+      {completed.length ? (
+        <View style={{ marginTop: space.lg }}>
+          <SectionTitle>✅ Completed games ({completed.length}) · tap for final stats</SectionTitle>
+          {completed.map((e) => (
+            <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
+          ))}
         </View>
       ) : null}
 
@@ -934,6 +1034,9 @@ const styles = StyleSheet.create({
   rowSummary: { fontSize: 12, fontWeight: '700' },
   rowDots: { flexDirection: 'row', gap: 4 },
   chev: { color: colors.textFaint, fontSize: 24, fontWeight: '300' },
+  playerProp: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  playerPropLabel: { fontSize: 13, fontWeight: '700', flex: 1 },
+  playerPropValue: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   footnote: {
     color: colors.textFaint,
     fontSize: 11,
