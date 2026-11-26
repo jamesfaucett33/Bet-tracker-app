@@ -82,44 +82,40 @@ export async function pickSlipImages(source: PickSource): Promise<string[]> {
 
 const SYSTEM_PROMPT = `You read photos and screenshots of sports betting slips (printed retail tickets, sportsbook app screenshots, bet history pages) and extract each bet on them for a personal bet-tracking app.
 
-How to fill each field:
+How to fill each field (when something isn't on the slip, use "" for text, 0 for numbers and "none" for choices; never guess):
 - sport: the league, using a short common name such as NFL, NBA, MLB, NHL, NCAAF, NCAAB, Soccer, UFC, Tennis, Golf. Infer it from team or player names when the slip only says "Football" or "Basketball" (e.g. Packers at Rams is NFL). Use "Other" if you can't tell.
 - bet_type: Parlay for any multi-leg bet, including same game parlays; Teaser for teasers; Spread, Moneyline or Total for single game lines; Prop for player or game props; Future for futures; Other if none fit.
 - pick: a short human-readable summary of the bet. For a single bet, the selection with its line (e.g. "Chiefs -3.5 vs Bills"). For a parlay, name the game(s) and leg count (e.g. "3-leg SGP: Packers @ Rams").
-- odds: the bet's total American odds as an integer (e.g. -110, 550 for +550). If only decimal or fractional odds are shown, convert them. Use null if no odds are visible.
-- stake: the amount wagered in dollars (ticket cost / risk / wager). Null if not visible.
-- to_win: the profit if it wins (not including the stake), in dollars. Null if not visible. If only the total payout is shown, subtract the stake.
-- sportsbook: the operator's brand name (e.g. Caesars, DraftKings, FanDuel), not the casino or venue. Null if unknown.
-- placed_date: the date the bet was placed as YYYY-MM-DD, or the event date if no placement date is shown. Null if no date is visible.
+- odds: the bet's total American odds as an integer (e.g. -110, 550 for +550). If only decimal or fractional odds are shown, convert them. Use 0 if no odds are visible.
+- stake: the amount wagered in dollars (ticket cost / risk / wager). 0 if not visible.
+- to_win: the profit if it wins (not including the stake), in dollars. 0 if not visible. If only the total payout is shown, subtract the stake.
+- sportsbook: the operator's brand name (e.g. Caesars, DraftKings, FanDuel), not the casino or venue. "" if unknown.
+- placed_date: the date the bet was placed as YYYY-MM-DD, or the event date if no placement date is shown. "" if no date is visible.
 - status: won, lost or push only if the slip clearly shows the bet was settled that way (e.g. "Won", "Paid", "Lost", a green check on every leg); otherwise pending.
-- legs: for a parlay or teaser, one entry per leg with the selection (e.g. "Matthew Stafford 250+ passing + rushing yds") and that leg's American odds, or null when the slip doesn't show per-leg odds. Empty for single bets.
-- ticket_id: the ticket or bet ID if printed, else null.
-- away_team / home_team: full team names of the game when one game is shown (e.g. "Green Bay Packers" at "Los Angeles Rams"); "A at B" or "A @ B" means A is away. Null for multi-game parlays or futures.
-- market (on each leg, and on the bet itself for single bets; null on parlays): how the outcome is graded.
+- legs: for a parlay or teaser, one entry per leg with the selection (e.g. "Matthew Stafford 250+ passing + rushing yds") and that leg's American odds, or 0 when the slip doesn't show per-leg odds. Empty for single bets.
+- ticket_id: the ticket or bet ID if printed, else "".
+- away_team / home_team: full team names of the game when one game is shown (e.g. "Green Bay Packers" at "Los Angeles Rams"); "A at B" or "A @ B" means A is away. "" for multi-game parlays or futures.
+- market (on each leg, and on the bet itself for single bets; kind "none" on parlays): how the outcome is graded.
   kind "player" for player props with player (full name), stat and line: "250+" means line 250; "over 249.5" means line 250. Stats: passYds, rushYds, recYds, receptions, passRushYds, rushRecYds, passTd, anyTd (anytime TD = line 1), fgMade, points, rebounds, assists, threes, pra.
-  kind "moneyline" with team; kind "spread" with team and line (e.g. -3.5); kind "total" with side over/under and line for game totals; kind "other" if none fit. Unused fields are null.
+  kind "moneyline" with team; kind "spread" with team and line (e.g. -3.5); kind "total" with side over/under and line for game totals; kind "other" if none fit. Unused fields are "", 0 or "none".
 
-Copy numbers exactly as printed; never invent odds, amounts or dates that aren't on the image. If the image contains no bet slip, return an empty bets list and say what you see in problem.`;
+Copy numbers exactly as printed; never invent odds, amounts or dates that aren't on the image. If the image contains no bet slip, return an empty bets list and say what you see in problem; otherwise problem is "".`;
 
-/** "This value or null", written the way structured outputs accept it. */
-const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: 'null' }] });
-const STR = { type: 'string' };
-const NUM = { type: 'number' };
-const INT = { type: 'integer' };
-
-const MARKET_SCHEMA = nullable({
+// No nullable/union fields: the API limits how many a schema may have, so
+// unknown values come back as "", 0 or "none" and are treated as missing.
+const MARKET_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['kind', 'player', 'stat', 'line', 'team', 'side'],
   properties: {
-    kind: { type: 'string', enum: ['player', 'moneyline', 'spread', 'total', 'other'] },
-    player: nullable(STR),
-    stat: nullable({ type: 'string', enum: Object.keys(PLAYER_STATS) }),
-    line: nullable(NUM),
-    team: nullable(STR),
-    side: nullable({ type: 'string', enum: ['over', 'under'] }),
+    kind: { type: 'string', enum: ['player', 'moneyline', 'spread', 'total', 'other', 'none'] },
+    player: { type: 'string' },
+    stat: { type: 'string', enum: [...Object.keys(PLAYER_STATS), 'none'] },
+    line: { type: 'number' },
+    team: { type: 'string' },
+    side: { type: 'string', enum: ['over', 'under', 'none'] },
   },
-});
+};
 
 const SCHEMA = {
   type: 'object',
@@ -151,11 +147,11 @@ const SCHEMA = {
           sport: { type: 'string' },
           bet_type: { type: 'string', enum: [...BET_TYPES] },
           pick: { type: 'string' },
-          odds: nullable(INT),
-          stake: nullable(NUM),
-          to_win: nullable(NUM),
-          sportsbook: nullable(STR),
-          placed_date: nullable(STR),
+          odds: { type: 'integer' },
+          stake: { type: 'number' },
+          to_win: { type: 'number' },
+          sportsbook: { type: 'string' },
+          placed_date: { type: 'string' },
           status: { type: 'string', enum: ['pending', 'won', 'lost', 'push'] },
           legs: {
             type: 'array',
@@ -165,19 +161,19 @@ const SCHEMA = {
               required: ['pick', 'odds', 'market'],
               properties: {
                 pick: { type: 'string' },
-                odds: nullable(INT),
+                odds: { type: 'integer' },
                 market: MARKET_SCHEMA,
               },
             },
           },
-          ticket_id: nullable(STR),
-          away_team: nullable(STR),
-          home_team: nullable(STR),
+          ticket_id: { type: 'string' },
+          away_team: { type: 'string' },
+          home_team: { type: 'string' },
           market: MARKET_SCHEMA,
         },
       },
     },
-    problem: nullable(STR),
+    problem: { type: 'string' },
   },
 } as const;
 
@@ -329,12 +325,12 @@ export async function readBetSlip(apiKey: string, imageBase64: string): Promise<
 
 function toMarket(m: RawMarket | null | undefined, fallbackText: string): Market | undefined {
   if (m) {
-    if (m.kind === 'player' && m.player && m.stat && m.stat in PLAYER_STATS && m.line !== null)
+    if (m.kind === 'player' && m.player && m.stat && m.stat in PLAYER_STATS && m.line && m.line > 0)
       return { kind: 'player', player: m.player, stat: m.stat as PlayerStat, line: m.line };
     if (m.kind === 'moneyline' && m.team) return { kind: 'moneyline', team: m.team };
     if (m.kind === 'spread' && m.team && m.line !== null)
       return { kind: 'spread', team: m.team, line: m.line };
-    if (m.kind === 'total' && (m.side === 'over' || m.side === 'under') && m.line !== null)
+    if (m.kind === 'total' && (m.side === 'over' || m.side === 'under') && m.line && m.line > 0)
       return { kind: 'total', side: m.side, line: m.line };
   }
   return parseMarket(fallbackText);
