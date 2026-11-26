@@ -152,11 +152,11 @@ export function SettingsScreen() {
         </View>
       </Card>
 
-      <SectionTitle>Bet Slip Scanning</SectionTitle>
+      <SectionTitle>Advanced: Your Own AI Key</SectionTitle>
       <Card style={{ gap: space.md }}>
         <Text style={styles.body}>
-          Scan paper tickets or app screenshots to fill in bets automatically. Scanning uses Claude
-          by Anthropic and needs your own API key (each scan costs about a cent).
+          Optional. Signed-in accounts get free AI scans included. If you have your own Anthropic
+          API key, add it here to scan on your own account instead (about 2–4¢ per scan).
         </Text>
         <Text
           style={styles.link}

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
+import { ProPrompt } from './ProPrompt';
 import { Button, Card, SectionTitle } from './ui';
 
 function ago(ms: number | null): string {
@@ -15,6 +17,11 @@ function ago(ms: number | null): string {
 /** Sign in / create account for cloud sync, or show sync status. */
 export function AccountCard() {
   const sync = useSync();
+  const [credit, setCredit] = useState<ScanCredit | null>(null);
+  useEffect(() => {
+    if (sync.email) fetchScanCredit().then(setCredit);
+    else setCredit(null);
+  }, [sync.email, sync.lastSync]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,6 +65,15 @@ export function AccountCard() {
               Your bets are saved to your account and show up on every device and browser you sign
               in on.
             </Text>
+            {credit ? (
+              <Text style={styles.body}>
+                ✨ Free AI scans:{' '}
+                {credit.spent >= credit.limit
+                  ? 'used up (scans now read on your phone)'
+                  : `about ${scansLeft(credit)} scan${scansLeft(credit) === 1 ? '' : 's'} left`}{' '}
+                · ${credit.spent.toFixed(2)} of ${credit.limit.toFixed(2)} used
+              </Text>
+            ) : null}
             <View style={styles.row}>
               <Button
                 title="Sync Now"
@@ -126,6 +142,11 @@ export function AccountCard() {
           </>
         )}
       </Card>
+      {sync.email ? (
+        <View style={{ marginTop: space.md }}>
+          <ProPrompt />
+        </View>
+      ) : null}
     </>
   );
 }

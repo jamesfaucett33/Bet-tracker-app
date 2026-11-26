@@ -1,3 +1,4 @@
+import { canScanInCloud, scanInCloud } from './cloudScan';
 import { readTextOnDevice } from './ocr';
 import { decodeSlipQr } from './qr';
 import { verifyPlayers } from './roster';
@@ -9,6 +10,10 @@ export interface SlipRead {
   /** The slip's QR link (sportsbook ticket tracker), when one was readable. */
   qr: string | null;
   usedAI: boolean;
+  /** Read with the free AI credit (owner's key, via the cloud). */
+  usedCloud?: boolean;
+  /** This account's free AI credit ran out; the phone read the slip instead. */
+  limitReached?: boolean;
 }
 
 /**
@@ -22,6 +27,18 @@ export async function readSlip(image: string, apiKey: string): Promise<SlipRead>
   const qr = await decodeSlipQr(image);
   if (apiKey.trim()) {
     return { bets: await readBetSlip(apiKey, image), qr, usedAI: true };
+  }
+
+  // Signed in: AI scanning on the free credit. When it's used up (or the
+  // service is down), fall through to reading on the phone.
+  let limitReached = false;
+  if (await canScanInCloud()) {
+    try {
+      return { bets: await scanInCloud(image), qr, usedAI: true, usedCloud: true };
+    } catch (e) {
+      if (!(e instanceof ScanError) || !e.code) throw e; // a real read problem
+      limitReached = e.code === 'limit';
+    }
   }
 
   const reads: ScannedBet[] = [];
@@ -38,5 +55,5 @@ export async function readSlip(image: string, apiKey: string): Promise<SlipRead>
       `Couldn't read ${problems.join(', ')} clearly. Retake it straight on, filling the screen, in good light with no shadow or glare across the print.`,
     );
   }
-  return { bets: [read!], qr, usedAI: false };
+  return { bets: [read!], qr, usedAI: false, limitReached };
 }

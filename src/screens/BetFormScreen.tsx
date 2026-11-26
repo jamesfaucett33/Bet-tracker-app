@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -21,7 +21,9 @@ import {
 } from '../odds';
 import { canReadOnDevice } from '../ocr';
 import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
-import { readSlip } from '../readSlip';
+import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
+import { ProPrompt } from '../components/ProPrompt';
+import { readSlip, SlipRead } from '../readSlip';
 import { PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -105,6 +107,20 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [scannedMarket, setScannedMarket] = useState<Market | undefined>(undefined);
   const [scannedPick, setScannedPick] = useState('');
   const [trackerUrl, setTrackerUrl] = useState<string | undefined>(bet?.trackerUrl);
+  // Free AI scanning credit (signed-in users without their own key).
+  const [credit, setCredit] = useState<ScanCredit | null>(null);
+  const [showPro, setShowPro] = useState(false);
+  const refreshCredit = () => {
+    if (settings.anthropicApiKey.trim()) return;
+    fetchScanCredit().then((c) => {
+      setCredit(c);
+      if (c && c.spent >= c.limit) setShowPro(true);
+    });
+  };
+  useEffect(() => {
+    if (!bet) refreshCredit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [batch, setBatch] = useState<{ total: number; done: number; items: BatchItem[] } | null>(
     null,
   );
@@ -232,7 +248,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     // With an AI key, Claude reads the slip; without one, the phone reads it
     // itself (free, less accurate) so a photo always does something.
     const useAI = !!settings.anthropicApiKey.trim();
-    if (!useAI && !canReadOnDevice()) {
+    if (!useAI && !canReadOnDevice() && !(await canScanInCloud())) {
       notify(
         'Set up scanning',
         'Add your Anthropic API key in Settings → Bet Slip Scanning, then try again.',
@@ -250,12 +266,14 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       setScanNote('');
       let found: ScannedBet[];
       let qr: string | null;
+      let res: SlipRead;
       try {
-        const res = await readSlip(images[0], settings.anthropicApiKey);
+        res = await readSlip(images[0], settings.anthropicApiKey);
         found = res.bets;
         qr = res.qr;
       } catch (e) {
-        if (e instanceof ScanError && !useAI) {
+        refreshCredit();
+        if (e instanceof ScanError) {
           // Never save a ticket with a dropped leg: ask for a better photo instead.
           notify('Take a new picture', e.message);
           return;
@@ -270,12 +288,16 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         found.length === 1 && qr ? qr : deriveTrackerUrl(first.book, first.notes, bets),
       );
       setExtraScans(found.slice(1));
+      if (res.limitReached) setShowPro(true);
+      refreshCredit();
       setScanNote(
         found.length > 1
           ? `Found ${found.length} bets. Showing the first — check it, then save.`
-          : useAI
-            ? 'Slip read. Check the details below, then save.'
-            : 'Slip read on your phone. Double-check every field — add an AI key in Settings for sharper reading.',
+          : res.usedAI
+            ? 'Slip read with AI. Check the details below, then save.'
+            : res.limitReached
+              ? 'Free AI scans used up — read on your phone instead. Double-check every field.'
+              : 'Slip read on your phone. Double-check every field — sign in (Settings) for AI scanning.',
       );
     } catch (e) {
       notify(
@@ -294,6 +316,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     for (let i = 0; i < images.length; i++) {
       try {
         const res = await readSlip(images[i], settings.anthropicApiKey);
+        if (res.limitReached) setShowPro(true);
         res.bets.forEach((b) =>
           items.push({
             photo: i + 1,
@@ -310,6 +333,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       }
       setBatch({ total: images.length, done: i + 1, items: [...items] });
     }
+    refreshCredit();
   };
 
   const saveBatch = () => {
@@ -503,6 +527,13 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                     style={{ flex: 1, paddingVertical: 10 }}
                   />
                 </View>
+                {credit && !settings.anthropicApiKey ? (
+                  <Text style={styles.creditLine}>
+                    {credit.spent >= credit.limit
+                      ? 'Free AI scans used — scans now read on your phone.'
+                      : `✨ AI scanning · about ${scansLeft(credit)} free scan${scansLeft(credit) === 1 ? '' : 's'} left`}
+                  </Text>
+                ) : null}
                 {scanNote ? <Text style={styles.scanNote}>✓ {scanNote}</Text> : null}
                 {extraScans.length ? (
                   <Button
@@ -514,6 +545,12 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                 ) : null}
               </>
             )}
+          </View>
+        ) : null}
+
+        {showPro && !isEdit ? (
+          <View style={{ marginBottom: space.lg }}>
+            <ProPrompt reason="You've used your free AI scans. The free on-phone scanner still works, but AI reads shadows and screenshots far better." />
           </View>
         ) : null}
 
@@ -756,6 +793,7 @@ const styles = StyleSheet.create({
   scanTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   scanText: { color: colors.textDim, fontSize: 13, marginTop: 4 },
   scanBtns: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  creditLine: { color: colors.textDim, fontSize: 12, fontWeight: '600', marginTop: space.sm },
   scanNote: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: space.md },
   scanning: {
     flexDirection: 'row',

@@ -31,6 +31,10 @@ export const SUPABASE_KEY = 'sb_publishable_0QBt8O7HJwK4IaMurrxX3w_t9ISCUhE';
 export const cloudConfigured = () => !!SUPABASE_URL && !!SUPABASE_KEY;
 
 let client: SupabaseClient | null = null;
+export function getCloudClient(): SupabaseClient | null {
+  return getClient();
+}
+
 function getClient(): SupabaseClient | null {
   if (!cloudConfigured()) return null;
   if (!client) {
