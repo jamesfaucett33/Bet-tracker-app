@@ -218,6 +218,8 @@ function makeClient(apiKey: string): Anthropic {
 /** Checks a key with a free request (listing models); returns null if it works. */
 export async function testKey(apiKey: string): Promise<string | null> {
   const key = cleanKey(apiKey);
+  if (key.startsWith('apikey_'))
+    return 'That\'s the key\'s ID, not the key itself. The key starts with "sk-ant-" and is shown only once, right after you tap Create Key — create a new one and tap the copy icon next to it.';
   if (!key.startsWith('sk-ant-'))
     return 'That doesn\'t look like an Anthropic key — it should start with "sk-ant-".';
   try {
