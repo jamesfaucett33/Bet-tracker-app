@@ -82,6 +82,55 @@ function useLinkImport() {
   return { pending, result, accept, dismiss: () => (setPending(null), setResult(null)) };
 }
 
+/**
+ * Web only: notices when a newer version of the app has been published (the
+ * page's script bundle changed) and offers a one-tap reload, so phones don't
+ * keep running an old copy.
+ */
+function useUpdateCheck() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const bundle = (html: string) => /_expo\/static\/js\/web\/index-[\w]+\.js/.exec(html)?.[0];
+    const current = bundle(document.documentElement.innerHTML);
+    if (!current) return;
+    const check = async () => {
+      try {
+        const res = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: 'no-store' });
+        const latest = bundle(await res.text());
+        if (latest && latest !== current) setReady(true);
+      } catch {
+        // offline: try again later
+      }
+    };
+    check();
+    const t = setInterval(check, 2 * 60 * 1000);
+    const onShow = () => document.visibilityState === 'visible' && check();
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+  }, []);
+  return ready;
+}
+
+function UpdateBanner() {
+  const ready = useUpdateCheck();
+  if (!ready) return null;
+  return (
+    <Pressable
+      onPress={() => location.reload()}
+      style={[styles.banner, { backgroundColor: colors.accent }]}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.bannerText, { color: colors.bg, fontWeight: '700' }]}>
+        New version available — tap to update
+      </Text>
+    </Pressable>
+  );
+}
+
 function ImportBanner({ link }: { link: ReturnType<typeof useLinkImport> }) {
   if (!link.pending && !link.result) return null;
   return (
@@ -129,6 +178,7 @@ function Main() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.header}>
         <Text style={styles.title}>{TITLES[tab]}</Text>
+        <UpdateBanner />
         <ImportBanner link={link} />
       </SafeAreaView>
 
