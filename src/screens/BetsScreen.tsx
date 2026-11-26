@@ -1,51 +1,67 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
-import { BetCard } from '../components/BetCard';
+import { CompactBet } from '../components/CompactBet';
 import { ChipRow, Segmented } from '../components/ui';
+import { formatAmount, formatDate } from '../format';
+import { betProfit } from '../odds';
 import { useStore } from '../store';
-import { colors, radius, space } from '../theme';
+import { colors, profitColor, radius, space } from '../theme';
 import { Bet } from '../types';
 
-type StatusFilter = 'all' | 'pending' | 'settled';
+type ResultFilter = 'all' | 'won' | 'lost' | 'push';
+type Row = { kind: 'day'; date: string; profit: number } | { kind: 'bet'; bet: Bet };
 
+/** Settled tickets (won, lost, push), one compact row each, grouped by day. */
 export function BetsScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
-  const { bets } = useStore();
-  const [status, setStatus] = useState<StatusFilter>('all');
+  const { bets, settings } = useStore();
+  const [result, setResult] = useState<ResultFilter>('all');
   const [sport, setSport] = useState('All');
   const [query, setQuery] = useState('');
 
+  const past = useMemo(() => bets.filter((b) => b.status !== 'pending'), [bets]);
   const sports = useMemo(
-    () => ['All', ...Array.from(new Set(bets.map((b) => b.sport).filter(Boolean)))],
-    [bets],
+    () => ['All', ...Array.from(new Set(past.map((b) => b.sport).filter(Boolean)))],
+    [past],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return bets.filter((b) => {
-      if (status === 'pending' && b.status !== 'pending') return false;
-      if (status === 'settled' && b.status === 'pending') return false;
-      if (sport !== 'All' && b.sport !== sport) return false;
-      if (q) {
-        const hay = [
-          b.pick,
-          b.book,
-          b.sport,
-          b.betType,
-          b.notes,
-          ...(b.legs?.map((l) => l.pick) ?? []),
-        ]
-          .join(' ')
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
+    return past
+      .filter((b) => {
+        if (result !== 'all' && b.status !== result) return false;
+        if (sport !== 'All' && b.sport !== sport) return false;
+        if (q) {
+          const hay = [b.pick, b.book, b.sport, b.betType, b.notes, ...(b.legs?.map((l) => l.pick) ?? [])]
+            .join(' ')
+            .toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1));
+  }, [past, result, sport, query]);
+
+  const rows = useMemo(() => {
+    const out: Row[] = [];
+    let day: Extract<Row, { kind: 'day' }> | null = null;
+    for (const b of filtered) {
+      if (!day || day.date !== b.date) {
+        day = { kind: 'day', date: b.date, profit: 0 };
+        out.push(day);
       }
-      return true;
-    });
-  }, [bets, status, sport, query]);
+      day.profit += betProfit(b);
+      out.push({ kind: 'bet', bet: b });
+    }
+    return out;
+  }, [filtered]);
+
+  const count = (s: ResultFilter) => past.filter((b) => b.status === s).length;
+  const total = filtered.reduce((s, b) => s + betProfit(b), 0);
 
   return (
     <FlatList
-      data={filtered}
-      keyExtractor={(b) => b.id}
+      data={rows}
+      keyExtractor={(r) => (r.kind === 'day' ? `d-${r.date}` : r.bet.id)}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
@@ -59,29 +75,49 @@ export function BetsScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
             autoCorrect={false}
             clearButtonMode="while-editing"
           />
-          <Segmented<StatusFilter>
-            value={status}
-            onChange={setStatus}
+          <Segmented<ResultFilter>
+            value={result}
+            onChange={setResult}
             options={[
-              { value: 'all', label: `All (${bets.length})` },
-              { value: 'pending', label: 'Pending' },
-              { value: 'settled', label: 'Settled' },
+              { value: 'all', label: `All (${past.length})` },
+              { value: 'won', label: `Won (${count('won')})` },
+              { value: 'lost', label: `Lost (${count('lost')})` },
+              { value: 'push', label: `Push (${count('push')})` },
             ]}
           />
           {sports.length > 2 ? (
             <ChipRow options={sports} value={sport} onChange={setSport} />
           ) : null}
+          {filtered.length ? (
+            <Text style={styles.total}>
+              {filtered.length} ticket{filtered.length === 1 ? '' : 's'} ·{' '}
+              <Text style={{ color: profitColor(total) }}>
+                {formatAmount(total, settings, { sign: true })}
+              </Text>
+            </Text>
+          ) : null}
         </View>
       }
-      renderItem={({ item }) => <BetCard bet={item} onPress={() => onEditBet(item)} />}
+      renderItem={({ item }) =>
+        item.kind === 'day' ? (
+          <View style={styles.day}>
+            <Text style={styles.dayText}>{formatDate(item.date)}</Text>
+            <Text style={[styles.dayText, { color: profitColor(item.profit) }]}>
+              {formatAmount(item.profit, settings, { sign: true })}
+            </Text>
+          </View>
+        ) : (
+          <CompactBet bet={item.bet} variant="past" onEdit={() => onEditBet(item.bet)} />
+        )
+      }
       ListEmptyComponent={
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>
-            {bets.length === 0 ? 'No bets yet' : 'No matching bets'}
+            {past.length === 0 ? 'No finished tickets yet' : 'No matching tickets'}
           </Text>
           <Text style={styles.emptyText}>
-            {bets.length === 0
-              ? 'Tap the + button to log your first bet.'
+            {past.length === 0
+              ? 'Tickets land here once they win, lose or push.'
               : 'Try a different filter or search.'}
           </Text>
         </View>
@@ -101,6 +137,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: colors.text,
     fontSize: 16,
+  },
+  total: { color: colors.textDim, fontSize: 13, fontWeight: '700' },
+  day: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: space.sm,
+    marginBottom: 6,
+  },
+  dayText: {
+    color: colors.textDim,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },

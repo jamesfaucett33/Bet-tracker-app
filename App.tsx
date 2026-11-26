@@ -12,6 +12,8 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
+import { UpcomingScreen } from './src/screens/UpcomingScreen';
+import { CheerHost } from './src/cheer';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -21,19 +23,21 @@ import { SyncProvider } from './src/sync';
 import { colors, space } from './src/theme';
 import { Bet } from './src/types';
 
-type Tab = 'dashboard' | 'live' | 'bets' | 'settings';
+type Tab = 'dashboard' | 'upcoming' | 'live' | 'bets' | 'settings';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: '▦' },
+  { key: 'upcoming', label: 'Upcoming', icon: '◷' },
   { key: 'live', label: 'Live', icon: '◉' },
-  { key: 'bets', label: 'Bets', icon: '☰' },
+  { key: 'bets', label: 'Past', icon: '☰' },
   { key: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
 const TITLES: Record<Tab, string> = {
   dashboard: 'Bet Tracker',
+  upcoming: 'Upcoming',
   live: 'Live',
-  bets: 'My Bets',
+  bets: 'Past Tickets',
   settings: 'Settings',
 };
 
@@ -186,6 +190,7 @@ function Main() {
         {tab === 'dashboard' && (
           <DashboardScreen onEditBet={openBet} onOpenSettings={() => setTab('settings')} />
         )}
+        {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
         {tab === 'settings' && <SettingsScreen />}
@@ -231,6 +236,8 @@ function Main() {
           );
         })}
       </View>
+
+      <CheerHost />
 
       <Modal
         visible={editing !== undefined}

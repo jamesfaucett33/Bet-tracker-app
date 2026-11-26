@@ -662,3 +662,24 @@ export function useBetLive(bet: Bet) {
     chance: game ? betChance(legs.map((l) => l.chance)) : null,
   };
 }
+
+/**
+ * Where a ticket belongs: 'upcoming' until any of its games starts, 'live'
+ * while it's still pending and a game has started (or finished), 'past' once
+ * it's settled (won, lost or push).
+ */
+export type BetPhase = 'upcoming' | 'live' | 'past';
+export function betPhase(bet: Bet, legGames?: (LiveGame | undefined)[]): BetPhase {
+  if (bet.status !== 'pending') return 'past';
+  return legGames?.some((g) => g && g.state !== 'pre') ? 'live' : 'upcoming';
+}
+
+/** Phase for every bet, from the live data the provider already has. */
+export function useBetPhases(): (bet: Bet) => BetPhase {
+  const { games, legGames } = useLive();
+  return (bet: Bet) => {
+    const perLeg = legGames.get(bet.id);
+    const g = games.get(bet.id);
+    return betPhase(bet, perLeg?.length ? perLeg : g ? [g] : undefined);
+  };
+}

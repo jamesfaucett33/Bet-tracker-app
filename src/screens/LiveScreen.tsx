@@ -153,6 +153,15 @@ function TicketList({
 }) {
   const { setStatus } = useStore();
   const { legGames } = useLive();
+  // Tickets start condensed; tap one to see every leg.
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   // One box per ticket: every leg graded, with the player's stat line.
   const tickets = useMemo(() => {
     const list = bets.map((bet) => {
@@ -221,9 +230,14 @@ function TicketList({
         const missed = legs.some((l) => l.prop.progress.state === 'miss');
         const allHit = legs.every((l) => l.prop.progress.state === 'hit');
         const borderColor = missed ? colors.loss : allHit ? colors.push : colors.border;
+        const expanded = open.has(bet.id);
         return (
           <View key={bet.id} style={[styles.ticket, { borderColor }]}>
-            <Pressable onPress={() => onEditBet(bet)} accessibilityRole="button">
+            <Pressable
+              onPress={() => toggle(bet.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${bet.pick}, ${expanded ? 'tap to collapse' : 'tap for details'}`}
+            >
               <View style={styles.ticketHead}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.ticketTitle} numberOfLines={1}>
@@ -242,6 +256,39 @@ function TicketList({
                   </View>
                 ) : null}
               </View>
+              {!expanded ? (
+                <>
+                  <View style={styles.condensed}>
+                    <Text style={styles.condensedText} numberOfLines={1}>
+                      {money(bet.stake)} to win{' '}
+                      <Text style={{ color: colors.accent, fontWeight: '800' }}>
+                        {money(betToWin(bet))}
+                      </Text>
+                    </Text>
+                    <View style={styles.legDots}>
+                      {legs.map((l) => {
+                        const st = l.prop.progress.state;
+                        const c =
+                          st === 'hit'
+                            ? colors.win
+                            : st === 'miss'
+                              ? colors.loss
+                              : l.prop.chance !== null && st === 'live'
+                                ? chanceColor(l.prop.chance)
+                                : colors.surfaceAlt;
+                        return <View key={l.id} style={[styles.legDot, { backgroundColor: c }]} />;
+                      })}
+                    </View>
+                  </View>
+                  {summary ? (
+                    <Text style={[styles.ticketSummary, { color: summary.color }]}>
+                      {summary.text}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.more}>▾ Tap to see every leg</Text>
+                </>
+              ) : null}
+              {expanded ? (
               <View style={styles.statStrip}>
                 {[
                   { label: 'Odds', value: formatOdds(bet.odds) },
@@ -264,10 +311,13 @@ function TicketList({
                   </View>
                 ))}
               </View>
-              {summary ? (
+              ) : null}
+              {expanded && summary ? (
                 <Text style={[styles.ticketSummary, { color: summary.color }]}>{summary.text}</Text>
               ) : null}
             </Pressable>
+            {expanded ? (
+            <>
             {legs.map((leg) => (
               <View key={leg.id} style={styles.ticketLeg}>
                 {leg.player ? (
@@ -295,6 +345,16 @@ function TicketList({
                   </Pressable>
                 ))}
               </View>
+            ) : null}
+            <View style={styles.openRow}>
+              <Pressable onPress={() => toggle(bet.id)} accessibilityRole="button" hitSlop={8}>
+                <Text style={styles.more}>▴ Show less</Text>
+              </Pressable>
+              <Pressable onPress={() => onEditBet(bet)} accessibilityRole="button" hitSlop={8}>
+                <Text style={[styles.more, { color: colors.accent }]}>Edit ticket</Text>
+              </Pressable>
+            </View>
+            </>
             ) : null}
           </View>
         );
@@ -390,7 +450,14 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
   const isMulti = (b: Bet) =>
     new Set((legGames.get(b.id) ?? []).filter(Boolean).map((g) => g!.eventId)).size > 1;
   const multiBets = useMemo(
-    () => bets.filter((b) => b.status === 'pending' && games.get(b.id) && isMulti(b)),
+    () =>
+      bets.filter(
+        (b) =>
+          b.status === 'pending' &&
+          games.get(b.id) &&
+          isMulti(b) &&
+          (legGames.get(b.id) ?? []).some((g) => g && g.state !== 'pre'),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [bets, games, legGames],
   );
@@ -399,7 +466,8 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     for (const b of bets) {
       if (b.status !== 'pending' || isMulti(b)) continue;
       const g = games.get(b.id);
-      if (!g) continue;
+      // Only games that have kicked off; the rest wait on the Upcoming tab.
+      if (!g || g.state === 'pre') continue;
       const entry = map.get(g.eventId) ?? { game: g, bets: [] };
       entry.bets.push(b);
       map.set(g.eventId, entry);
@@ -443,10 +511,10 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
 
       {byGame.length === 0 && !multiBets.length ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No games to show</Text>
+          <Text style={styles.emptyTitle}>No games in progress</Text>
           <Text style={styles.emptyText}>
-            Open bets on NFL, college football, NBA, NHL or MLB games show up here with a live
-            gamecast once their game is found.
+            Tickets move here from Upcoming as soon as one of their games kicks off, with a live
+            gamecast and every leg tracked.
           </Text>
         </View>
       ) : (
@@ -553,6 +621,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
+  condensed: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm },
+  condensedText: { flex: 1, minWidth: 0, color: colors.textDim, fontSize: 13 },
+  legDots: { flexDirection: 'row', gap: 4 },
+  legDot: { width: 9, height: 9, borderRadius: 5 },
+  more: { color: colors.textFaint, fontSize: 12, fontWeight: '700', marginTop: space.sm },
+  openRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.sm },
   ticketSummary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
   ticketLeg: {
     marginTop: space.md,

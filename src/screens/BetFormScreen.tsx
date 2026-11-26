@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,11 +17,13 @@ import {
   impliedProbability,
   isValidAmerican,
   parlayOdds,
+  betToWin,
   potentialProfit,
 } from '../odds';
 import { canReadOnDevice } from '../ocr';
 import { decodeSlipQr, deriveTrackerUrl } from '../qr';
 import { duplicateMessage, findDuplicate, sameTicket } from '../dupes';
+import { cheer } from '../cheer';
 import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
 import { readSlip, SlipRead } from '../readSlip';
 import { PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
@@ -67,6 +69,7 @@ function scannedToBet(sb: ScannedBet): Bet | null {
 
 export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void }) {
   const { settings, saveBet, deleteBet, bets } = useStore();
+  const lastSaved = useRef<Bet | null>(null);
   const isEdit = !!bet;
 
   const [date, setDate] = useState(bet?.date ?? todayISO());
@@ -155,7 +158,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const toWin = valid ? (printedToWin ?? potentialProfit(stakeNum, oddsNum)) : 0;
   const implied = impliedProbability(oddsNum);
 
-  const save = (): boolean => {
+  const ticketLine = (b: Bet) =>
+    `${b.pick} · $${b.stake.toFixed(2)} to win $${betToWin(b).toFixed(2)}`;
+
+  const save = (quiet = false): boolean => {
     setSubmitted(true);
     if (!valid) return false;
     const keptLegs = multiLegType
@@ -208,6 +214,8 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     }
     saveBet(next);
     onClose();
+    if (!isEdit && !quiet) cheer({ title: 'Ticket saved!', lines: [ticketLine(next)] });
+    lastSaved.current = next;
     return true;
   };
 
@@ -368,10 +376,13 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       incomplete ? `${incomplete} missing odds/stake` : '',
       failed ? `${failed} photo${failed === 1 ? '' : 's'} to retake` : '',
     ].filter(Boolean);
-    notify(
-      `Saved ${saved} bet${saved === 1 ? '' : 's'}`,
-      extra.length ? `Skipped: ${extra.join(', ')}.` : 'All set.',
-    );
+    if (saved)
+      cheer({
+        title: saved === 1 ? 'Ticket saved!' : `${saved} tickets saved!`,
+        lines: kept.map(ticketLine),
+        note: extra.length ? `Skipped: ${extra.join(', ')}.` : undefined,
+      });
+    else notify('Nothing saved', extra.length ? `Skipped: ${extra.join(', ')}.` : 'No tickets to save.');
     setBatch(null);
     onClose();
   };
@@ -381,7 +392,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     if (!valid) return;
     const others = extraScans.map(scannedToBet);
     const ok = others.filter((b): b is Bet => b !== null);
-    if (!save()) return;
+    if (!save(true)) return;
     const kept: Bet[] = [];
     let dupes = 0;
     for (const b of ok) {
@@ -389,14 +400,19 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       else kept.push(b);
     }
     kept.forEach(saveBet);
-    if (dupes)
-      notify('Already logged', `${dupes} bet${dupes === 1 ? ' was' : 's were'} already in your bets and weren't saved again.`);
     const skipped = others.length - ok.length;
-    if (skipped > 0)
-      notify(
-        'Some bets need details',
-        `${skipped} bet${skipped === 1 ? ' was' : 's were'} missing odds or stake and weren't saved. Add ${skipped === 1 ? 'it' : 'them'} manually.`,
-      );
+    const all = [lastSaved.current, ...kept].filter((b): b is Bet => !!b);
+    cheer({
+      title: all.length === 1 ? 'Ticket saved!' : `${all.length} tickets saved!`,
+      lines: all.map(ticketLine),
+      note:
+        [
+          dupes ? `${dupes} already in your bets (not saved again)` : '',
+          skipped ? `${skipped} missing odds or wager — add ${skipped === 1 ? 'it' : 'them'} by hand` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined,
+    });
   };
 
   const sportOptions = settings.sports.includes(sport)
