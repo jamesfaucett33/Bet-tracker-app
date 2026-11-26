@@ -63,8 +63,12 @@ export function CompactBet({
     };
   } else {
     const next = legGames.find((g) => g?.state === 'pre');
+    const done = new Set(legGames.filter((g) => g?.state === 'post').map((g) => g!.eventId)).size;
+    const total = new Set(legGames.filter(Boolean).map((g) => g!.eventId)).size;
     const kickoff = next
-      ? `${multiGame ? 'First game ' : ''}${next.detail}`
+      ? done
+        ? `${done} of ${total} games done · next ${next.detail}`
+        : `${multiGame ? 'First game ' : ''}${next.detail}`
       : legGames.some(Boolean)
         ? ''
         : 'Kickoff not found yet';

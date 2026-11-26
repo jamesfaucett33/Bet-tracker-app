@@ -664,14 +664,18 @@ export function useBetLive(bet: Bet) {
 }
 
 /**
- * Where a ticket belongs: 'upcoming' until any of its games starts, 'live'
- * while it's still pending and a game has started (or finished), 'past' once
- * it's settled (won, lost or push).
+ * Where a ticket belongs:
+ * - 'live' while one of its games is being played,
+ * - 'settle' when every game is over but the app couldn't decide it,
+ * - 'upcoming' otherwise (not started yet, or a parlay waiting on its next game),
+ * - 'past' once it's won, lost or pushed.
  */
-export type BetPhase = 'upcoming' | 'live' | 'past';
+export type BetPhase = 'upcoming' | 'live' | 'settle' | 'past';
 export function betPhase(bet: Bet, legGames?: (LiveGame | undefined)[]): BetPhase {
   if (bet.status !== 'pending') return 'past';
-  return legGames?.some((g) => g && g.state !== 'pre') ? 'live' : 'upcoming';
+  if (legGames?.some((g) => g?.state === 'in')) return 'live';
+  if (legGames?.length && legGames.every((g) => g?.state === 'post')) return 'settle';
+  return 'upcoming';
 }
 
 /** Phase for every bet, from the live data the provider already has. */

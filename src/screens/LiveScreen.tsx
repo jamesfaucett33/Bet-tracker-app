@@ -4,7 +4,15 @@ import { betChance, formatChance, legChance } from '../chance';
 import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
 import { betToWin, formatOdds } from '../odds';
 import { SectionTitle } from '../components/ui';
-import { gameLine, gradeMarket, LegProgress, LiveGame, TeamScore, useLive } from '../live';
+import {
+  gameLine,
+  gradeMarket,
+  LegProgress,
+  LiveGame,
+  TeamScore,
+  useBetPhases,
+  useLive,
+} from '../live';
 import { betMarkets } from '../markets';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -143,18 +151,23 @@ function TicketList({
   bets,
   fallback,
   showGameLines = false,
+  startOpen = false,
   onEditBet,
 }: {
   title: string;
   bets: Bet[];
   fallback?: LiveGame;
   showGameLines?: boolean;
+  /** Show every ticket expanded (e.g. ones waiting for a Won/Lost/Push tap). */
+  startOpen?: boolean;
   onEditBet: (b: Bet) => void;
 }) {
   const { setStatus } = useStore();
   const { legGames } = useLive();
   // Tickets start condensed; tap one to see every leg.
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState<Set<string>>(
+    () => new Set(startOpen ? bets.map((b) => b.id) : []),
+  );
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -591,10 +604,9 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
 
   const isMulti = (b: Bet) =>
     new Set((legGames.get(b.id) ?? []).filter(Boolean).map((g) => g!.eventId)).size > 1;
-  const started = (b: Bet) =>
-    b.status === 'pending' && (legGames.get(b.id) ?? []).some((g) => g && g.state !== 'pre');
+  const phaseOf = useBetPhases();
 
-  // Every game that has kicked off and has at least one of your legs on it.
+  // Every game being played right now that has at least one of your legs on it.
   const { entries, multiBets } = useMemo(() => {
     const map = new Map<string, GameEntry>();
     const multi: Bet[] = [];
@@ -605,32 +617,30 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     };
     for (const b of bets) {
       if (b.status !== 'pending') continue;
+      if (phaseOf(b) !== 'live') continue;
       if (isMulti(b)) {
-        if (!started(b)) continue;
         multi.push(b);
         const seen = new Set<string>();
         for (const g of legGames.get(b.id) ?? []) {
-          if (!g || g.state === 'pre' || seen.has(g.eventId)) continue;
+          if (!g || g.state !== 'in' || seen.has(g.eventId)) continue;
           seen.add(g.eventId);
           entry(g).parlays.push(b);
         }
       } else {
         const g = games.get(b.id);
-        if (!g || g.state === 'pre') continue;
+        if (!g || g.state !== 'in') continue;
         entry(g).single.push(b);
       }
     }
-    // Live games first, then finished ones.
-    const order = { in: 0, pre: 1, post: 2 } as const;
-    const list = [...map.values()].sort((a, b) => order[a.game.state] - order[b.game.state]);
-    return { entries: list, multiBets: multi };
+    return { entries: [...map.values()], multiBets: multi };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bets, games, legGames]);
 
   const updated = entries[0]?.game.updatedAt;
   const ago = updated ? Math.max(0, Math.round((Date.now() - updated) / 1000)) : null;
   const open = selected ? entries.find((e) => e.game.eventId === selected) : undefined;
-  const liveCount = entries.filter((e) => e.game.state === 'in').length;
+  // Games are over but the app couldn't call it (e.g. a player with no stats).
+  const toSettle = bets.filter((b) => phaseOf(b) === 'settle');
 
   const refreshRow = (
     <View style={styles.refreshRow}>
@@ -682,7 +692,7 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
 
       {entries.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No games in progress</Text>
+          <Text style={styles.emptyTitle}>No games being played</Text>
           <Text style={styles.emptyText}>
             Tickets move here from Upcoming as soon as one of their games kicks off, with a live
             gamecast and every leg tracked.
@@ -691,9 +701,7 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
       ) : (
         <>
           <SectionTitle>
-            {liveCount ? `🔴 ${liveCount} live` : 'Games'}
-            {entries.length > liveCount ? ` · ${entries.length - liveCount} final` : ''} · tap a
-            game for your bets
+            🔴 {entries.length} game{entries.length === 1 ? '' : 's'} live · tap one for your bets
           </SectionTitle>
           {entries.map((e) => (
             <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
@@ -709,6 +717,22 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
             showGameLines
             onEditBet={onEditBet}
           />
+        </View>
+      ) : null}
+
+      {toSettle.length ? (
+        <View style={{ marginTop: space.lg }}>
+          <TicketList
+            title={`✍️ Games over · needs your call (${toSettle.length})`}
+            bets={toSettle}
+            showGameLines
+            startOpen
+            onEditBet={onEditBet}
+          />
+          <Text style={styles.footnote}>
+            The app couldn't grade these from the stats (usually a player who didn't play). Check
+            your ticket and tap Won, Lost or Push.
+          </Text>
         </View>
       ) : null}
     </ScrollView>

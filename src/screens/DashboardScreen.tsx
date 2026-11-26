@@ -53,6 +53,7 @@ export function DashboardScreen({
   const open = bets.filter((b) => b.status === 'pending');
   const live = open.filter((b) => phaseOf(b) === 'live');
   const upcoming = open.filter((b) => phaseOf(b) === 'upcoming');
+  const toSettle = open.filter((b) => phaseOf(b) === 'settle');
   const sum = (list: Bet[], f: (b: Bet) => number) => list.reduce((s, b) => s + f(b), 0);
 
   const streak = useMemo(() => streaks(bets), [bets]);
@@ -122,6 +123,18 @@ export function DashboardScreen({
             <Text style={styles.cellSub}>to win {money(sum(upcoming, betToWin))}</Text>
           </Pressable>
         </View>
+        {toSettle.length ? (
+          <Pressable
+            style={styles.settleNote}
+            onPress={() => onOpenTab?.('live')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.settleNoteText}>
+              ✍️ {toSettle.length} ticket{toSettle.length === 1 ? '' : 's'} finished but need your
+              call · tap to settle
+            </Text>
+          </Pressable>
+        ) : null}
       </Card>
 
       {/* Fun numbers */}
@@ -424,6 +437,12 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   tableCell: { flex: 1, padding: space.md, alignItems: 'center' },
+  settleNote: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    padding: space.md,
+  },
+  settleNoteText: { color: colors.push, fontSize: 13, fontWeight: '700', textAlign: 'center' },
   vDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   cellLabel: { color: colors.textDim, fontSize: 12, fontWeight: '700' },
   cellValue: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
