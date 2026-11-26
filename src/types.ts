@@ -48,6 +48,9 @@ export const PLAYER_STATS = {
   interceptions: 'Interceptions thrown',
   steals: 'Steals',
   blocks: 'Blocks',
+  sacks: 'Sacks',
+  tackles: 'Tackles + assists',
+  soloTackles: 'Solo tackles',
 } as const;
 export type PlayerStat = keyof typeof PLAYER_STATS;
 

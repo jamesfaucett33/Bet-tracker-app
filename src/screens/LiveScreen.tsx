@@ -45,6 +45,13 @@ function statLine(stats: Record<string, Record<string, string>> | undefined): st
     );
   const k = g('kicking');
   if (k) parts.push(`FG ${k.FG}, long ${k.LONG}`);
+  const d = g('defensive');
+  if (d)
+    parts.push(
+      `${d.TOT} tkl (${d.SOLO} solo)${d.SACKS && d.SACKS !== '0' ? `, ${d.SACKS} sacks` : ''}${
+        d.TFL && d.TFL !== '0' ? `, ${d.TFL} TFL` : ''
+      }`,
+    );
   if (!parts.length) {
     // Basketball-style single group
     const row = Object.values(stats)[0] ?? {};

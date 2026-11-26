@@ -318,6 +318,16 @@ function statValue(stats: Record<string, Record<string, string>> | undefined, st
       return any('STL');
     case 'blocks':
       return any('BLK');
+    case 'sacks': {
+      // A defender's sacks (half sacks count, e.g. "1.5"); for a quarterback
+      // with no defensive line, the sacks he took ("3-23" -> 3).
+      const def = stats.defensive?.SACKS;
+      return def !== undefined ? Number(def) || 0 : g('passing', 'SACKS');
+    }
+    case 'tackles':
+      return g('defensive', 'TOT');
+    case 'soloTackles':
+      return g('defensive', 'SOLO');
   }
 }
 

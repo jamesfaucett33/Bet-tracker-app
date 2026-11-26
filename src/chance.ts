@@ -54,6 +54,9 @@ const COUNT_STATS: PlayerStat[] = [
   'interceptions',
   'steals',
   'blocks',
+  'sacks',
+  'tackles',
+  'soloTackles',
 ];
 
 /**
