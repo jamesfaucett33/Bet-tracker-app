@@ -23,6 +23,21 @@ export function AccountCard() {
   }, [sync.email, sync.lastSync]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Change password (signed in)
+  const [changing, setChanging] = useState(false);
+  const [newPw, setNewPw] = useState('');
+  const [newPw2, setNewPw2] = useState('');
+  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const savePassword = async () => {
+    if (newPw.length < 6) return setPwMsg({ text: 'Use 6 or more characters.', ok: false });
+    if (newPw !== newPw2) return setPwMsg({ text: "The two passwords don't match.", ok: false });
+    const err = await sync.changePassword(newPw);
+    if (err) return setPwMsg({ text: err, ok: false });
+    setNewPw('');
+    setNewPw2('');
+    setChanging(false);
+    setPwMsg({ text: 'Password changed. Use it next time you sign in.', ok: true });
+  };
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -87,6 +102,54 @@ export function AccountCard() {
                 style={{ flex: 1 }}
               />
             </View>
+            {changing ? (
+              <>
+                <TextInput
+                  value={newPw}
+                  onChangeText={setNewPw}
+                  placeholder="New password (6+ characters)"
+                  placeholderTextColor={colors.textFaint}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  style={styles.input}
+                />
+                <TextInput
+                  value={newPw2}
+                  onChangeText={setNewPw2}
+                  placeholder="New password again"
+                  placeholderTextColor={colors.textFaint}
+                  secureTextEntry
+                  autoComplete="new-password"
+                  style={styles.input}
+                />
+                <View style={styles.row}>
+                  <Button title="Save Password" onPress={savePassword} style={{ flex: 1 }} />
+                  <Button
+                    title="Cancel"
+                    variant="secondary"
+                    onPress={() => {
+                      setChanging(false);
+                      setPwMsg(null);
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </>
+            ) : (
+              <Button
+                title="Change Password"
+                variant="secondary"
+                onPress={() => {
+                  setChanging(true);
+                  setPwMsg(null);
+                }}
+              />
+            )}
+            {pwMsg ? (
+              <Text style={[styles.body, { color: pwMsg.ok ? colors.win : colors.loss }]}>
+                {pwMsg.text}
+              </Text>
+            ) : null}
           </>
         ) : (
           <>

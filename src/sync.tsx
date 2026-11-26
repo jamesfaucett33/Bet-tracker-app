@@ -69,6 +69,8 @@ interface SyncCtx {
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  /** Sets a new password for the signed-in account; returns an error message or null. */
+  changePassword: (password: string) => Promise<string | null>;
   syncNow: () => void;
 }
 
@@ -255,6 +257,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, []);
 
+  const changePassword = useCallback(async (password: string) => {
+    const sb = getClient();
+    if (!sb) return 'Cloud sync is not set up yet.';
+    const { error: err } = await sb.auth.updateUser({ password });
+    return err ? friendlyAuthError(err.message) : null;
+  }, []);
+
   const signOut = useCallback(async () => {
     const sb = getClient();
     if (sb) await sb.auth.signOut();
@@ -273,12 +282,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       count,
       signIn,
       signUp,
+      changePassword,
       signOut,
       syncNow: () => {
         runSync();
       },
     }),
-    [session, state, lastSync, error, count, signIn, signUp, signOut, runSync],
+    [session, state, lastSync, error, count, signIn, signUp, changePassword, signOut, runSync],
   );
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }
