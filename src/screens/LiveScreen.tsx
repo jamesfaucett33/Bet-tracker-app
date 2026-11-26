@@ -46,6 +46,10 @@ function statLine(stats: Record<string, Record<string, string>> | undefined): st
     );
   const k = g('kicking');
   if (k) parts.push(`FG ${k.FG}, long ${k.LONG}`);
+  const sk = g('forwards') ?? g('defenses') ?? g('skaters');
+  if (sk) parts.push(`${sk.G} G, ${sk.A} A, ${sk.S} SOG${sk.BS && sk.BS !== '0' ? `, ${sk.BS} blk` : ''}`);
+  const gl = g('goalies');
+  if (gl) parts.push(`${gl.SV} saves, ${gl.GA} GA`);
   const d = g('defensive');
   if (d)
     parts.push(

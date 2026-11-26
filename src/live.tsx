@@ -99,8 +99,23 @@ const norm = (s: string) =>
 function teamMatches(team: TeamScore, name: string): boolean {
   const n = norm(name);
   if (!n) return false;
-  const candidates = [team.name, team.short, team.abbr].map(norm);
-  return candidates.some((c) => c === n || n.includes(c) || c.includes(n));
+  // Abbreviations must be a whole word ("Minnesota Vikings" contains "ne" but
+  // isn't NE). Names can be shortened from the start of a word ("Ohio St").
+  const words = (x: string) => ` ${x} `;
+  const startsWord = (hay: string, needle: string) => ` ${hay}`.includes(` ${needle}`);
+  const abbr = norm(team.abbr);
+  if (abbr && (abbr === n || words(n).includes(words(abbr)))) return true;
+  return [team.name, team.short]
+    .map(norm)
+    .filter(Boolean)
+    .some(
+      (c) =>
+        c === n ||
+        words(n).includes(words(c)) ||
+        words(c).includes(words(n)) ||
+        (n.length >= 4 && startsWord(c, n)) ||
+        (c.length >= 4 && startsWord(n, c)),
+    );
 }
 
 export function findTeam(
@@ -284,6 +299,8 @@ function statValue(stats: Record<string, Record<string, string>> | undefined, st
     for (const row of Object.values(stats)) if (row[label] !== undefined) return num(row[label]);
     return 0;
   };
+  // Hockey box scores split skaters into forwards / defense / goalies.
+  const hockey = !!(stats.forwards || stats.defenses || stats.skaters || stats.goalies);
   switch (stat) {
     case 'passYds':
       return g('passing', 'YDS');
@@ -304,11 +321,11 @@ function statValue(stats: Record<string, Record<string, string>> | undefined, st
     case 'fgMade':
       return g('kicking', 'FG');
     case 'points':
-      return any('PTS');
+      return hockey ? any('G') + any('A') : any('PTS');
     case 'rebounds':
       return any('REB');
     case 'assists':
-      return any('AST');
+      return hockey ? any('A') : any('AST');
     case 'threes':
       return any('3PT');
     case 'pra':
@@ -335,6 +352,26 @@ function statValue(stats: Record<string, Record<string, string>> | undefined, st
       return g('defensive', 'TOT');
     case 'soloTackles':
       return g('defensive', 'SOLO');
+    case 'kickingPoints':
+      return g('kicking', 'PTS');
+    case 'ptsReb':
+      return any('PTS') + any('REB');
+    case 'ptsAst':
+      return any('PTS') + any('AST');
+    case 'rebAst':
+      return any('REB') + any('AST');
+    case 'stealsBlocks':
+      return any('STL') + any('BLK');
+    case 'turnovers':
+      return any('TO');
+    case 'goals':
+      return any('G');
+    case 'shotsOnGoal':
+      return any('S'); // NHL "S" = shots on goal ("SOG" there means shootout goals)
+    case 'saves':
+      return g('goalies', 'SV');
+    case 'blockedShots':
+      return any('BS');
   }
 }
 

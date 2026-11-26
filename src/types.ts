@@ -51,6 +51,16 @@ export const PLAYER_STATS = {
   sacks: 'Sacks',
   tackles: 'Tackles + assists',
   soloTackles: 'Solo tackles',
+  kickingPoints: 'Kicking points',
+  ptsReb: 'Pts + reb',
+  ptsAst: 'Pts + ast',
+  rebAst: 'Reb + ast',
+  stealsBlocks: 'Steals + blocks',
+  turnovers: 'Turnovers',
+  goals: 'Goals',
+  shotsOnGoal: 'Shots on goal',
+  saves: 'Saves',
+  blockedShots: 'Blocked shots',
 } as const;
 export type PlayerStat = keyof typeof PLAYER_STATS;
 

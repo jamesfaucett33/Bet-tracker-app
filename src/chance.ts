@@ -57,6 +57,13 @@ const COUNT_STATS: PlayerStat[] = [
   'sacks',
   'tackles',
   'soloTackles',
+  'kickingPoints',
+  'stealsBlocks',
+  'turnovers',
+  'goals',
+  'shotsOnGoal',
+  'saves',
+  'blockedShots',
 ];
 
 /**
@@ -73,6 +80,9 @@ const PER_PLAY: Partial<Record<PlayerStat, { avg: number; shape: number }>> = {
   passRushYds: { avg: 9.5, shape: 1 },
   points: { avg: 2.2, shape: 6 }, // per made basket / free-throw trip
   pra: { avg: 1.4, shape: 3 },
+  ptsReb: { avg: 1.6, shape: 3 },
+  ptsAst: { avg: 1.7, shape: 3 },
+  rebAst: { avg: 1, shape: 4 },
 };
 
 // ---- distributions ----

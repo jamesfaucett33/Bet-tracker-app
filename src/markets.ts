@@ -8,6 +8,12 @@ import { Bet, GameRef, Market, PLAYER_STATS, PlayerStat } from './types';
 
 // Order matters: combined stats must be matched before their parts.
 const STAT_PATTERNS: [RegExp, PlayerStat][] = [
+  [/kicking\s*points?/i, 'kickingPoints'],
+  [/(steals?|\bstl)\s*(\+|and|&)\s*(blocks?|blk)/i, 'stealsBlocks'],
+  [/blocked\s*shots?/i, 'blockedShots'],
+  [/shots?\s*on\s*goal|\bsog\b/i, 'shotsOnGoal'],
+  [/\b(goalie\s*)?saves?\b/i, 'saves'],
+  [/turnovers?/i, 'turnovers'],
   [/(pass(ing)?\s*)?completions?|\bcmp\b/i, 'passCompletions'],
   [/pass(ing)?\s*attempts?|\bpass\s*att\b/i, 'passAttempts'],
   [/rush(ing)?\s*attempts?|\bcarries\b/i, 'rushAttempts'],
@@ -20,6 +26,9 @@ const STAT_PATTERNS: [RegExp, PlayerStat][] = [
   [/pass(ing)?\s*(\+|and|&)\s*rush(ing)?\s*(yds|yards)/i, 'passRushYds'],
   [/rush(ing)?\s*(\+|and|&)\s*rec(eiving)?\s*(yds|yards)/i, 'rushRecYds'],
   [/pts\s*\+\s*reb\s*\+\s*ast|points\s*\+\s*rebounds\s*\+\s*assists|\bpra\b/i, 'pra'],
+  [/(pts|points)\s*(\+|and|&)\s*(reb|rebounds)/i, 'ptsReb'],
+  [/(pts|points)\s*(\+|and|&)\s*(ast|assists)/i, 'ptsAst'],
+  [/(reb|rebounds)\s*(\+|and|&)\s*(ast|assists)|(ast|assists)\s*(\+|and|&)\s*(reb|rebounds)/i, 'rebAst'],
   [/pass(ing)?\s*(yds|yards)/i, 'passYds'],
   [/rush(ing)?\s*(yds|yards)/i, 'rushYds'],
   [/rec(eiving)?\s*(yds|yards)/i, 'recYds'],
@@ -27,6 +36,7 @@ const STAT_PATTERNS: [RegExp, PlayerStat][] = [
   [/pass(ing)?\s*(tds?|touchdowns?)/i, 'passTd'],
   [/(anytime\s*)?(td|touchdown)s?(\s*scorer)?/i, 'anyTd'],
   [/field\s*goals?(\s*made)?|\bfgs?\b/i, 'fgMade'],
+  [/goal\s*scorer|\bgoals?\b/i, 'goals'],
   [/three[\s-]*pointers?|\bthrees?\b|\b3[\s-]*(pt|pointer)s?\b|\b3pm\b/i, 'threes'],
   [/rebounds?|\breb\b/i, 'rebounds'],
   [/assists?|\bast\b/i, 'assists'],
@@ -39,7 +49,7 @@ const STAT_PATTERNS: [RegExp, PlayerStat][] = [
  * These are left for you to settle rather than graded wrong.
  */
 const NOT_GRADEABLE =
-  /\b(1st|2nd|first|second)\s*half\b|\b[12]h\b|\b(1st|2nd|3rd|4th|first|second|third|fourth)\s*(qtr|quarter|period|inning)s?\b|\b[1-4]q\b|\bq[1-4]\b|\b(first|1st|last)\s*(td|touchdown|basket|field goal|score|scorer|team to)|\blongest\b|double[\s-]*double|triple[\s-]*double|race\s*to|both\s*teams|winning\s*margin|\bexact\b|odd\s*\/\s*even|halftime|(first|1st)\s*5\s*inn/i;
+  /\b(1st|2nd|first|second)\s*half\b|\b[12]h\b|\b(1st|2nd|3rd|4th|first|second|third|fourth)\s*(qtr|quarter|period|inning)s?\b|\b[1-4]q\b|\bq[1-4]\b|\b(first|1st|last)\s*(td|touchdown|basket|field goal|score|scorer|team to)|\blongest\b|double[\s-]*double|triple[\s-]*double|race\s*to|both\s*teams|winning\s*margin|\bexact\b|odd\s*\/\s*even|halftime|(first|1st)\s*5\s*inn|strikeouts?|total\s*bases|home\s*runs?|\bhr\b|\brbis?\b|hits\s*\+\s*runs|earned\s*runs|outs\s*recorded|stolen\s*bases?|hits\s*allowed|to\s*record\s*a\s*hit|\bsingles?\b|\bdoubles?\b|\bwalks\b/i;
 
 export function isGradeable(text: string): boolean {
   return !NOT_GRADEABLE.test(text);
@@ -79,7 +89,20 @@ export function parseMarket(text: string): Market | undefined {
   // "Over 47.5" / "o47.5" / "Under 220" (game totals)
   const tot = /\b(over|under|o|u)\s*(\d+(?:\.\d+)?)\b/i.exec(t);
   const statWords = /yds|yards|rec|pts|reb|ast/i.test(t) || STAT_PATTERNS.some(([re]) => re.test(t));
-  if (tot && (/\btotal\b/i.test(t) || !statWords)) {
+  // What's left besides the line, the matchup and words like "total points".
+  const leftover = tot
+    ? t
+        .replace(tot[0], ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/[A-Za-z0-9.' ]+\s+(@|at|vs\.?|v\.?)\s+[A-Za-z0-9.' ]+/i, ' ')
+        .replace(/\b(total|game|points?|pts|runs?|goals?|match|alt(ernate)?|teaser|over|under)\b/gi, ' ')
+        .replace(/[^a-z]/gi, '')
+    : '';
+  if (tot && !leftover) {
+    const side = tot[1].toLowerCase().startsWith('o') ? 'over' : 'under';
+    return { kind: 'total', side, line: Number(tot[2]) };
+  }
+  if (tot && /\btotal\b/i.test(t) && !statWords) {
     const side = tot[1].toLowerCase().startsWith('o') ? 'over' : 'under';
     return { kind: 'total', side, line: Number(tot[2]) };
   }
@@ -111,6 +134,13 @@ export function parseMarket(text: string): Market | undefined {
     );
     if (player)
       return { kind: 'player', player, stat, line: Math.floor(Number(underMatch[1])) + 1, under: true };
+  }
+  // "Anytime Goalscorer - Connor McDavid" / "McDavid To Score a Goal"
+  if (stat === 'goals' && /anytime|goal\s*scorer|to\s*score/i.test(t)) {
+    const player = cleanName(
+      t.replace(/anytime\s*goal\s*scorer|anytime\s*goal|goal\s*scorer|to\s*score(\s*a)?\s*goal/i, ' '),
+    );
+    if (player) return { kind: 'player', player, stat: 'goals', line: 1 };
   }
   if (stat === 'anyTd' && /anytime/i.test(t)) {
     const player = cleanName(t.replace(/anytime\s*(td|touchdown)s?(\s*scorer)?/i, ''));
