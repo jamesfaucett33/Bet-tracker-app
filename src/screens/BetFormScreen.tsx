@@ -14,6 +14,7 @@ import { Button, ChipRow, confirm, Field, notify, Segmented } from '../component
 import { formatAmount, isValidISODate, parseNumber, todayISO, uid } from '../format';
 import {
   formatOdds,
+  americanToDecimal,
   impliedProbability,
   isValidAmerican,
   parlayOdds,
@@ -135,8 +136,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   // A ticket that has legs keeps them whatever bet type is picked.
   const showLegs = multiLegType || legs.some((l) => l.pick.trim());
   const multiLeg = multiLegType && oddsFromLegs;
-  // Only legs with a pick count; a blank row's default odds must not change the price.
-  const legOdds = legs.filter((l) => l.pick.trim()).map((l) => parseNumber(l.odds));
+  // Every leg row with odds counts toward the parlay price, typed pick or not
+  // (handy for pricing a parlay quickly); fully blank rows are skipped.
+  const legOdds = legs
+    .filter((l) => l.pick.trim() || l.odds.trim())
+    .map((l) => parseNumber(l.odds));
   const computedParlay = multiLeg ? parlayOdds(legOdds) : NaN;
   const oddsNum = multiLeg ? computedParlay : parseNumber(odds);
   const stakeInput = parseNumber(stake);
@@ -158,7 +162,14 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const printedRaw = parseNumber(toWinInput);
   const printedToWin =
     Number.isFinite(printedRaw) && printedRaw > 0 ? Math.round(printedRaw * 100) / 100 : null;
-  const toWin = valid ? (printedToWin ?? potentialProfit(stakeNum, oddsNum)) : 0;
+  // Parlay priced from its legs: pay it like the book does, from the exact leg
+  // odds multiplied together (not from the rounded total, which loses cents).
+  const exactLegsToWin =
+    multiLeg && legOdds.length && legOdds.every(isValidAmerican)
+      ? Math.round(stakeNum * (legOdds.reduce((acc, o) => acc * americanToDecimal(o), 1) - 1) * 100) /
+        100
+      : null;
+  const toWin = valid ? (printedToWin ?? exactLegsToWin ?? potentialProfit(stakeNum, oddsNum)) : 0;
   const implied = impliedProbability(oddsNum);
 
   const ticketLine = (b: Bet) =>
@@ -183,7 +194,9 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     if (!valid) return false;
     const keptLegs = showLegs
       ? legs
-          .filter((l) => l.pick.trim()) // a leg is its pick; blank rows aren't legs
+          // Keep legs with a pick; in "odds from legs" mode also legs priced without
+          // a name (they make up the price). Untouched rows in total-odds mode are dropped.
+          .filter((l) => l.pick.trim() || (oddsFromLegs && l.odds.trim()))
           .map((l) => {
             const o = parseNumber(l.odds);
             // Keep a structured market (e.g. from a scan) while the leg text is unchanged.
@@ -211,7 +224,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       pick: finalPick,
       odds: oddsNum,
       stake: Math.round(stakeNum * 100) / 100,
-      toWin: printedToWin ?? undefined,
+      toWin: printedToWin ?? exactLegsToWin ?? undefined,
       book: book.trim(),
       status,
       notes: notes.trim() || undefined,
