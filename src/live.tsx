@@ -707,6 +707,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
           // ticket keeps a full leg-by-leg record.
           const results = gradeLegs(latest, legGames);
           if (latest.status !== 'pending') {
+            perLeg.set(bet.id, legGames); // its cards still show which legs are left to play
             // Dead or cashed tickets stay off the Live tab; only their legs
             // keep being checked until every game is final.
             if (latest.legs?.length) {

@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { colors, profitColor, radius, space, statusColor } from '../theme';
 import { Bet } from '../types';
 import { BetCard } from './BetCard';
+import { LegDots } from './LegDots';
 
 /**
  * One-line ticket row that opens into the full bet card. Used for Upcoming
@@ -101,22 +102,20 @@ export function CompactBet({
         </View>
         {legs.length && variant === 'past' ? (
           <View style={styles.dots}>
-            {legs.map((l) => (
-              <View
-                key={l.id}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor:
-                      l.result === 'hit'
-                        ? colors.win
-                        : l.result === 'miss'
-                          ? colors.loss
-                          : colors.surfaceAlt,
-                  },
-                ]}
-              />
-            ))}
+            <LegDots
+              kinds={legs.map((l, i) =>
+                l.result === 'hit'
+                  ? 'hit'
+                  : l.result === 'miss'
+                    ? 'miss'
+                    : l.result === 'void'
+                      ? 'none'
+                      : legGames[i] && legGames[i]!.state !== 'post'
+                        ? 'toPlay' // dead ticket, but this leg's game is still to come
+                        : 'none',
+              )}
+              size={8}
+            />
           </View>
         ) : null}
       </View>

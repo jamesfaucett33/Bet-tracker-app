@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CompactBet } from '../components/CompactBet';
+import { DotLegend } from '../components/LegDots';
 import { ChipRow, Segmented } from '../components/ui';
 import { formatAmount, formatDate } from '../format';
 import { betProfit } from '../odds';
@@ -88,6 +89,7 @@ export function BetsScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
           {sports.length > 2 ? (
             <ChipRow options={sports} value={sport} onChange={setSport} />
           ) : null}
+          <DotLegend />
           {filtered.length ? (
             <Text style={styles.total}>
               {filtered.length} ticket{filtered.length === 1 ? '' : 's'} ·{' '}

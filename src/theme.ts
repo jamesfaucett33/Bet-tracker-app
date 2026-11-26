@@ -13,6 +13,8 @@ export const colors = {
   loss: '#FF5A5F',
   push: '#F5B942',
   pending: '#4FB3FF',
+  /** A leg still to play / in play (orange dots). */
+  toPlay: '#FF9F1C',
 };
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 };

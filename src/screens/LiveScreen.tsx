@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { betChance, formatChance, legChance } from '../chance';
 import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
+import { DotKind, DotLegend, LegDots } from '../components/LegDots';
 import { betToWin, formatOdds } from '../odds';
 import { SectionTitle } from '../components/ui';
 import {
@@ -163,6 +164,15 @@ function WinBar({ game }: { game: LiveGame }) {
       </View>
     </View>
   );
+}
+
+/** Dot color for a leg: green hit, orange still to play, red missed. */
+function dotFor(state: LegProgress['state'], final = false): DotKind {
+  if (state === 'hit') return 'hit';
+  if (state === 'miss') return 'miss';
+  if (state === 'push') return 'push';
+  if (state === 'unknown' || final) return 'none';
+  return 'toPlay';
 }
 
 /** The legs of these tickets that are on this game. */
@@ -366,20 +376,7 @@ function TicketList({
                         {money(betToWin(bet))}
                       </Text>
                     </Text>
-                    <View style={styles.legDots}>
-                      {legs.map((l) => {
-                        const st = l.prop.progress.state;
-                        const c =
-                          st === 'hit'
-                            ? colors.win
-                            : st === 'miss'
-                              ? colors.loss
-                              : l.prop.chance !== null && st === 'live'
-                                ? chanceColor(l.prop.chance)
-                                : colors.surfaceAlt;
-                        return <View key={l.id} style={[styles.legDot, { backgroundColor: c }]} />;
-                      })}
-                    </View>
+                    <LegDots kinds={legs.map((l) => dotFor(l.prop.progress.state))} />
                   </View>
                   {summary ? (
                     <Text style={[styles.ticketSummary, { color: summary.color }]}>
@@ -662,38 +659,12 @@ function GameRow({
         >
           {summary}
         </Text>
-        <View style={styles.rowDots}>
-          {game.state === 'post'
-            ? here.map((st, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.legDot,
-                    {
-                      backgroundColor:
-                        st === 'hit' ? colors.win : st === 'miss' ? colors.loss : colors.surfaceAlt,
-                    },
-                  ]}
-                />
-              ))
-            : statuses.map((st, i) => (
-            <View
-              key={i}
-              style={[
-                styles.legDot,
-                {
-                  backgroundColor: st.missed
-                    ? colors.loss
-                    : st.allHit
-                      ? colors.win
-                      : st.chance !== null
-                        ? chanceColor(st.chance)
-                        : colors.surfaceAlt,
-                },
-              ]}
-            />
-          ))}
-        </View>
+        {/* One dot per leg you have in this game: green hit, orange to play, red missed. */}
+        <LegDots
+          kinds={legsOnGame(tickets, game, legGames).map((l) =>
+            dotFor(gradeMarket(l.market, game).state, game.state === 'post'),
+          )}
+        />
       </View>
       <Text style={styles.chev}>›</Text>
     </Pressable>
@@ -816,6 +787,9 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
           <SectionTitle>
             🔴 In progress ({inProgress.length}) · tap a game for your bets
           </SectionTitle>
+          <View style={{ marginTop: -4, marginBottom: space.sm }}>
+            <DotLegend showNone={false} />
+          </View>
           {inProgress.map((e) => (
             <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
           ))}
