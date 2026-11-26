@@ -58,7 +58,9 @@ function scannedToBet(sb: ScannedBet): Bet | null {
     pick: sb.pick || `${sb.legs.length}-leg ${sb.betType.toLowerCase()}`,
     odds: sb.odds,
     stake: sb.stake,
-    toWin: sb.toWin ?? undefined,
+    // The winning amount is fixed when the ticket is saved: the printed amount,
+    // or (when the slip doesn't show one) the amount at the ticket's odds.
+    toWin: sb.toWin ?? Math.round(potentialProfit(sb.stake, sb.odds) * 100) / 100,
     book: sb.book,
     status: sb.status,
     notes: sb.notes || undefined,
@@ -224,7 +226,8 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       pick: finalPick,
       odds: oddsNum,
       stake: Math.round(stakeNum * 100) / 100,
-      toWin: printedToWin ?? exactLegsToWin ?? undefined,
+      // Fixed at save: printed amount, else the leg math, else the ticket's odds.
+      toWin: printedToWin ?? exactLegsToWin ?? Math.round(potentialProfit(stakeNum, oddsNum) * 100) / 100,
       book: book.trim(),
       status,
       notes: notes.trim() || undefined,

@@ -1,3 +1,4 @@
+import { potentialProfit } from './odds';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
@@ -11,6 +12,16 @@ import React, {
 import { Bet, BetStatus, DEFAULT_SETTINGS, Settings } from './types';
 
 const STORAGE_KEY = 'bettracker:v1';
+
+/**
+ * A ticket's winning amount is fixed: older tickets saved without one get the
+ * amount they already showed (from their odds) locked in once.
+ */
+function fixToWin(b: Bet): Bet {
+  if (b.toWin && b.toWin > 0) return b;
+  const amount = Math.round(potentialProfit(b.stake, b.odds) * 100) / 100;
+  return amount > 0 ? { ...b, toWin: amount } : b;
+}
 
 /** Remembers when a ticket was decided, for "today" / "this week" recaps. */
 function stampSettled(old: Bet | undefined, next: Bet): Bet {
@@ -79,7 +90,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const data = JSON.parse(raw) as Partial<PersistedData>;
-          if (Array.isArray(data.bets)) setBets(sortBets(data.bets.filter(isBet)));
+          if (Array.isArray(data.bets))
+            setBets(sortBets(data.bets.filter(isBet).map(fixToWin)));
           if (data.settings) setSettings({ ...DEFAULT_SETTINGS, ...data.settings });
         }
       } catch (e) {
