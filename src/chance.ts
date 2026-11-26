@@ -107,7 +107,13 @@ export function legChance(
   if (progress.state === 'hit') {
     // Not official until the game is final; yardage can still drop on a loss.
     if (game.state === 'post') return 1;
-    return market.kind === 'player' && !COUNT_STATS.includes(market.stat) ? 0.99 : 0.999;
+    if (market.kind === 'player' && !COUNT_STATS.includes(market.stat)) {
+      // Yardage can drop on a loss, but only by a few yards: the further past
+      // the line, the safer. 1 yard over ~99%, 20+ over ~99.9%+.
+      const cushion = Math.max(0, (progress.current ?? market.line) - market.line);
+      return 1 - 0.01 * Math.exp(-cushion / 6);
+    }
+    return 0.9995; // counting stats (catches, field goals, TDs) don't go down
   }
   if (progress.state === 'miss') return 0;
   const elapsed = elapsedFraction(game);
@@ -148,7 +154,8 @@ export function betChance(chances: (number | null)[]): number | null {
 }
 
 export function formatChance(c: number): string {
-  if (c >= 0.995) return '99%';
+  if (c >= 0.999) return '99.9%';
+  if (c >= 0.99) return `${(Math.floor(c * 1000) / 10).toFixed(1)}%`;
   if (c > 0 && c < 0.01) return '<1%';
   return `${Math.round(c * 100)}%`;
 }
