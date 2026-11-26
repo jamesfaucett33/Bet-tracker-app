@@ -100,6 +100,28 @@ export function betMarkets(bet: Bet): { label: string; market?: Market }[] {
   return [{ label: bet.pick, market: bet.market ?? parseMarket(bet.pick) }];
 }
 
+/**
+ * The game one leg is on, from the leg itself: stored, or read from text like
+ * "Denver Broncos ML at Pittsburgh Steelers" / "Chiefs +2.5 vs Bills". With
+ * only a team (no opponent) the team alone is matched.
+ */
+export function legGame(
+  label: string,
+  market: Market | undefined,
+  league: string,
+  stored?: GameRef,
+): GameRef | undefined {
+  if (stored) return stored;
+  const team =
+    market && (market.kind === 'moneyline' || market.kind === 'spread') ? market.team : '';
+  const opp = /\b(?:at|@|vs\.?|v\.?)\s+([A-Za-z0-9.' ]+?)\s*$/i.exec(label.trim());
+  if (team || opp) {
+    const other = opp ? opp[1].trim() : '';
+    if (team || other) return { league, away: team, home: other };
+  }
+  return undefined;
+}
+
 /** The game a bet is on: stored, or recovered from its description. */
 export function betGame(bet: Bet): GameRef | undefined {
   return bet.game ?? parseGame(bet.pick, bet.sport);

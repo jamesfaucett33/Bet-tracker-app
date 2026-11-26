@@ -1,7 +1,7 @@
 import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatAmount, formatDate } from '../format';
-import { autoSettle, useBetLive } from '../live';
+import { autoSettle, gameLine, useBetLive } from '../live';
 import { formatChance } from '../chance';
 import { chanceColor, GameHeader, legsSummary, LiveLegs } from './LiveLegs';
 import { betProfit, formatOdds, potentialProfit } from '../odds';
@@ -20,10 +20,16 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const { settings, setStatus } = useStore();
   const profit = betProfit(bet);
   const toWin = potentialProfit(bet.stake, bet.odds);
-  const { game, legs: liveLegs, chance } = useBetLive(bet);
+  const { game, legs: liveLegs, chance, legGames, multiGame } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
-  const summary = showLive && game ? legsSummary(liveLegs, game.state) : null;
-  const decision = autoSettle(bet, game);
+  // Overall state across every leg's game (multi-game parlays span several).
+  const overall: 'pre' | 'in' | 'post' = legGames.every((g) => g?.state === 'post')
+    ? 'post'
+    : legGames.some((g) => g?.state === 'in')
+      ? 'in'
+      : 'pre';
+  const summary = showLive ? legsSummary(liveLegs, overall) : null;
+  const decision = autoSettle(bet, legGames);
   const review = decision && 'review' in decision ? decision.review : null;
 
   return (
@@ -49,13 +55,31 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
         </Text>
         {showLive && game ? (
           <>
-            <GameHeader game={game} />
-            <LiveLegs legs={liveLegs} final={game.state === 'post'} />
+            {multiGame ? (
+              <Text style={styles.multi}>
+                {overall === 'in' ? '🔴 ' : ''}Multi-game parlay ·{' '}
+                {legGames.filter((g) => g?.state === 'post').length} of {legGames.length} games
+                final
+              </Text>
+            ) : (
+              <GameHeader game={game} />
+            )}
+            <LiveLegs
+              legs={
+                multiGame
+                  ? liveLegs.map((l) => ({
+                      ...l,
+                      gameText: l.game ? gameLine(l.game) : 'Game not found yet',
+                    }))
+                  : liveLegs
+              }
+              final={overall === 'post'}
+            />
             <View style={styles.summaryRow}>
               {summary ? (
                 <Text style={[styles.summary, { color: summary.color }]}>{summary.text}</Text>
               ) : null}
-              {chance !== null && game.state !== 'post' && !summary?.text.includes('missed') ? (
+              {chance !== null && overall !== 'post' && !summary?.text.includes('missed') ? (
                 <Text style={[styles.summary, { color: chanceColor(chance), marginLeft: 'auto' }]}>
                   ≈{formatChance(chance)} to cash
                 </Text>
@@ -149,6 +173,7 @@ const styles = StyleSheet.create({
   pick: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
   legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
+  multi: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: space.sm },
   review: { color: colors.push, fontSize: 13, fontWeight: '600', marginTop: space.sm },
   auto: { color: colors.textFaint, fontSize: 12, marginTop: space.sm },
   tracker: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: space.sm },

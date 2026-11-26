@@ -1,4 +1,5 @@
 import { findTeam, type LegProgress, type LiveGame } from './live';
+import { impliedProbability } from './odds';
 import { Market, PlayerStat } from './types';
 
 /**
@@ -102,8 +103,15 @@ export function legChance(
   market: Market | undefined,
   progress: LegProgress,
   game: LiveGame | undefined,
+  /** The leg's own odds, when known: the best guess before the game starts. */
+  odds?: number | null,
 ): number | null {
-  if (!market || !game || progress.state === 'unknown') return null;
+  if (!market || progress.state === 'unknown') return null;
+  if (!game || game.state === 'pre') {
+    const implied = odds != null ? impliedProbability(odds) : NaN;
+    if (Number.isFinite(implied)) return implied;
+    if (!game) return null;
+  }
   if (progress.state === 'hit') {
     // Not official until the game is final; yardage can still drop on a loss.
     if (game.state === 'post') return 1;

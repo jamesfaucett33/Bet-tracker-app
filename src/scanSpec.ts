@@ -21,7 +21,7 @@ How to fill each field (when something isn't on the slip, use "" for text, 0 for
 - sportsbook: the operator's brand name (e.g. Caesars, DraftKings, FanDuel), not the casino or venue. "" if unknown.
 - placed_date: the date the bet was placed as YYYY-MM-DD, or the event date if no placement date is shown. "" if no date is visible.
 - status: won, lost or push only if the slip clearly shows the bet was settled that way (e.g. "Won", "Paid", "Lost", a green check on every leg); otherwise pending.
-- legs: for a parlay or teaser, one entry per leg with the selection (e.g. "Matthew Stafford 250+ passing + rushing yds") and that leg's American odds, or 0 when the slip doesn't show per-leg odds. Empty for single bets.
+- legs: for a parlay or teaser, one entry per leg with the selection (e.g. "Matthew Stafford 250+ passing + rushing yds") and that leg's American odds, or 0 when the slip doesn't show per-leg odds, plus that leg's game as away_team / home_team (full team names; important for multi-game parlays where each leg is a different game). Empty for single bets.
 - ticket_id: the ticket or bet ID if printed, else "".
 - away_team / home_team: full team names of the game when one game is shown (e.g. "Green Bay Packers" at "Los Angeles Rams"); "A at B" or "A @ B" means A is away. "" for multi-game parlays or futures.
 - market (on each leg, and on the bet itself for single bets; kind "none" on parlays): how the outcome is graded.
@@ -87,11 +87,13 @@ export const SCHEMA = {
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['pick', 'odds', 'market'],
+              required: ['pick', 'odds', 'market', 'away_team', 'home_team'],
               properties: {
                 pick: { type: 'string' },
                 odds: { type: 'integer' },
                 market: MARKET_SCHEMA,
+                away_team: { type: 'string' },
+                home_team: { type: 'string' },
               },
             },
           },

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { betChance, legChance } from './chance';
-import { betGame, betMarkets } from './markets';
+import { betGame, betMarkets, legGame } from './markets';
 import { useStore } from './store';
 import { Bet, GameRef, Market, PlayerStat } from './types';
 
@@ -150,17 +150,31 @@ async function getJSON(url: string): Promise<any> {
 }
 
 /** Finds the ESPN event id for a game, looking on the bet date and the next two days. */
+const scoreboards = new Map<string, { at: number; data: any }>();
+
+async function scoreboard(path: string, date: string): Promise<any> {
+  const url = `${ESPN}/${path}/scoreboard?dates=${date}`;
+  const hit = scoreboards.get(url);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.data;
+  const data = await getJSON(url);
+  scoreboards.set(url, { at: Date.now(), data });
+  return data;
+}
+
+/**
+ * Finds the ESPN event for a game from the bet date through the following
+ * week (parlays often span several days). Both teams must match when both are
+ * known; with only one team, its next game is used.
+ */
 export async function findEventId(game: GameRef, betDate: string): Promise<string | null> {
   const path = LEAGUE_PATHS[game.league.toUpperCase()];
-  if (!path) return null;
-  for (const offset of [0, 1, 2, -1]) {
-    const data = await getJSON(`${ESPN}/${path}/scoreboard?dates=${ymd(betDate, offset)}`);
+  if (!path || (!game.away && !game.home)) return null;
+  for (const offset of [0, 1, 2, 3, 4, 5, 6, -1]) {
+    const data = await scoreboard(path, ymd(betDate, offset));
     for (const ev of data.events ?? []) {
-      const comps = ev.competitions?.[0]?.competitors ?? [];
-      const teams = comps.map(toTeam);
-      const hasAway = teams.some((t: TeamScore) => teamMatches(t, game.away));
-      const hasHome = teams.some((t: TeamScore) => teamMatches(t, game.home));
-      if (hasAway && hasHome) return String(ev.id);
+      const teams = (ev.competitions?.[0]?.competitors ?? []).map(toTeam);
+      const ok = (name: string) => !name || teams.some((t: TeamScore) => teamMatches(t, name));
+      if (ok(game.away) && ok(game.home)) return String(ev.id);
     }
   }
   return null;
@@ -350,41 +364,76 @@ export function isCovering(p: LegProgress, market?: Market): boolean {
 export type SettleDecision = { status: 'won' | 'lost' } | { review: string } | null;
 
 /**
- * Once a game is final, decides a pending ticket from the final stats: every
- * leg hit -> won, a leg missed -> lost. A missed player prop where the player
- * has no stats at all is left for review (they may not have played, and books
- * void those legs), as is any leg the app can't grade.
+ * Decides a pending ticket from final stats, leg by leg (each leg may be on a
+ * different game): a leg that clearly missed in a final game loses the ticket
+ * right away; once every leg's game is final and every leg hit, it's won. A
+ * missed player prop where the player has no stats at all is left for review
+ * (books usually void legs for players who didn't play), as is any leg the app
+ * can't grade.
  */
-export function autoSettle(bet: Bet, game: LiveGame | undefined): SettleDecision {
-  if (!game || game.state !== 'post' || bet.status !== 'pending') return null;
+export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): SettleDecision {
+  if (bet.status !== 'pending' || !legGames.some(Boolean)) return null;
   const legs = betMarkets(bet);
-  if (!legs.length || legs.some((l) => !l.market)) {
-    return { review: "Final — some legs can't be graded automatically. Mark it Won or Lost." };
-  }
-  let missed = false; // a leg clearly lost
-  let noStats: string | null = null; // a missed leg whose player has no stats
-  for (const l of legs) {
+  let missed = false;
+  let allFinal = true;
+  let ungradeable = false;
+  let noStats: string | null = null;
+  legs.forEach((l, i) => {
+    const game = legGames[i];
+    if (!game || game.state !== 'post') {
+      allFinal = false;
+      return;
+    }
+    if (!l.market) {
+      ungradeable = true;
+      return;
+    }
     const p = gradeMarket(l.market, game);
-    if (p.state === 'unknown') return { review: 'Final — mark it Won or Lost.' };
-    if (p.state === 'miss') {
-      if (l.market!.kind === 'player' && !game.players.has(norm(l.market!.player))) {
-        noStats = l.market!.player;
+    if (p.state === 'unknown') ungradeable = true;
+    else if (p.state === 'miss') {
+      if (l.market.kind === 'player' && !game.players.has(norm(l.market.player))) {
+        noStats = l.market.player;
       } else missed = true;
     }
-  }
-  // Another leg lost, so a possibly-voided leg doesn't matter: the ticket lost.
-  if (!missed && noStats) {
+  });
+  if (missed) return { status: 'lost' }; // one leg lost: the parlay is dead
+  if (!allFinal) return null;
+  if (noStats) {
     return {
       review: `Final — ${noStats} has no recorded stats (may not have played, and books usually void that leg). Check your ticket, then mark it.`,
     };
   }
-  return { status: missed ? 'lost' : 'won' };
+  if (ungradeable)
+    return { review: "Final — some legs can't be graded automatically. Mark it Won or Lost." };
+  return { status: 'won' };
+}
+
+// ---------- which game each leg is on ----------
+
+/**
+ * The game for every leg of a bet. Single-game tickets share the bet's game;
+ * multi-game parlays use each leg's own game (stored from a scan, or read from
+ * the leg text, e.g. "Denver Broncos ML at Pittsburgh Steelers").
+ */
+export function betLegRefs(bet: Bet): (GameRef | undefined)[] {
+  const markets = betMarkets(bet);
+  const whole = betGame(bet);
+  return markets.map((m, i) => {
+    const stored = bet.legs?.[i]?.game;
+    if (stored) return stored;
+    const fromLeg = legGame(m.label, m.market, bet.sport);
+    if (fromLeg && fromLeg.away && fromLeg.home) return fromLeg; // leg names its own game
+    return whole ?? fromLeg;
+  });
 }
 
 // ---------- provider ----------
 
 interface LiveCtx {
-  games: Map<string, LiveGame>; // key: bet id -> game
+  /** bet id -> the game to headline (a live one first) */
+  games: Map<string, LiveGame>;
+  /** bet id -> each leg's game, in leg order */
+  legGames: Map<string, (LiveGame | undefined)[]>;
   refreshing: boolean;
   lastError: string | null;
   refresh: () => void;
@@ -392,16 +441,18 @@ interface LiveCtx {
 
 const LiveContext = createContext<LiveCtx>({
   games: new Map(),
+  legGames: new Map(),
   refreshing: false,
   lastError: null,
   refresh: () => {},
 });
 
-const gameKey = (g: GameRef) => `${g.league}|${norm(g.away)}|${norm(g.home)}`;
+const gameKey = (g: GameRef, date: string) => `${g.league}|${norm(g.away)}|${norm(g.home)}|${date}`;
 
 export function LiveProvider({ children }: { children: React.ReactNode }) {
   const { bets, saveBet } = useStore();
   const [games, setGames] = useState<Map<string, LiveGame>>(new Map());
+  const [legGamesMap, setLegGames] = useState<Map<string, (LiveGame | undefined)[]>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -409,19 +460,22 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   const betsRef = useRef(bets);
   betsRef.current = bets;
 
-  // Bets worth tracking: pending, or settled today (so a just-finished game still shows).
   const tracked = useMemo(
     () =>
       bets.filter(
-        (b) => b.status === 'pending' && betGame(b) && betMarkets(b).some((m) => m.market),
+        (b) =>
+          b.status === 'pending' &&
+          betLegRefs(b).some(Boolean) &&
+          betMarkets(b).some((m) => m.market),
       ),
     [bets],
   );
-  const trackedKey = tracked.map((b) => b.id).join(',');
+  const trackedKey = tracked.map((b) => `${b.id}:${b.updatedAt ?? 0}`).join(',');
 
   useEffect(() => {
     if (!tracked.length) {
       setGames(new Map());
+      setLegGames(new Map());
       return;
     }
     let cancelled = false;
@@ -430,39 +484,67 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     const run = async () => {
       setRefreshing(true);
       const byEvent = new Map<string, LiveGame>();
-      const result = new Map<string, LiveGame>();
+      const headline = new Map<string, LiveGame>();
+      const perLeg = new Map<string, (LiveGame | undefined)[]>();
       let anyLive = false;
       try {
         for (const bet of tracked) {
-          const g = betGame(bet)!;
-          const k = gameKey(g);
-          let eventId = g.eventId ?? eventIds.current.get(k);
-          if (eventId === undefined) {
-            eventId = await findEventId(g, bet.date);
-            eventIds.current.set(k, eventId);
-            // Remember the match on the bet so later lookups are one request.
-            if (eventId && !bet.game?.eventId) {
-              const latest = betsRef.current.find((b) => b.id === bet.id);
-              if (latest) saveBet({ ...latest, game: { ...g, eventId } });
+          const refs = betLegRefs(bet);
+          const legGames: (LiveGame | undefined)[] = [];
+          const found: (string | null)[] = [];
+          for (const ref of refs) {
+            if (!ref) {
+              legGames.push(undefined);
+              found.push(null);
+              continue;
             }
+            const k = gameKey(ref, bet.date);
+            let eventId = ref.eventId ?? eventIds.current.get(k);
+            if (eventId === undefined) {
+              eventId = await findEventId(ref, bet.date);
+              eventIds.current.set(k, eventId);
+            }
+            found.push(eventId ?? null);
+            if (!eventId) {
+              legGames.push(undefined);
+              continue;
+            }
+            let live = byEvent.get(eventId);
+            if (!live) {
+              live = await fetchLiveGame(ref.league, eventId);
+              byEvent.set(eventId, live);
+            }
+            if (live.state === 'in') anyLive = true;
+            legGames.push(live);
           }
-          if (!eventId) continue;
-          let live = byEvent.get(eventId);
-          if (!live) {
-            live = await fetchLiveGame(g.league, eventId);
-            byEvent.set(eventId, live);
+          perLeg.set(bet.id, legGames);
+          const top = legGames.find((g) => g?.state === 'in') ?? legGames.find(Boolean);
+          if (top) headline.set(bet.id, top);
+
+          // Remember matched games on the bet so later lookups are quick, and
+          // settle it once the final stats decide it.
+          const latest = betsRef.current.find((b) => b.id === bet.id);
+          if (!latest || latest.status !== 'pending') continue;
+          let updated: Bet | null = null;
+          if (latest.legs?.length) {
+            const legs = latest.legs.map((l, i) =>
+              found[i] && refs[i] && !l.game?.eventId
+                ? { ...l, game: { ...refs[i]!, eventId: found[i]! } }
+                : l,
+            );
+            if (legs.some((l, i) => l !== latest.legs![i])) updated = { ...latest, legs };
+          } else if (found[0] && refs[0] && !latest.game?.eventId) {
+            updated = { ...latest, game: { ...refs[0], eventId: found[0] } };
           }
-          if (live.state === 'in') anyLive = true;
-          result.set(bet.id, live);
-          const decision = autoSettle(bet, live);
+          const decision = autoSettle(latest, legGames);
           if (decision && 'status' in decision) {
-            const latest = betsRef.current.find((b) => b.id === bet.id);
-            if (latest && latest.status === 'pending')
-              saveBet({ ...latest, status: decision.status, settledBy: 'auto' });
+            updated = { ...(updated ?? latest), status: decision.status, settledBy: 'auto' };
           }
+          if (updated) saveBet(updated);
         }
         if (!cancelled) {
-          setGames(result);
+          setGames(headline);
+          setLegGames(perLeg);
           setLastError(null);
         }
       } catch (e) {
@@ -491,8 +573,14 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   }, [trackedKey, tick]);
 
   const value = useMemo(
-    () => ({ games, refreshing, lastError, refresh: () => setTick((t) => t + 1) }),
-    [games, refreshing, lastError],
+    () => ({
+      games,
+      legGames: legGamesMap,
+      refreshing,
+      lastError,
+      refresh: () => setTick((t) => t + 1),
+    }),
+    [games, legGamesMap, refreshing, lastError],
   );
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }
@@ -501,12 +589,31 @@ export function useLive() {
   return useContext(LiveContext);
 }
 
+/** Short score line for one game, e.g. "DEN 17–14 PIT · 5:12 - 3rd". */
+export function gameLine(g: LiveGame): string {
+  const score = `${g.away.abbr} ${g.away.score}–${g.home.score} ${g.home.abbr}`;
+  if (g.state === 'post') return `${score} · Final`;
+  if (g.state === 'pre') return `${g.away.abbr} @ ${g.home.abbr} · ${g.detail}`;
+  return `${score} · ${g.detail}`;
+}
+
+/** Live progress for every leg of a bet, each against its own game. */
 export function useBetLive(bet: Bet) {
-  const { games } = useLive();
+  const { games, legGames } = useLive();
   const game = games.get(bet.id);
-  const legs = betMarkets(bet).map((m) => {
-    const progress = gradeMarket(m.market, game);
-    return { ...m, progress, chance: legChance(m.market, progress, game) };
+  const perLeg = legGames.get(bet.id) ?? [];
+  const legs = betMarkets(bet).map((m, i) => {
+    const g = perLeg[i] ?? (perLeg.length ? undefined : game);
+    const progress = gradeMarket(m.market, g);
+    const odds = bet.legs?.length ? bet.legs[i]?.odds : bet.odds;
+    return { ...m, game: g, progress, chance: legChance(m.market, progress, g, odds) };
   });
-  return { game, legs, chance: game ? betChance(legs.map((l) => l.chance)) : null };
+  const eventIds = new Set(legs.map((l) => l.game?.eventId).filter(Boolean));
+  return {
+    game,
+    legs,
+    legGames: legs.map((l) => l.game),
+    multiGame: eventIds.size > 1,
+    chance: game ? betChance(legs.map((l) => l.chance)) : null,
+  };
 }

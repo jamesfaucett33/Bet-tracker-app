@@ -65,6 +65,8 @@ export interface ParlayLeg {
   pick: string;
   odds: number | null; // American odds; null when the slip doesn't show per-leg odds
   market?: Market;
+  /** The game this leg is on (multi-game parlays). */
+  game?: GameRef;
 }
 
 export interface Bet {

@@ -92,6 +92,8 @@ interface RawLeg {
   pick: string;
   odds: number | null;
   market: RawMarket | null;
+  away_team?: string;
+  home_team?: string;
 }
 interface RawBet {
   sport: string;
@@ -280,6 +282,10 @@ function normalize(b: RawBet): ScannedBet {
       pick: l.pick?.trim() ?? '',
       odds: l.odds !== null && isValidAmerican(l.odds) ? l.odds : null,
       market: toMarket(l.market, l.pick ?? ''),
+      game:
+        l.away_team && l.home_team
+          ? { league: b.sport?.trim() || 'Other', away: l.away_team, home: l.home_team }
+          : undefined,
     })),
     notes: b.ticket_id ? `Ticket ${b.ticket_id}` : '',
     game:

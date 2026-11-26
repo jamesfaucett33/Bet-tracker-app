@@ -10,6 +10,8 @@ interface LegRow {
   market?: Market;
   progress: LegProgress;
   chance?: number | null;
+  /** That leg's own game, for multi-game parlays. */
+  gameText?: string;
 }
 
 /** Green when likely, amber when it's a coin flip, red when it's a long shot. */
@@ -97,6 +99,7 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
                 </View>
               ) : null}
             </View>
+            {leg.gameText ? <Text style={styles.legGame}>{leg.gameText}</Text> : null}
             {p.state !== 'unknown' ? (
               <View style={styles.track}>
                 <View
@@ -170,6 +173,7 @@ const styles = StyleSheet.create({
   leg: {},
   legTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legIcon: { width: 18, fontSize: 12, color: colors.textDim, textAlign: 'center' },
+  legGame: { color: colors.textFaint, fontSize: 11, marginLeft: 24, marginTop: 2 },
   legLabel: { flex: 1, minWidth: 0, color: colors.text, fontSize: 13 },
   legValue: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   track: {

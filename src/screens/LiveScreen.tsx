@@ -4,7 +4,7 @@ import { betChance, formatChance, legChance } from '../chance';
 import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
 import { formatOdds, potentialProfit } from '../odds';
 import { SectionTitle } from '../components/ui';
-import { gradeMarket, LegProgress, LiveGame, TeamScore, useLive } from '../live';
+import { gameLine, gradeMarket, LegProgress, LiveGame, TeamScore, useLive } from '../live';
 import { betMarkets } from '../markets';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -137,30 +137,44 @@ function WinBar({ game }: { game: LiveGame }) {
   );
 }
 
-function GameCast({
-  game,
-  gameBets,
+/** One box per ticket; each leg is graded against its own game. */
+function TicketList({
+  title,
+  bets,
+  fallback,
+  showGameLines = false,
   onEditBet,
 }: {
-  game: LiveGame;
-  gameBets: Bet[];
+  title: string;
+  bets: Bet[];
+  fallback?: LiveGame;
+  showGameLines?: boolean;
   onEditBet: (b: Bet) => void;
 }) {
-  const live = game.state === 'in';
   const { setStatus } = useStore();
+  const { legGames } = useLive();
   // One box per ticket: every leg graded, with the player's stat line.
   const tickets = useMemo(() => {
-    const list = gameBets.map((bet) => {
+    const list = bets.map((bet) => {
+      const perLeg = legGames.get(bet.id) ?? [];
       const legs = betMarkets(bet).map((m, i) => {
+        const game = perLeg[i] ?? (perLeg.length ? undefined : fallback);
         const progress = gradeMarket(m.market, game);
-        const chance = legChance(m.market, progress, game);
+        const chance = legChance(
+          m.market,
+          progress,
+          game,
+          bet.legs?.length ? bet.legs[i]?.odds : bet.odds,
+        );
+        const gameText = showGameLines ? (game ? gameLine(game) : 'Game not found yet') : null;
         const market = m.market;
         if (market?.kind === 'player') {
           const key = norm(market.player);
           return {
             id: `${bet.id}-${i}`,
-            player: game.playerNames.get(key) ?? market.player,
-            statLine: statLine(game.players.get(key)),
+            player: game?.playerNames.get(key) ?? market.player,
+            statLine: game ? statLine(game.players.get(key)) : 'Game not found yet',
+            gameText,
             prop: {
               label: `${market.line}+ ${PLAYER_STATS[market.stat].toLowerCase()}`,
               progress,
@@ -172,9 +186,18 @@ function GameCast({
           id: `${bet.id}-${i}`,
           player: null,
           statLine: null,
+          gameText,
           prop: { label: m.label, progress, chance },
         };
       });
+      const legGamesHere = betMarkets(bet).map(
+        (_, i) => perLeg[i] ?? (perLeg.length ? undefined : fallback),
+      );
+      const overall: 'pre' | 'in' | 'post' = legGamesHere.every((g) => g?.state === 'post')
+        ? 'post'
+        : legGamesHere.some((g) => g?.state === 'in')
+          ? 'in'
+          : 'pre';
       const chances = legs.map((l) => l.prop.chance);
       const chance = betChance(chances);
       const summary = legsSummary(
@@ -183,36 +206,18 @@ function GameCast({
           progress: l.prop.progress,
           chance: l.prop.chance,
         })),
-        game.state,
+        overall,
       );
-      return { bet, legs, chance, summary };
+      return { bet, legs, chance, summary, overall };
     });
     // Tickets still alive first, best chance on top.
     return list.sort((a, b) => (b.chance ?? -1) - (a.chance ?? -1));
-  }, [gameBets, game]);
+  }, [bets, fallback, legGames, showGameLines]);
 
   return (
-    <View style={{ marginBottom: space.xl }}>
-      <View style={styles.board}>
-        <View style={styles.boardRow}>
-          <TeamColumn team={game.away} align="left" />
-          <View style={styles.center}>
-            <View style={[styles.badge, live && { backgroundColor: colors.loss + '26' }]}>
-              {live ? <View style={styles.dot} /> : null}
-              <Text style={[styles.badgeText, live && { color: colors.loss }]}>
-                {live ? 'LIVE' : game.state === 'post' ? 'FINAL' : 'UPCOMING'}
-              </Text>
-            </View>
-            {game.state !== 'post' ? <Text style={styles.clock}>{game.detail}</Text> : null}
-          </View>
-          <TeamColumn team={game.home} align="right" />
-        </View>
-        {game.downDistance ? <Text style={styles.down}>🏈 {game.downDistance}</Text> : null}
-        <WinBar game={game} />
-      </View>
-
-      <SectionTitle>Your Tickets ({tickets.length})</SectionTitle>
-      {tickets.map(({ bet, legs, chance, summary }) => {
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      {tickets.map(({ bet, legs, chance, summary, overall }) => {
         const missed = legs.some((l) => l.prop.progress.state === 'miss');
         const allHit = legs.every((l) => l.prop.progress.state === 'hit');
         const borderColor = missed ? colors.loss : allHit ? colors.push : colors.border;
@@ -228,7 +233,7 @@ function GameCast({
                     {[bet.book, bet.notes].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
-                {chance !== null && !missed && game.state !== 'post' ? (
+                {chance !== null && !missed && overall !== 'post' ? (
                   <View style={[styles.bigChip, { borderColor: chanceColor(chance) }]}>
                     <Text style={[styles.bigChipText, { color: chanceColor(chance) }]}>
                       {formatChance(chance)}
@@ -271,10 +276,11 @@ function GameCast({
                     <Text style={styles.playerLine}>{leg.statLine}</Text>
                   </>
                 ) : null}
-                <PropMeter prop={leg.prop} final={game.state === 'post'} />
+                {leg.gameText ? <Text style={styles.legGameLine}>{leg.gameText}</Text> : null}
+                <PropMeter prop={leg.prop} final={overall === 'post'} />
               </View>
             ))}
-            {game.state === 'post' ? (
+            {overall === 'post' ? (
               <View style={styles.settleRow}>
                 {(['won', 'lost', 'push'] as const).map((st) => (
                   <Pressable
@@ -293,6 +299,47 @@ function GameCast({
           </View>
         );
       })}
+    </>
+  );
+}
+
+function GameCast({
+  game,
+  gameBets,
+  onEditBet,
+}: {
+  game: LiveGame;
+  gameBets: Bet[];
+  onEditBet: (b: Bet) => void;
+}) {
+  const live = game.state === 'in';
+
+  return (
+    <View style={{ marginBottom: space.xl }}>
+      <View style={styles.board}>
+        <View style={styles.boardRow}>
+          <TeamColumn team={game.away} align="left" />
+          <View style={styles.center}>
+            <View style={[styles.badge, live && { backgroundColor: colors.loss + '26' }]}>
+              {live ? <View style={styles.dot} /> : null}
+              <Text style={[styles.badgeText, live && { color: colors.loss }]}>
+                {live ? 'LIVE' : game.state === 'post' ? 'FINAL' : 'UPCOMING'}
+              </Text>
+            </View>
+            {game.state !== 'post' ? <Text style={styles.clock}>{game.detail}</Text> : null}
+          </View>
+          <TeamColumn team={game.home} align="right" />
+        </View>
+        {game.downDistance ? <Text style={styles.down}>🏈 {game.downDistance}</Text> : null}
+        <WinBar game={game} />
+      </View>
+
+      <TicketList
+        title={`Your Tickets (${gameBets.length})`}
+        bets={gameBets}
+        fallback={game}
+        onEditBet={onEditBet}
+      />
 
       {game.plays.length ? (
         <>
@@ -332,7 +379,7 @@ function GameCast({
 
 export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
   const { bets } = useStore();
-  const { games, refresh, refreshing, lastError } = useLive();
+  const { games, legGames, refresh, refreshing, lastError } = useLive();
   const [, setNow] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setNow((n) => n + 1), 5000);
@@ -340,10 +387,17 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
   }, []);
 
   // One gamecast per game, with the pending tickets on it.
+  const isMulti = (b: Bet) =>
+    new Set((legGames.get(b.id) ?? []).filter(Boolean).map((g) => g!.eventId)).size > 1;
+  const multiBets = useMemo(
+    () => bets.filter((b) => b.status === 'pending' && games.get(b.id) && isMulti(b)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bets, games, legGames],
+  );
   const byGame = useMemo(() => {
     const map = new Map<string, { game: LiveGame; bets: Bet[] }>();
     for (const b of bets) {
-      if (b.status !== 'pending') continue;
+      if (b.status !== 'pending' || isMulti(b)) continue;
       const g = games.get(b.id);
       if (!g) continue;
       const entry = map.get(g.eventId) ?? { game: g, bets: [] };
@@ -353,7 +407,8 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     // Live games first, then upcoming, then finished.
     const order = { in: 0, pre: 1, post: 2 } as const;
     return [...map.values()].sort((a, b) => order[a.game.state] - order[b.game.state]);
-  }, [bets, games]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bets, games, legGames]);
 
   const updated = byGame[0]?.game.updatedAt;
   const ago = updated ? Math.max(0, Math.round((Date.now() - updated) / 1000)) : null;
@@ -375,7 +430,18 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
         </Pressable>
       </View>
 
-      {byGame.length === 0 ? (
+      {multiBets.length ? (
+        <View style={{ marginBottom: space.xl }}>
+          <TicketList
+            title={`Multi-game parlays (${multiBets.length})`}
+            bets={multiBets}
+            showGameLines
+            onEditBet={onEditBet}
+          />
+        </View>
+      ) : null}
+
+      {byGame.length === 0 && !multiBets.length ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No games to show</Text>
           <Text style={styles.emptyText}>
@@ -454,6 +520,7 @@ const styles = StyleSheet.create({
   playerName: { color: colors.text, fontSize: 14, fontWeight: '800' },
   playerLine: { color: colors.textDim, fontSize: 13, marginTop: 2 },
   prop: { marginTop: space.sm },
+  legGameLine: { color: colors.textFaint, fontSize: 11, marginTop: 2 },
   ticket: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
