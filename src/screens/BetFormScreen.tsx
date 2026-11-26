@@ -21,7 +21,8 @@ import {
 } from '../odds';
 import { canReadOnDevice, readTextOnDevice } from '../ocr';
 import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
-import { betterRead, parseSlipText, slipProblems } from '../slipParser';
+import { mergeReads, parseSlipText, slipProblems } from '../slipParser';
+import { verifyPlayers } from '../roster';
 import { PickSource, pickSlipImage, readBetSlip, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -196,7 +197,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     setOdds(sb.odds === null ? '' : formatOdds(sb.odds));
     setStakeMode('$');
     setStake(sb.stake === null ? '' : String(sb.stake));
-    if (sb.book) setBook(sb.book);
+    setBook(sb.book); // blank if unreadable, never a leftover default
     setDate(sb.date);
     setStatus(sb.status);
     setNotes(sb.notes);
@@ -239,11 +240,24 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       if (useAI) {
         found = await readBetSlip(settings.anthropicApiKey, image);
       } else {
-        // Read once; if anything is missing, read a high-contrast copy too.
-        let read = parseSlipText(await readTextOnDevice(image), qr);
-        if (slipProblems(read).length) {
-          read = betterRead(read, parseSlipText(await readTextOnDevice(image, true), qr));
+        // Read the photo up to three ways (as-is, shadow-removed, high
+        // contrast), check player names against the real rosters, and
+        // combine the reads until every leg is accounted for.
+        const reads: ScannedBet[] = [];
+        let read: ScannedBet | null = null;
+        for (const mode of ['plain', 'shadowfree', 'contrast'] as const) {
+          const text = await readTextOnDevice(image, mode);
+          (globalThis as { __scanTexts?: string[] }).__scanTexts = [
+            ...((globalThis as { __scanTexts?: string[] }).__scanTexts ?? []),
+            text,
+          ];
+          const parsed = parseSlipText(text, qr);
+          reads.push(await verifyPlayers(parsed, parsed.game ?? reads.find((r) => r.game)?.game));
+          read = mergeReads(reads);
+          (globalThis as { __scanReads?: unknown }).__scanReads = reads; // for troubleshooting
+          if (!slipProblems(read).length) break;
         }
+        read = read!;
         const problems = slipProblems(read);
         if (problems.length) {
           // Never save a ticket with a dropped leg: ask for a better photo instead.

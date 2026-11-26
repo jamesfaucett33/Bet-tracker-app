@@ -79,7 +79,7 @@ const NBA: [string, string][] = [
 ];
 
 const BOOKS: [RegExp, string][] = [
-  [/caesars|c\s*a\s*e\s*s\s*a\s*r|track\s*bets\s*live/i, 'Caesars'],
+  [/caesars|c\s*a\s*e\s*s\s*a\s*r|track\s*bets\s*live|spokane\s*tribe/i, 'Caesars'],
   [/draft\s*kings/i, 'DraftKings'],
   [/fan\s*duel/i, 'FanDuel'],
   [/bet\s*mgm/i, 'BetMGM'],
@@ -107,7 +107,15 @@ function fixWords(s: string): string {
 
 /** Drops OCR junk before the first capitalized word and after the last stat word. */
 function cleanDescription(line: string): string {
-  const words = fixWords(line).split(/\s+/);
+  const words = fixWords(
+    line
+      // junk glued between words: "Stafford¥Passing", "Golden S'Receptions"
+      .replace(/([a-z])[^A-Za-z0-9\s+]+(?=[A-Z])/g, '$1 ')
+      .replace(/\b[A-Z]'(?=[A-Z])/g, ''),
+  )
+    .split(/\s+/)
+    // tokens with no letters ("=", "|", "£4") aren't words
+    .filter((w) => /[A-Za-z]/.test(w) || /^\+$/.test(w) || /^\d+(\.\d)?\+?$/.test(w));
   while (words.length && !/^[A-Z][a-zA-Z'.]+$/.test(words[0])) words.shift();
   let text = words.join(' ');
   const end =
@@ -141,7 +149,10 @@ function findTeams(text: string): { league: string; away: string; home: string }
   return null;
 }
 
-function parseDate(text: string): string | null {
+function parseDate(rawText: string): string | null {
+  // "202¢" / "202c": a smudged last digit of this decade's year
+  const year = String(new Date().getFullYear());
+  const text = rawText.replace(/\b(20\d)[^\d\s|]/g, (m, p) => (year.startsWith(p) ? year : m));
   const m =
     /(?:issued|placed|date)\W{0,3}\s*([A-Z][a-z]{2})\w*\.?\s+(\d{1,2}),?\s+(\d{4})/i.exec(text) ??
     /\b([A-Z][a-z]{2})\w*\.?\s+(\d{1,2}),?\s+(20\d{2})\b/.exec(text);
@@ -170,8 +181,10 @@ function parseLegs(lines: string[]): ParlayLeg[] {
   for (let i = 0; i < region.length; i++) {
     const raw = region[i];
     // "250+" (OCR sometimes drops the "+" on a line holding only the number)
+    // "250+"; OCR can drop the "+" or turn it into "-4" / "4" ("60-4")
     const threshold =
-      /(?:^|\s)(\d{1,3}(?:\.\d)?)\s*\+(?:\s|$)/.exec(raw) ?? /^\W*(\d{1,3}(?:\.\d)?)\W*$/.exec(raw);
+      /(?:^|\s)(\d{1,3}(?:\.\d)?)\s*\+(?:\s|$)/.exec(raw) ??
+      /^\W*(\d{1,3}(?:\.\d)?)\s*(?:-\s*4|-|\+)?\W*$/.exec(raw);
     const words = cleanDescription(raw);
     const hasStat = /Yards|Receptions|Goals|Points|Rebounds|Assists|Touchdown|TD/i.test(words);
     if (threshold && !hasStat) {
@@ -197,12 +210,14 @@ function parseLegs(lines: string[]): ParlayLeg[] {
 }
 
 function leg(text: string, i: number): ParlayLeg {
-  return {
-    id: `ocr${Date.now().toString(36)}${i}`,
-    pick: text,
-    odds: null,
-    market: parseMarket(text),
-  };
+  let market = parseMarket(text);
+  // "0+" or a name with no real words is a misread, not a leg.
+  if (market?.kind === 'player') {
+    const words = market.player.split(' ');
+    const nameOk = words.length >= 2 && words.every((w) => /^[A-Z][A-Za-z'.-]+$/.test(w));
+    if (market.line <= 0 || !nameOk) market = undefined;
+  }
+  return { id: `ocr${Date.now().toString(36)}${i}`, pick: text, odds: null, market };
 }
 
 export function parseSlipText(raw: string, qrUrl?: string | null): ScannedBet {
@@ -280,7 +295,7 @@ export function parseSlipText(raw: string, qrUrl?: string | null): ScannedBet {
     odds,
     stake,
     book,
-    date: parseDate(text) ?? todayISO(),
+    date: parseDate(text) ?? '', // filled in by mergeReads / the caller
     status: 'pending',
     legs,
     notes: ticket ? `Ticket ${ticket}` : '',
@@ -295,6 +310,9 @@ export function parseSlipText(raw: string, qrUrl?: string | null): ScannedBet {
  * should be retaken rather than saving a ticket with a dropped leg.
  */
 export function slipProblems(sb: ScannedBet): string[] {
+  const readableLegs = sb.legs.filter((l) => l.market).length;
+  if (sb.expectedLegs && readableLegs > sb.expectedLegs)
+    return [`the legs (found ${readableLegs}, ticket says ${sb.expectedLegs})`];
   const problems: string[] = [];
   if (sb.stake === null) problems.push('the stake');
   if (sb.odds === null) problems.push('the odds');
@@ -313,4 +331,58 @@ export function betterRead(a: ScannedBet, b: ScannedBet): ScannedBet {
   const pb = slipProblems(b).length;
   if (pa !== pb) return pa < pb ? a : b;
   return b.legs.filter((l) => l.market).length > a.legs.filter((l) => l.market).length ? b : a;
+}
+
+const legKey = (l: ParlayLeg) => {
+  const m = l.market;
+  if (!m) return null;
+  if (m.kind === 'player') return `p|${m.player.toLowerCase()}|${m.stat}`;
+  if (m.kind === 'moneyline' || m.kind === 'spread') return `t|${m.kind}|${m.team.toLowerCase()}`;
+  return `o|${m.side}`;
+};
+
+/**
+ * Combines several reads of the same photo: the best read supplies the
+ * ticket details, and each leg only has to come out clean in one read.
+ * When reads disagree on a leg's line, the most common value wins.
+ */
+export function mergeReads(reads: ScannedBet[]): ScannedBet {
+  const base = reads.reduce((a, b) => betterRead(a, b));
+  const ordered = [base, ...reads.filter((r) => r !== base)];
+  const seen = new Map<string, { leg: ParlayLeg; lines: number[] }>();
+  for (const r of ordered) {
+    for (const l of r.legs) {
+      const k = legKey(l);
+      if (!k) continue;
+      const entry = seen.get(k);
+      const line = l.market?.kind === 'player' ? l.market.line : NaN;
+      if (entry) entry.lines.push(line);
+      else seen.set(k, { leg: l, lines: [line] });
+    }
+  }
+  const legs = [...seen.values()].map(({ leg, lines }) => {
+    if (leg.market?.kind !== 'player') return leg;
+    const counts = new Map<number, number>();
+    lines.forEach((n) => counts.set(n, (counts.get(n) ?? 0) + 1));
+    const line = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    if (line === leg.market.line) return leg;
+    return {
+      ...leg,
+      market: { ...leg.market, line },
+      pick: leg.pick.replace(/\d+(?:\.\d)?\+/, `${line}+`),
+    };
+  });
+  const pick = (k: keyof ScannedBet) =>
+    ordered.map((r) => r[k]).find((v) => v !== null && v !== '' && v !== undefined);
+  return {
+    ...base,
+    legs: legs.length ? legs : base.legs,
+    stake: (pick('stake') as number | null) ?? null,
+    odds: (pick('odds') as number | null) ?? null,
+    book: (pick('book') as string) ?? '',
+    notes: (pick('notes') as string) ?? '',
+    date: (pick('date') as string) || todayISO(),
+    game: pick('game') as ScannedBet['game'],
+    expectedLegs: (pick('expectedLegs') as number | undefined) ?? undefined,
+  };
 }

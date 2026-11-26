@@ -96,13 +96,64 @@ async function enhance(jpegBase64: string): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
-/** Reads the text on a JPEG (base64); `enhanced` reads a high-contrast copy. */
-export async function readTextOnDevice(jpegBase64: string, enhanced = false): Promise<string> {
+/**
+ * Shadow-proof black & white copy: each pixel is compared with the average
+ * brightness around it (Bradley adaptive threshold), so text stays dark even
+ * where a shadow or glare falls across the ticket.
+ */
+async function binarize(jpegBase64: string): Promise<HTMLCanvasElement> {
+  const canvas = await enhance(jpegBase64);
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const data = ctx.getImageData(0, 0, w, h);
+  const px = data.data;
+  const integral = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) {
+      row += px[(y * w + x) * 4];
+      integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + row;
+    }
+  }
+  const half = Math.max(8, Math.round(w / 24));
+  const t = 0.15;
+  for (let y = 0; y < h; y++) {
+    const y1 = Math.max(0, y - half);
+    const y2 = Math.min(h, y + half + 1);
+    for (let x = 0; x < w; x++) {
+      const x1 = Math.max(0, x - half);
+      const x2 = Math.min(w, x + half + 1);
+      const sum =
+        integral[y2 * (w + 1) + x2] -
+        integral[y1 * (w + 1) + x2] -
+        integral[y2 * (w + 1) + x1] +
+        integral[y1 * (w + 1) + x1];
+      const mean = sum / ((x2 - x1) * (y2 - y1));
+      const i = (y * w + x) * 4;
+      const v = px[i] < mean * (1 - t) ? 0 : 255;
+      px[i] = px[i + 1] = px[i + 2] = v;
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  return canvas;
+}
+
+export type ReadMode = 'plain' | 'shadowfree' | 'contrast';
+
+/** Reads the text on a JPEG (base64), optionally from a cleaned-up copy. */
+export async function readTextOnDevice(
+  jpegBase64: string,
+  mode: ReadMode = 'plain',
+): Promise<string> {
   if (!canReadOnDevice()) throw new Error('On-device reading is only available in the web app.');
   const worker = await getWorker();
-  const input = enhanced
-    ? ((await enhance(jpegBase64)) as unknown as string)
-    : `data:image/jpeg;base64,${jpegBase64}`;
-  const { data } = await worker.recognize(input);
+  const input =
+    mode === 'shadowfree'
+      ? await binarize(jpegBase64)
+      : mode === 'contrast'
+        ? await enhance(jpegBase64)
+        : `data:image/jpeg;base64,${jpegBase64}`;
+  const { data } = await worker.recognize(input as unknown as string);
   return data.text ?? '';
 }
