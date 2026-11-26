@@ -53,6 +53,8 @@ interface Store {
   exportData: () => string;
   importData: (json: string) => { ok: true; count: number } | { ok: false; error: string };
   clearAll: () => void;
+  /** Deletes every ticket (here and in your account) but keeps settings. */
+  clearBets: () => void;
   /** Apply bets from cloud sync without re-stamping them. */
   applyRemote: (upserts: Bet[], deletedIds: string[]) => void;
 }
@@ -190,6 +192,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
+  const clearBets = useCallback(() => setBets([]), []);
+
   const applyRemote = useCallback((upserts: Bet[], deletedIds: string[]) => {
     if (!upserts.length && !deletedIds.length) return;
     setBets((prev) => {
@@ -212,6 +216,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       exportData,
       importData,
       clearAll,
+      clearBets,
       applyRemote,
     }),
     [
@@ -225,6 +230,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       exportData,
       importData,
       clearAll,
+      clearBets,
       applyRemote,
     ],
   );

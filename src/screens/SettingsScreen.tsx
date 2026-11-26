@@ -69,7 +69,7 @@ function ListEditor({
 }
 
 export function SettingsScreen() {
-  const { settings, updateSettings, exportData, importData, clearAll, bets } = useStore();
+  const { settings, updateSettings, exportData, importData, clearAll, clearBets, bets } = useStore();
   const [bankroll, setBankroll] = useState(
     settings.startingBankroll ? String(settings.startingBankroll) : '',
   );
@@ -278,12 +278,25 @@ export function SettingsScreen() {
 
       <SectionTitle>Danger Zone</SectionTitle>
       <Button
+        title={`Delete All Tickets (${bets.length})`}
+        variant="danger"
+        onPress={() =>
+          confirm(
+            'Delete all tickets?',
+            `This permanently deletes all ${bets.length} tickets on this device and in your account. Your settings and API key stay.`,
+            clearBets,
+            'Delete Tickets',
+          )
+        }
+      />
+      <View style={{ height: space.md }} />
+      <Button
         title="Delete All Data"
         variant="danger"
         onPress={() =>
           confirm(
             'Delete all data?',
-            'This permanently deletes every bet and resets settings.',
+            'This permanently deletes every ticket and resets all settings, including your API key.',
             clearAll,
             'Delete All',
           )
