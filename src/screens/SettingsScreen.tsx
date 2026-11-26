@@ -1,0 +1,258 @@
+import React, { useState } from 'react';
+import {
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
+import { parseNumber } from '../format';
+import { useStore } from '../store';
+import { colors, radius, space } from '../theme';
+
+function ListEditor({
+  title,
+  items,
+  onChange,
+  placeholder,
+}: {
+  title: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+  placeholder: string;
+}) {
+  const [draft, setDraft] = useState('');
+  const add = () => {
+    const v = draft.trim();
+    if (v && !items.includes(v)) onChange([...items, v]);
+    setDraft('');
+  };
+  return (
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      <Card>
+        <View style={styles.tags}>
+          {items.map((it) => (
+            <Text
+              key={it}
+              style={styles.tag}
+              onPress={() => onChange(items.filter((x) => x !== it))}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${it}`}
+            >
+              {it} ✕
+            </Text>
+          ))}
+        </View>
+        <View style={styles.addRow}>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={add}
+            placeholder={placeholder}
+            placeholderTextColor={colors.textFaint}
+            style={styles.addInput}
+            returnKeyType="done"
+          />
+          <Button title="Add" variant="secondary" onPress={add} style={{ paddingHorizontal: 18 }} />
+        </View>
+      </Card>
+    </>
+  );
+}
+
+export function SettingsScreen() {
+  const { settings, updateSettings, exportData, importData, clearAll, bets } = useStore();
+  const [bankroll, setBankroll] = useState(
+    settings.startingBankroll ? String(settings.startingBankroll) : '',
+  );
+  const [unit, setUnit] = useState(String(settings.unitSize));
+  const [importText, setImportText] = useState('');
+  const [showImport, setShowImport] = useState(false);
+
+  const doExport = async () => {
+    const json = exportData();
+    if (Platform.OS === 'web') {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bet-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    await Share.share({ message: json, title: 'Bet Tracker backup' });
+  };
+
+  const doImport = () => {
+    const res = importData(importText);
+    if (res.ok) {
+      notify('Import complete', `Imported ${res.count} bet${res.count === 1 ? '' : 's'}.`);
+      setImportText('');
+      setShowImport(false);
+    } else {
+      notify('Import failed', res.error);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <SectionTitle>Bankroll & Units</SectionTitle>
+      <Card>
+        <Field
+          label="Starting bankroll ($)"
+          value={bankroll}
+          onChangeText={setBankroll}
+          onBlur={() => {
+            const n = parseNumber(bankroll);
+            updateSettings({ startingBankroll: Number.isFinite(n) && n > 0 ? n : 0 });
+          }}
+          placeholder="e.g. 1000"
+          keyboardType="decimal-pad"
+          hint="Your dashboard will show your current bankroll."
+        />
+        <Field
+          label="Unit size ($)"
+          value={unit}
+          onChangeText={setUnit}
+          onBlur={() => {
+            const n = parseNumber(unit);
+            if (Number.isFinite(n) && n > 0) updateSettings({ unitSize: n });
+            else setUnit(String(settings.unitSize));
+          }}
+          placeholder="10"
+          keyboardType="decimal-pad"
+        />
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>Show amounts in units</Text>
+            <Text style={styles.switchHint}>
+              Display profit and stakes as units instead of dollars
+            </Text>
+          </View>
+          <Switch
+            value={settings.showUnits}
+            onValueChange={(v) => updateSettings({ showUnits: v })}
+            trackColor={{ true: colors.accentDim, false: colors.surfaceAlt }}
+            thumbColor={settings.showUnits ? colors.accent : colors.textDim}
+          />
+        </View>
+      </Card>
+
+      <ListEditor
+        title="Sportsbooks"
+        items={settings.books}
+        onChange={(books) => updateSettings({ books })}
+        placeholder="Add a sportsbook"
+      />
+      <ListEditor
+        title="Sports"
+        items={settings.sports}
+        onChange={(sports) => updateSettings({ sports: sports.length ? sports : ['Other'] })}
+        placeholder="Add a sport or league"
+      />
+
+      <SectionTitle>Backup</SectionTitle>
+      <Card style={{ gap: space.md }}>
+        <Text style={styles.body}>
+          Your {bets.length} bet{bets.length === 1 ? ' is' : 's are'} saved on this device only.
+          Export a backup regularly so you don't lose them.
+        </Text>
+        <Button title="Export Backup" variant="secondary" onPress={doExport} />
+        <Button
+          title={showImport ? 'Cancel Import' : 'Import Backup'}
+          variant="secondary"
+          onPress={() => setShowImport((v) => !v)}
+        />
+        {showImport ? (
+          <>
+            <TextInput
+              value={importText}
+              onChangeText={setImportText}
+              placeholder="Paste backup JSON here"
+              placeholderTextColor={colors.textFaint}
+              multiline
+              style={styles.importBox}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Button title="Import" onPress={doImport} disabled={!importText.trim()} />
+          </>
+        ) : null}
+      </Card>
+
+      <SectionTitle>Danger Zone</SectionTitle>
+      <Button
+        title="Delete All Data"
+        variant="danger"
+        onPress={() =>
+          confirm(
+            'Delete all data?',
+            'This permanently deletes every bet and resets settings.',
+            clearAll,
+            'Delete All',
+          )
+        }
+      />
+
+      <Text style={styles.footer}>
+        Bet Tracker v1.0 · For personal record-keeping only. Please gamble responsibly. If you or
+        someone you know has a gambling problem, call 1-800-GAMBLER.
+      </Text>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { padding: space.lg, paddingBottom: 120 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  switchLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  switchHint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginBottom: space.md },
+  tag: {
+    color: colors.text,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  addRow: { flexDirection: 'row', gap: space.sm },
+  addInput: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    color: colors.text,
+    fontSize: 15,
+  },
+  body: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
+  importBox: {
+    minHeight: 120,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: space.md,
+    color: colors.text,
+    fontSize: 13,
+    textAlignVertical: 'top',
+  },
+  footer: {
+    color: colors.textFaint,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: space.xl,
+    lineHeight: 18,
+  },
+});
