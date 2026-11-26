@@ -4,7 +4,7 @@ import { colors } from '../theme';
 
 /**
  * One dot per leg, the same everywhere in the app:
- * green = hit, solid orange = playing now, hollow orange = not started yet, red = missed,
+ * green = hit, orange = pending (game in play), clear ring = game not started, red = missed,
  * amber = pushed (dropped from the ticket), grey = no result (couldn't be graded, e.g. a
  * player with no stats).
  */
@@ -32,7 +32,7 @@ export function LegDots({ kinds, size = 9 }: { kinds: DotKind[]; size?: number }
   );
 }
 
-/** Not-started legs are hollow rings; everything else is a filled dot. */
+/** Not-started legs are clear rings; everything else is a filled dot. */
 function dotStyle(k: DotKind, size: number) {
   return k === 'toPlay'
     ? {
@@ -40,7 +40,7 @@ function dotStyle(k: DotKind, size: number) {
         height: size,
         borderRadius: size / 2,
         borderWidth: 1.5,
-        borderColor: DOT_COLOR.toPlay,
+        borderColor: colors.textDim, // clear ring: nothing has happened yet
       }
     : {
         width: size,
@@ -51,13 +51,13 @@ function dotStyle(k: DotKind, size: number) {
       };
 }
 
-/** "✓ 1 hit · 1 live · 13 to play" (and missed / pushed / no result when there are any). */
+/** "✓ 1 hit · 1 pending · 13 not started" (and missed / pushed / no result when there are any). */
 export function dotCounts(kinds: DotKind[]): string {
   const n = (k: DotKind) => kinds.filter((x) => x === k).length;
   return [
     n('hit') ? `✓ ${n('hit')} hit` : '',
-    n('live') ? `${n('live')} live` : '',
-    n('toPlay') ? `${n('toPlay')} to play` : '',
+    n('live') ? `${n('live')} pending` : '',
+    n('toPlay') ? `${n('toPlay')} not started` : '',
     n('miss') ? `${n('miss')} missed` : '',
     n('push') ? `${n('push')} pushed` : '',
     n('none') ? `${n('none')} no result` : '',
@@ -70,8 +70,8 @@ export function dotCounts(kinds: DotKind[]): string {
 export function DotLegend({ showNone = true }: { showNone?: boolean }) {
   const items: [DotKind, string][] = [
     ['hit', 'hit'],
-    ['live', 'live'],
-    ['toPlay', 'to play'],
+    ['live', 'pending'],
+    ['toPlay', 'not started'],
     ['miss', 'missed'],
     ...(showNone ? ([['none', 'no result']] as [DotKind, string][]) : []),
   ];
