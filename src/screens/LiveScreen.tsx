@@ -366,10 +366,12 @@ function TicketList({
 function GameCast({
   game,
   gameBets,
+  parlayBets,
   onEditBet,
 }: {
   game: LiveGame;
   gameBets: Bet[];
+  parlayBets: Bet[];
   onEditBet: (b: Bet) => void;
 }) {
   const live = game.state === 'in';
@@ -394,12 +396,22 @@ function GameCast({
         <WinBar game={game} />
       </View>
 
-      <TicketList
-        title={`Your Tickets (${gameBets.length})`}
-        bets={gameBets}
-        fallback={game}
-        onEditBet={onEditBet}
-      />
+      {gameBets.length ? (
+        <TicketList
+          title={`Your Tickets (${gameBets.length})`}
+          bets={gameBets}
+          fallback={game}
+          onEditBet={onEditBet}
+        />
+      ) : null}
+      {parlayBets.length ? (
+        <TicketList
+          title={`Parlays with a leg in this game (${parlayBets.length})`}
+          bets={parlayBets}
+          showGameLines
+          onEditBet={onEditBet}
+        />
+      ) : null}
 
       {game.plays.length ? (
         <>
@@ -437,79 +449,238 @@ function GameCast({
   );
 }
 
+interface GameEntry {
+  game: LiveGame;
+  /** Tickets entirely on this game. */
+  single: Bet[];
+  /** Multi-game parlays with at least one leg here. */
+  parlays: Bet[];
+}
+
+/** How a ticket stands right now: chance to cash, any leg missed, all legs hit. */
+function ticketStatus(bet: Bet, perLeg: (LiveGame | undefined)[], fallback?: LiveGame) {
+  const states: LegProgress['state'][] = [];
+  const chances: (number | null)[] = [];
+  betMarkets(bet).forEach((m, i) => {
+    const g = perLeg[i] ?? (perLeg.length ? undefined : fallback);
+    const progress = gradeMarket(m.market, g);
+    states.push(progress.state);
+    chances.push(
+      legChance(m.market, progress, g, bet.legs?.length ? bet.legs[i]?.odds : bet.odds),
+    );
+  });
+  return {
+    states,
+    chance: betChance(chances),
+    missed: states.includes('miss'),
+    allHit: states.length > 0 && states.every((st) => st === 'hit'),
+  };
+}
+
+/** One scoreboard line per game; tapping it opens the full gamecast. */
+function GameRow({
+  entry,
+  onPress,
+}: {
+  entry: GameEntry;
+  onPress: () => void;
+}) {
+  const { legGames } = useLive();
+  const { game } = entry;
+  const live = game.state === 'in';
+  const tickets = [...entry.single, ...entry.parlays];
+  const statuses = tickets.map((b) => ticketStatus(b, legGames.get(b.id) ?? [], game));
+  const alive = statuses.filter((st) => !st.missed);
+  const best = alive.reduce<number | null>(
+    (m, st) => (st.chance !== null && (m === null || st.chance > m) ? st.chance : m),
+    null,
+  );
+  // Tickets still open on a finished game are ones the app couldn't grade.
+  const summary =
+    game.state === 'post'
+      ? `Final · ${tickets.length} ticket${tickets.length === 1 ? '' : 's'} to settle ✍️`
+      : alive.length === 0
+      ? `${tickets.length === 1 ? 'Ticket' : 'All tickets'} busted 💀`
+      : `${tickets.length} ticket${tickets.length === 1 ? '' : 's'}` +
+        (alive.length < tickets.length ? ` · ${alive.length} alive` : '') +
+        (best !== null ? ` · best ${formatChance(best)} to cash` : '');
+  const team = (t: TeamScore, leading: boolean) => (
+    <View style={styles.rowTeam}>
+      <TeamLogo team={t} size={22} />
+      <Text style={[styles.rowAbbr, leading && { color: colors.text }]}>{t.abbr}</Text>
+      <Text style={[styles.rowScore, leading && { color: colors.text }]}>{t.score}</Text>
+      {t.hasBall ? <Text style={styles.rowBall}>🏈</Text> : null}
+    </View>
+  );
+  const awayLead = Number(game.away.score) > Number(game.home.score);
+  const homeLead = Number(game.home.score) > Number(game.away.score);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.gameRow,
+        live && { borderColor: colors.loss + '88' },
+        pressed && { opacity: 0.85 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`${game.away.short} at ${game.home.short}, tap for your bets`}
+    >
+      <View style={{ flex: 1, gap: 4 }}>
+        {team(game.away, awayLead)}
+        {team(game.home, homeLead)}
+      </View>
+      <View style={styles.rowRight}>
+        <View style={styles.rowStatus}>
+          {live ? <View style={styles.dot} /> : null}
+          <Text style={[styles.rowStatusText, live && { color: colors.loss }]}>
+            {live ? game.detail : game.state === 'post' ? 'FINAL' : game.detail}
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.rowSummary,
+            {
+              color:
+                game.state === 'post'
+                  ? colors.push
+                  : alive.length
+                    ? best !== null
+                      ? chanceColor(best)
+                      : colors.textDim
+                    : colors.loss,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {summary}
+        </Text>
+        <View style={styles.rowDots}>
+          {statuses.map((st, i) => (
+            <View
+              key={i}
+              style={[
+                styles.legDot,
+                {
+                  backgroundColor: st.missed
+                    ? colors.loss
+                    : st.allHit
+                      ? colors.win
+                      : st.chance !== null
+                        ? chanceColor(st.chance)
+                        : colors.surfaceAlt,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+      <Text style={styles.chev}>›</Text>
+    </Pressable>
+  );
+}
+
 export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
   const { bets } = useStore();
   const { games, legGames, refresh, refreshing, lastError } = useLive();
+  const [selected, setSelected] = useState<string | null>(null);
   const [, setNow] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setNow((n) => n + 1), 5000);
     return () => clearInterval(t);
   }, []);
 
-  // One gamecast per game, with the pending tickets on it.
   const isMulti = (b: Bet) =>
     new Set((legGames.get(b.id) ?? []).filter(Boolean).map((g) => g!.eventId)).size > 1;
-  const multiBets = useMemo(
-    () =>
-      bets.filter(
-        (b) =>
-          b.status === 'pending' &&
-          games.get(b.id) &&
-          isMulti(b) &&
-          (legGames.get(b.id) ?? []).some((g) => g && g.state !== 'pre'),
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bets, games, legGames],
-  );
-  const byGame = useMemo(() => {
-    const map = new Map<string, { game: LiveGame; bets: Bet[] }>();
+  const started = (b: Bet) =>
+    b.status === 'pending' && (legGames.get(b.id) ?? []).some((g) => g && g.state !== 'pre');
+
+  // Every game that has kicked off and has at least one of your legs on it.
+  const { entries, multiBets } = useMemo(() => {
+    const map = new Map<string, GameEntry>();
+    const multi: Bet[] = [];
+    const entry = (g: LiveGame) => {
+      const e = map.get(g.eventId) ?? { game: g, single: [], parlays: [] };
+      map.set(g.eventId, e);
+      return e;
+    };
     for (const b of bets) {
-      if (b.status !== 'pending' || isMulti(b)) continue;
-      const g = games.get(b.id);
-      // Only games that have kicked off; the rest wait on the Upcoming tab.
-      if (!g || g.state === 'pre') continue;
-      const entry = map.get(g.eventId) ?? { game: g, bets: [] };
-      entry.bets.push(b);
-      map.set(g.eventId, entry);
+      if (b.status !== 'pending') continue;
+      if (isMulti(b)) {
+        if (!started(b)) continue;
+        multi.push(b);
+        const seen = new Set<string>();
+        for (const g of legGames.get(b.id) ?? []) {
+          if (!g || g.state === 'pre' || seen.has(g.eventId)) continue;
+          seen.add(g.eventId);
+          entry(g).parlays.push(b);
+        }
+      } else {
+        const g = games.get(b.id);
+        if (!g || g.state === 'pre') continue;
+        entry(g).single.push(b);
+      }
     }
-    // Live games first, then upcoming, then finished.
+    // Live games first, then finished ones.
     const order = { in: 0, pre: 1, post: 2 } as const;
-    return [...map.values()].sort((a, b) => order[a.game.state] - order[b.game.state]);
+    const list = [...map.values()].sort((a, b) => order[a.game.state] - order[b.game.state]);
+    return { entries: list, multiBets: multi };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bets, games, legGames]);
 
-  const updated = byGame[0]?.game.updatedAt;
+  const updated = entries[0]?.game.updatedAt;
   const ago = updated ? Math.max(0, Math.round((Date.now() - updated) / 1000)) : null;
+  const open = selected ? entries.find((e) => e.game.eventId === selected) : undefined;
+  const liveCount = entries.filter((e) => e.game.state === 'in').length;
+
+  const refreshRow = (
+    <View style={styles.refreshRow}>
+      <Text style={styles.refreshText}>
+        {lastError
+          ? `Update failed: ${lastError}`
+          : ago !== null
+            ? `Updated ${ago < 5 ? 'just now' : `${ago}s ago`} · refreshes every 30s`
+            : refreshing
+              ? 'Loading games…'
+              : ''}
+      </Text>
+      <Pressable onPress={refresh} style={styles.refreshBtn} accessibilityRole="button">
+        <Text style={styles.refreshBtnText}>{refreshing ? '…' : '↻ Refresh'}</Text>
+      </Pressable>
+    </View>
+  );
+
+  // One game opened: its full gamecast with your tickets.
+  if (open) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Pressable
+          onPress={() => setSelected(null)}
+          style={styles.back}
+          accessibilityRole="button"
+          hitSlop={10}
+        >
+          <Text style={styles.backText}>‹ All games</Text>
+        </Pressable>
+        {refreshRow}
+        <GameCast
+          game={open.game}
+          gameBets={open.single}
+          parlayBets={open.parlays}
+          onEditBet={onEditBet}
+        />
+        <Text style={styles.footnote}>
+          Hit chances are rough estimates from each leg's pace and the time left (ESPN's win
+          probability for moneylines). Same-game legs are treated as independent.
+        </Text>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.refreshRow}>
-        <Text style={styles.refreshText}>
-          {lastError
-            ? `Update failed: ${lastError}`
-            : ago !== null
-              ? `Updated ${ago < 5 ? 'just now' : `${ago}s ago`} · refreshes every 30s`
-              : refreshing
-                ? 'Loading games…'
-                : ''}
-        </Text>
-        <Pressable onPress={refresh} style={styles.refreshBtn} accessibilityRole="button">
-          <Text style={styles.refreshBtnText}>{refreshing ? '…' : '↻ Refresh'}</Text>
-        </Pressable>
-      </View>
+      {refreshRow}
 
-      {multiBets.length ? (
-        <View style={{ marginBottom: space.xl }}>
-          <TicketList
-            title={`Multi-game parlays (${multiBets.length})`}
-            bets={multiBets}
-            showGameLines
-            onEditBet={onEditBet}
-          />
-        </View>
-      ) : null}
-
-      {byGame.length === 0 && !multiBets.length ? (
+      {entries.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No games in progress</Text>
           <Text style={styles.emptyText}>
@@ -518,14 +689,28 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
           </Text>
         </View>
       ) : (
-        byGame.map(({ game, bets: gameBets }) => (
-          <GameCast key={game.eventId} game={game} gameBets={gameBets} onEditBet={onEditBet} />
-        ))
+        <>
+          <SectionTitle>
+            {liveCount ? `🔴 ${liveCount} live` : 'Games'}
+            {entries.length > liveCount ? ` · ${entries.length - liveCount} final` : ''} · tap a
+            game for your bets
+          </SectionTitle>
+          {entries.map((e) => (
+            <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
+          ))}
+        </>
       )}
-      <Text style={styles.footnote}>
-        Hit chances are rough estimates from each leg's pace and the time left (ESPN's win
-        probability for moneylines). Same-game legs are treated as independent.
-      </Text>
+
+      {multiBets.length ? (
+        <View style={{ marginTop: space.lg }}>
+          <TicketList
+            title={`Multi-game parlays (${multiBets.length})`}
+            bets={multiBets}
+            showGameLines
+            onEditBet={onEditBet}
+          />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -685,6 +870,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  back: { marginBottom: space.sm },
+  backText: { color: colors.accent, fontSize: 16, fontWeight: '700' },
+  gameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    marginBottom: space.sm,
+  },
+  rowTeam: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowAbbr: { color: colors.textDim, fontSize: 15, fontWeight: '800', width: 44 },
+  rowScore: {
+    color: colors.textDim,
+    fontSize: 18,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    minWidth: 26,
+  },
+  rowBall: { fontSize: 12 },
+  rowRight: { alignItems: 'flex-end', gap: 4, maxWidth: '58%' },
+  rowStatus: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  rowStatusText: { color: colors.textDim, fontSize: 12, fontWeight: '800' },
+  rowSummary: { fontSize: 12, fontWeight: '700' },
+  rowDots: { flexDirection: 'row', gap: 4 },
+  chev: { color: colors.textFaint, fontSize: 24, fontWeight: '300' },
   footnote: {
     color: colors.textFaint,
     fontSize: 11,
