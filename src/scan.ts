@@ -3,7 +3,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { todayISO } from './format';
 import { SCAN_MODEL, SCHEMA, SYSTEM_PROMPT } from './scanSpec';
-import { isGradeable, parseMarket } from './markets';
+import { EACH_QUARTER, isGradeable, parseMarket } from './markets';
 import { decimalToAmerican, isValidAmerican } from './odds';
 import {
   BET_TYPES,
@@ -273,6 +273,7 @@ export function parseScanAnswer(text: string, stopReason: string): ScannedBet[] 
 function toMarket(m: RawMarket | null | undefined, fallbackText: string): Market | undefined {
   // Halves, quarters, first scorer, longest play...: settle these by hand.
   if (!isGradeable(fallbackText)) return undefined;
+  if (EACH_QUARTER.test(fallbackText)) return parseMarket(fallbackText);
   if (m) {
     if (m.kind === 'player' && m.player && m.stat && m.stat in PLAYER_STATS && m.line && m.line > 0)
       return m.side === 'under'

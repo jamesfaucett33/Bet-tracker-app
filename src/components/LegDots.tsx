@@ -123,3 +123,45 @@ const styles = StyleSheet.create({
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { color: colors.textFaint, fontSize: 12, fontWeight: '600' },
 });
+
+/**
+ * "In each quarter" props: one box per quarter with that quarter's number.
+ * Green = reached the line, orange = being played, red = quarter ended short
+ * (the leg is busted), clear = not started.
+ */
+export function QuarterParts({
+  parts,
+}: {
+  parts: { label: string; value: number; state: LegState }[];
+}) {
+  return (
+    <View style={qStyles.row}>
+      {parts.map((p) => {
+        const kind = dotForState(p.state);
+        const color = kind === 'toPlay' ? colors.textFaint : DOT_COLOR[kind];
+        return (
+          <View
+            key={p.label}
+            style={[
+              qStyles.box,
+              { borderColor: color },
+              kind !== 'toPlay' && { backgroundColor: color + '22' },
+            ]}
+          >
+            <Text style={[qStyles.label, { color }]}>{p.label}</Text>
+            <Text style={[qStyles.value, { color: kind === 'toPlay' ? colors.textFaint : colors.text }]}>
+              {kind === 'toPlay' ? '–' : p.value}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const qStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  box: { flex: 1, borderWidth: 1.5, borderRadius: 8, paddingVertical: 4, alignItems: 'center' },
+  label: { fontSize: 11, fontWeight: '800' },
+  value: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
+});

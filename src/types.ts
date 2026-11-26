@@ -78,6 +78,8 @@ export type Market =
       under?: boolean;
       /** Whole-number lines ("Over 250"): landing exactly on it is a push. */
       pushAt?: number;
+      /** "In each quarter": the line has to be reached in every one of these quarters. */
+      periods?: number[];
     }
   | { kind: 'moneyline'; team: string }
   | { kind: 'spread'; team: string; line: number }

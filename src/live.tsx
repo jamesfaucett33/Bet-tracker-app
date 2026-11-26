@@ -63,6 +63,8 @@ export interface LiveGame {
   doubtPlayers: Set<string>;
   /** Both teams' rosters (normalized names), loaded once the game is final. */
   rosterPlayers: Set<string>;
+  /** Per-quarter yards / catches from the play-by-play, keyed "c lamb" (initial + last name). */
+  quarterStats: Map<string, { recYds: number[]; rushYds: number[]; receptions: number[] }>;
   league: string;
   period: number;
   /** Seconds left in the current period. */
@@ -90,6 +92,8 @@ export interface LegProgress {
   target: number | null;
   state: LegState;
   text: string; // "136 / 250", "Up 3", "Final: won by 7"
+  /** "In each quarter" props: one part per quarter. */
+  parts?: { label: string; value: number; state: LegState }[];
 }
 
 // ---------- matching helpers ----------
@@ -267,6 +271,67 @@ export function playerStatus(game: LiveGame, name: string): 'box' | 'zero' | 'ou
   return 'unknown';
 }
 
+/** "C.Lamb" / "A.St. Brown" -> "c lamb" / "a st brown"; "CeeDee Lamb" -> "c lamb". */
+function shortKey(name: string): string {
+  const abbr = /^([A-Za-z])[a-z]?\.\s?(.+)$/.exec(name.trim());
+  if (abbr) return `${abbr[1].toLowerCase()} ${norm(abbr[2])}`;
+  const words = norm(name).split(' ');
+  return words.length > 1 ? `${words[0][0]} ${words.slice(1).join(' ')}` : words[0] ?? '';
+}
+
+const PLAYER_ABBR = "[A-Z][a-z]?\\.\\s?[A-Z][\\w'.\\-]*(?: [A-Z][\\w'\\-]*)?";
+const RECEIVER = new RegExp(`pass (?:[a-z]+ )*to (${PLAYER_ABBR}?)(?= (?:to|for|ran|pushed|at|out)\\b|[.,(])`);
+// The runner is the name right before the run ("B.Corum up the middle", "J.Love scrambles"),
+// not whoever a note before it mentions ("D.Quessenberry reported in as eligible.").
+const RUSHER = new RegExp(
+  `(${PLAYER_ABBR}?) (?=up the middle|(?:left|right) (?:end|tackle|guard)|scrambles|kneels|rushe?d?\\b|to the|for )`,
+);
+
+/**
+ * Totals each player's receiving yards, rushing yards and catches by quarter
+ * from the play-by-play (the box score only has full-game totals).
+ */
+function quarterStatsFrom(data: any) {
+  const out = new Map<string, { recYds: number[]; rushYds: number[]; receptions: number[] }>();
+  const plays: any[] = [
+    ...(data.drives?.previous ?? []).flatMap((d: any) => d.plays ?? []),
+    ...(data.drives?.current?.plays ?? []),
+  ];
+  const seen = new Set<string>();
+  const add = (name: string, stat: 'recYds' | 'rushYds' | 'receptions', q: number, n: number) => {
+    const k = shortKey(name);
+    const row = out.get(k) ?? { recYds: [0, 0, 0, 0, 0], rushYds: [0, 0, 0, 0, 0], receptions: [0, 0, 0, 0, 0] };
+    row[stat][Math.min(q, 5) - 1] += n;
+    out.set(k, row);
+  };
+  for (const p of plays) {
+    if (!p || seen.has(String(p.id))) continue;
+    seen.add(String(p.id));
+    const text = String(p.text ?? '');
+    const type = String(p.type?.text ?? '');
+    const q = Number(p.period?.number ?? 0);
+    if (!q || /no play|nullified/i.test(text)) continue;
+    // Penalty plays fold the penalty into the play's yardage; use the gain as written.
+    const written = /for (-?\d+) yards?|for (no gain)/.exec(text);
+    const yards = p.isPenalty && written
+      ? written[2]
+        ? 0
+        : Number(written[1])
+      : Number(p.statYardage ?? 0) || 0;
+    if (/pass reception|passing touchdown/i.test(type)) {
+      const who = RECEIVER.exec(text)?.[1];
+      if (who) {
+        add(who, 'recYds', q, yards);
+        add(who, 'receptions', q, 1);
+      }
+    } else if (/^rush|rushing touchdown/i.test(type)) {
+      const who = RUSHER.exec(text)?.[1];
+      if (who) add(who, 'rushYds', q, yards);
+    }
+  }
+  return out;
+}
+
 export async function fetchLiveGame(league: string, eventId: string): Promise<LiveGame> {
   const path = LEAGUE_PATHS[league.toUpperCase()];
   const data = await getJSON(`${ESPN}/${path}/summary?event=${eventId}`);
@@ -348,6 +413,7 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
     outPlayers,
     doubtPlayers,
     rosterPlayers,
+    quarterStats: quarterStatsFrom(data),
     league: league.toUpperCase(),
     period: Number(comp?.status?.period ?? 0),
     clockSecs: clockToSecs(comp?.status?.displayClock),
@@ -501,6 +567,42 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
   }
   const final = game.state === 'post';
   const started = game.state !== 'pre';
+
+  if (market.kind === 'player' && market.periods) {
+    // "In each quarter": every quarter has to reach the line on its own.
+    const row = game.quarterStats.get(shortKey(market.player));
+    const valueIn = (q: number) => {
+      if (!row) return 0;
+      const i = q - 1;
+      if (market.stat === 'recYds') return row.recYds[i];
+      if (market.stat === 'rushYds') return row.rushYds[i];
+      if (market.stat === 'rushRecYds') return row.recYds[i] + row.rushYds[i];
+      return row.receptions[i];
+    };
+    const parts = market.periods.map((q) => {
+      const value = game.state === 'pre' ? 0 : valueIn(q);
+      const over = final || game.period > q; // that quarter is finished
+      const now = game.state === 'in' && game.period === q;
+      const state: LegState =
+        value >= market.line ? 'hit' : over ? 'miss' : now ? 'live' : 'pre';
+      return { label: `Q${q}`, value, state };
+    });
+    const state: LegState = parts.some((x) => x.state === 'miss')
+      ? 'miss'
+      : parts.every((x) => x.state === 'hit')
+        ? 'hit'
+        : game.state === 'pre'
+          ? 'pre'
+          : 'live';
+    const done = parts.filter((x) => x.state === 'hit').length;
+    return {
+      current: done,
+      target: parts.length,
+      state,
+      text: parts.map((x) => `${x.label} ${x.state === 'pre' ? '–' : x.value}`).join(' · '),
+      parts,
+    };
+  }
 
   if (market.kind === 'player') {
     const key = findPlayerKey(game, market.player);

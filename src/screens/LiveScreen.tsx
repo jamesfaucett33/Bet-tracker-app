@@ -9,6 +9,7 @@ import {
   dotCounts,
   dotForState,
   LegDots,
+  QuarterParts,
 } from '../components/LegDots';
 import { formatAmount } from '../format';
 import { betToWin, formatOdds } from '../odds';
@@ -117,13 +118,17 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
           {prop.label}
           {final && p.state === 'hit' ? ' · final' : ''}
         </Text>
-        <Text style={styles.propValue}>{p.text}</Text>
+        {p.parts ? null : <Text style={styles.propValue}>{p.text}</Text>}
       </View>
-      <View style={styles.track}>
-        <View
-          style={[styles.fill, { width: `${Math.round(fill * 100)}%`, backgroundColor: color }]}
-        />
-      </View>
+      {p.parts ? (
+        <QuarterParts parts={p.parts} />
+      ) : (
+        <View style={styles.track}>
+          <View
+            style={[styles.fill, { width: `${Math.round(fill * 100)}%`, backgroundColor: color }]}
+          />
+        </View>
+      )}
     </View>
   );
 }

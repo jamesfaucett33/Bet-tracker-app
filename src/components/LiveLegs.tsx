@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { isCovering, LegProgress, LiveGame, TeamScore } from '../live';
-import { dotCounts, dotForState, Dot } from './LegDots';
+import { dotCounts, dotForState, Dot, QuarterParts } from './LegDots';
 import { colors, radius, space } from '../theme';
 import { Market } from '../types';
 
@@ -98,7 +98,9 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
                 {leg.gameText}
               </Text>
             ) : null}
-            {p.state !== 'unknown' ? (
+            {p.parts ? (
+              <QuarterParts parts={p.parts} />
+            ) : p.state !== 'unknown' ? (
               <View style={styles.track}>
                 <View
                   style={[

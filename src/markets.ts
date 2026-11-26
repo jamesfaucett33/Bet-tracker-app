@@ -51,6 +51,11 @@ const STAT_PATTERNS: [RegExp, PlayerStat][] = [
 const NOT_GRADEABLE =
   /\b(1st|2nd|first|second)\s*half\b|\b[12]h\b|\b(1st|2nd|3rd|4th|first|second|third|fourth)\s*(qtr|quarter|period|inning)s?\b|\b[1-4]q\b|\bq[1-4]\b|\b(first|1st|last)\s*(td|touchdown|basket|field goal|score|scorer|team to)|\blongest\b|double[\s-]*double|triple[\s-]*double|race\s*to|both\s*teams|winning\s*margin|\bexact\b|odd\s*\/\s*even|halftime|(first|1st)\s*5\s*inn|strikeouts?|total\s*bases|home\s*runs?|\bhr\b|\brbis?\b|hits\s*\+\s*runs|earned\s*runs|outs\s*recorded|stolen\s*bases?|hits\s*allowed|to\s*record\s*a\s*hit|\bsingles?\b|\bdoubles?\b|\bwalks\b/i;
 
+/** "in each quarter" / "every quarter" props. */
+export const EACH_QUARTER = /\b(?:in\s+)?(?:each|every)\s+(?:quarter|qtr)s?\b/i;
+/** Stats the app can total per quarter from the play-by-play. */
+export const QUARTER_STATS: PlayerStat[] = ['recYds', 'rushYds', 'rushRecYds', 'receptions'];
+
 export function isGradeable(text: string): boolean {
   return !NOT_GRADEABLE.test(text);
 }
@@ -105,6 +110,15 @@ export function parseMarket(text: string): Market | undefined {
   if (tot && /\btotal\b/i.test(t) && !statWords) {
     const side = tot[1].toLowerCase().startsWith('o') ? 'over' : 'under';
     return { kind: 'total', side, line: Number(tot[2]) };
+  }
+
+  // "CeeDee Lamb to record 20+ receiving yards in each quarter": every quarter counts.
+  const eachQuarter = EACH_QUARTER.test(t);
+  if (eachQuarter) {
+    const base = parseMarket(t.replace(EACH_QUARTER, ' ').replace(/\s+/g, ' ').trim());
+    return base?.kind === 'player' && QUARTER_STATS.includes(base.stat)
+      ? { ...base, periods: [1, 2, 3, 4] }
+      : undefined; // a stat that can't be split by quarter: settle by hand
   }
 
   // Player props: a number with "+" (or "over N") and a recognizable stat.
@@ -203,15 +217,21 @@ export function betMarkets(bet: Bet): { label: string; market?: Market }[] {
       label: l.pick,
       market: l.voided
         ? ({ kind: 'void' } as Market)
-        : isGradeable(l.pick)
-          ? (l.market ?? parseMarket(l.pick))
-          : undefined,
+        : !isGradeable(l.pick)
+          ? undefined
+          : EACH_QUARTER.test(l.pick)
+            ? parseMarket(l.pick)
+            : (l.market ?? parseMarket(l.pick)),
     }));
   }
   return [
     {
       label: bet.pick,
-      market: isGradeable(bet.pick) ? (bet.market ?? parseMarket(bet.pick)) : undefined,
+      market: !isGradeable(bet.pick)
+        ? undefined
+        : EACH_QUARTER.test(bet.pick)
+          ? parseMarket(bet.pick)
+          : (bet.market ?? parseMarket(bet.pick)),
     },
   ];
 }
@@ -246,6 +266,7 @@ export function betGame(bet: Bet): GameRef | undefined {
 /** "250+ passing yds" or "Under 249.5 passing yds". */
 export function propLabel(m: Extract<Market, { kind: 'player' }>): string {
   const stat = PLAYER_STATS[m.stat].toLowerCase();
+  if (m.periods) return `${m.line}+ ${stat} in each quarter`;
   if (m.pushAt !== undefined) return `${m.under ? 'Under' : 'Over'} ${m.pushAt} ${stat}`;
   return m.under ? `Under ${m.line - 0.5} ${stat}` : `${m.line}+ ${stat}`;
 }
