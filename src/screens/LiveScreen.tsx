@@ -802,23 +802,23 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
         </>
       ) : null}
 
+      {completed.length ? (
+        <View style={{ marginTop: inProgress.length ? space.md : 0 }}>
+          <SectionTitle>✅ Completed games ({completed.length}) · tap for final stats</SectionTitle>
+          {completed.map((e) => (
+            <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
+          ))}
+        </View>
+      ) : null}
+
       {multiBets.length ? (
-        <View style={{ marginTop: inProgress.length ? space.lg : 0 }}>
+        <View style={{ marginTop: entries.length ? space.lg : 0 }}>
           <TicketList
             title={`Your live slips · multi-game (${multiBets.length})`}
             bets={multiBets}
             showGameLines
             onEditBet={onEditBet}
           />
-        </View>
-      ) : null}
-
-      {completed.length ? (
-        <View style={{ marginTop: space.lg }}>
-          <SectionTitle>✅ Completed games ({completed.length}) · tap for final stats</SectionTitle>
-          {completed.map((e) => (
-            <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
-          ))}
         </View>
       ) : null}
 
