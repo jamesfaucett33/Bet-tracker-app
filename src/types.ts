@@ -56,10 +56,15 @@ export type PlayerStat = keyof typeof PLAYER_STATS;
 
 /** What a leg (or a single bet) needs to happen, in a form live stats can grade. */
 export type Market =
-  | { kind: 'player'; player: string; stat: PlayerStat; line: number }
+  /**
+   * Player prop. Over: hits at `line` or more. Under (`under: true`): hits when
+   * the final number stays below `line` ("Under 249.5" is stored as line 250).
+   */
+  | { kind: 'player'; player: string; stat: PlayerStat; line: number; under?: boolean }
   | { kind: 'moneyline'; team: string }
   | { kind: 'spread'; team: string; line: number }
-  | { kind: 'total'; side: 'over' | 'under'; line: number };
+  /** Game total, or one team's points when `team` is set (team total). */
+  | { kind: 'total'; side: 'over' | 'under'; line: number; team?: string };
 
 /** The game a bet is on, used to find live scores. */
 export interface GameRef {

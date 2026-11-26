@@ -5,6 +5,7 @@ import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
 import { betToWin, formatOdds } from '../odds';
 import { SectionTitle } from '../components/ui';
 import {
+  findPlayerKey,
   gameLine,
   gradeMarket,
   LegProgress,
@@ -13,7 +14,7 @@ import {
   useBetPhases,
   useLive,
 } from '../live';
-import { betMarkets } from '../markets';
+import { betMarkets, propLabel } from '../markets';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
 import { Bet, PLAYER_STATS } from '../types';
@@ -72,7 +73,7 @@ interface PlayerProp {
 /** One prop: label, current / target, progress bar and live chance. */
 function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   const { progress: p, chance } = prop;
-  const done = p.state === 'hit' || p.state === 'miss';
+  const done = p.state === 'hit' || p.state === 'miss' || p.state === 'push';
   const color =
     p.state === 'hit'
       ? colors.win
@@ -91,7 +92,15 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
     <View style={styles.prop}>
       <View style={styles.propTop}>
         <Text style={styles.propLabel} numberOfLines={1}>
-          {p.state === 'hit' ? (final ? '✅ ' : '✓ ') : p.state === 'miss' ? '❌ ' : ''}
+          {p.state === 'hit'
+            ? final
+              ? '✅ '
+              : '✓ '
+            : p.state === 'miss'
+              ? '❌ '
+              : p.state === 'push'
+                ? '↩️ Push · '
+                : ''}
           {prop.label}
         </Text>
         <Text style={styles.propValue}>{p.text}</Text>
@@ -180,9 +189,9 @@ function YourPlayers({ game, bets }: { game: LiveGame; bets: Bet[] }) {
   for (const leg of legsOnGame(bets, game, legGames)) {
     const m = leg.market;
     if (m?.kind !== 'player') continue;
-    const key = norm(m.player);
+    const key = findPlayerKey(game, m.player) ?? norm(m.player);
     const entry = players.get(key) ?? { name: game.playerNames.get(key) ?? m.player, props: [] };
-    const label = `${m.line}+ ${PLAYER_STATS[m.stat].toLowerCase()}`;
+    const label = propLabel(m);
     if (!entry.props.some((p) => p.label === label))
       entry.props.push({ label, progress: gradeMarket(m, game), odds: null });
     players.set(key, entry);
@@ -264,14 +273,14 @@ function TicketList({
         const gameText = showGameLines ? (game ? gameLine(game) : 'Game not found yet') : null;
         const market = m.market;
         if (market?.kind === 'player') {
-          const key = norm(market.player);
+          const key = (game && findPlayerKey(game, market.player)) ?? norm(market.player);
           return {
             id: `${bet.id}-${i}`,
             player: game?.playerNames.get(key) ?? market.player,
             statLine: game ? statLine(game.players.get(key)) : 'Game not found yet',
             gameText,
             prop: {
-              label: `${market.line}+ ${PLAYER_STATS[market.stat].toLowerCase()}`,
+              label: propLabel(market),
               progress,
               chance,
             },
@@ -563,7 +572,7 @@ function ticketStatus(bet: Bet, perLeg: (LiveGame | undefined)[], fallback?: Liv
     states,
     chance: betChance(chances),
     missed: states.includes('miss'),
-    allHit: states.length > 0 && states.every((st) => st === 'hit'),
+    allHit: states.length > 0 && states.every((st) => st === 'hit' || st === 'push'),
   };
 }
 

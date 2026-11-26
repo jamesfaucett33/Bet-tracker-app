@@ -3,7 +3,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { todayISO } from './format';
 import { SCAN_MODEL, SCHEMA, SYSTEM_PROMPT } from './scanSpec';
-import { parseMarket } from './markets';
+import { isGradeable, parseMarket } from './markets';
 import { decimalToAmerican, isValidAmerican } from './odds';
 import {
   BET_TYPES,
@@ -271,14 +271,21 @@ export function parseScanAnswer(text: string, stopReason: string): ScannedBet[] 
 }
 
 function toMarket(m: RawMarket | null | undefined, fallbackText: string): Market | undefined {
+  // Halves, quarters, first scorer, longest play...: settle these by hand.
+  if (!isGradeable(fallbackText)) return undefined;
   if (m) {
     if (m.kind === 'player' && m.player && m.stat && m.stat in PLAYER_STATS && m.line && m.line > 0)
-      return { kind: 'player', player: m.player, stat: m.stat as PlayerStat, line: m.line };
+      return m.side === 'under'
+        ? // "Under 249.5" -> lost at 250: stored as line 250
+          { kind: 'player', player: m.player, stat: m.stat as PlayerStat, line: Math.ceil(m.line), under: true }
+        : { kind: 'player', player: m.player, stat: m.stat as PlayerStat, line: m.line };
     if (m.kind === 'moneyline' && m.team) return { kind: 'moneyline', team: m.team };
     if (m.kind === 'spread' && m.team && m.line !== null)
       return { kind: 'spread', team: m.team, line: m.line };
     if (m.kind === 'total' && (m.side === 'over' || m.side === 'under') && m.line && m.line > 0)
-      return { kind: 'total', side: m.side, line: m.line };
+      return m.team && /team/i.test(fallbackText)
+        ? { kind: 'total', side: m.side, line: m.line, team: m.team }
+        : { kind: 'total', side: m.side, line: m.line };
   }
   return parseMarket(fallbackText);
 }

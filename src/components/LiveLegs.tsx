@@ -29,6 +29,7 @@ export function TeamLogo({ team, size = 20 }: { team: TeamScore; size?: number }
 const STATE_COLOR = {
   hit: colors.win,
   miss: colors.loss,
+  push: colors.push,
   live: colors.pending,
   pre: colors.textFaint,
   unknown: colors.textFaint,
@@ -123,7 +124,8 @@ export function legsSummary(
 ): { text: string; color: string } | null {
   const graded = legs.filter((l) => l.progress.state !== 'unknown');
   if (!graded.length) return null;
-  const hit = graded.filter((l) => l.progress.state === 'hit').length;
+  // A pushed leg is dropped from the ticket, so it counts as done.
+  const hit = graded.filter((l) => l.progress.state === 'hit' || l.progress.state === 'push').length;
   const missed = graded.some((l) => l.progress.state === 'miss');
   const final = gameState === 'post';
   if (missed) return { text: 'A leg missed', color: colors.loss };

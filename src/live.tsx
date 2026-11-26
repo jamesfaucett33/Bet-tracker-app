@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { AppState } from 'react-native';
 import { betChance, legChance } from './chance';
 import { betGame, betMarkets, legGame } from './markets';
+import { americanToDecimal, isValidAmerican } from './odds';
 import { useStore } from './store';
 import { Bet, GameRef, LegResult, Market, PlayerStat } from './types';
 
@@ -74,7 +75,7 @@ export interface LiveGame {
   updatedAt: number;
 }
 
-export type LegState = 'pre' | 'live' | 'hit' | 'miss' | 'unknown';
+export type LegState = 'pre' | 'live' | 'hit' | 'miss' | 'push' | 'unknown';
 
 export interface LegProgress {
   current: number | null; // the stat so far (or score margin for team bets)
@@ -157,7 +158,13 @@ async function getJSON(url: string): Promise<any> {
 const scoreboards = new Map<string, { at: number; data: any }>();
 
 async function scoreboard(path: string, date: string): Promise<any> {
-  const url = `${ESPN}/${path}/scoreboard?dates=${date}`;
+  // College scoreboards only list ranked teams unless asked for every game.
+  const all = path.includes('college-football')
+    ? '&groups=80&limit=300'
+    : path.includes('college-basketball')
+      ? '&groups=50&limit=400'
+      : '';
+  const url = `${ESPN}/${path}/scoreboard?dates=${date}${all}`;
   const hit = scoreboards.get(url);
   if (hit && Date.now() - hit.at < 10 * 60_000) return hit.data;
   const data = await getJSON(url);
@@ -331,6 +338,32 @@ function statValue(stats: Record<string, Record<string, string>> | undefined, st
   }
 }
 
+/**
+ * The box-score key for a player as written on a ticket: full name, "J. Smith",
+ * or just a last name ("Gibbs", "St. Brown") when only one player matches.
+ */
+export function findPlayerKey(game: LiveGame, name: string): string | undefined {
+  const k = norm(name);
+  if (!k) return undefined;
+  if (game.players.has(k) && game.playerNames.has(k)) return k;
+  const words = k.split(' ');
+  if (words.length > 1) {
+    const initial = `${words[0][0]} ${words.slice(1).join(' ')}`;
+    if (game.players.has(initial)) {
+      const full = [...game.playerNames.keys()].find((key) => game.players.get(key) === game.players.get(initial));
+      if (full) return full;
+    }
+  }
+  const names = [...game.playerNames.keys()];
+  for (let n = Math.min(3, words.length); n >= 1; n--) {
+    const tail = words.slice(-n).join(' ');
+    const hits = names.filter((key) => key === tail || key.endsWith(` ${tail}`));
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) break;
+  }
+  return undefined;
+}
+
 export function gradeMarket(market: Market | undefined, game: LiveGame | undefined): LegProgress {
   if (!market) return { current: null, target: null, state: 'unknown', text: '' };
   if (!game) {
@@ -341,8 +374,19 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
   const started = game.state !== 'pre';
 
   if (market.kind === 'player') {
-    const stats = game.players.get(norm(market.player));
+    const key = findPlayerKey(game, market.player);
+    const stats = key ? game.players.get(key) : undefined;
     const current = started ? statValue(stats, market.stat) : 0;
+    if (market.under) {
+      // An under is lost the moment the player reaches the line; won at the final.
+      const over = current >= market.line;
+      return {
+        current,
+        target: market.line,
+        state: over ? 'miss' : final ? 'hit' : started ? 'live' : 'pre',
+        text: `${current} (under ${market.line - 0.5})`,
+      };
+    }
     const hit = current >= market.line;
     return {
       current,
@@ -353,20 +397,34 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
   }
 
   if (market.kind === 'total') {
-    const total = game.home.score + game.away.score;
+    let total = game.home.score + game.away.score;
+    if (market.team) {
+      const side = findTeam(game, market.team);
+      if (!side) return { current: null, target: null, state: 'unknown', text: 'Team not found' };
+      total = side.team.score;
+    }
     const over = total > market.line;
-    const settledWin = market.side === 'over' ? over : total < market.line;
+    const under = total < market.line;
     const state: LegState =
       market.side === 'over' && over
-        ? 'hit'
-        : final
-          ? settledWin
-            ? 'hit'
-            : 'miss'
-          : started
-            ? 'live'
-            : 'pre';
-    return { current: total, target: market.line, state, text: `${total} pts / ${market.line}` };
+        ? 'hit' // can't go back down
+        : market.side === 'under' && over
+          ? 'miss' // already past the number
+          : final
+            ? total === market.line
+              ? 'push'
+              : (market.side === 'over' ? over : under)
+                ? 'hit'
+                : 'miss'
+            : started
+              ? 'live'
+              : 'pre';
+    return {
+      current: total,
+      target: market.line,
+      state,
+      text: `${total} pts / ${market.side === 'over' ? 'o' : 'u'}${market.line}`,
+    };
   }
 
   const found = findTeam(game, market.team);
@@ -375,10 +433,12 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
   const needed = market.kind === 'spread' ? -market.line : 0; // must win by more than this
   const covering = margin > needed;
   const lead = margin === 0 ? 'Tied' : margin > 0 ? `Up ${margin}` : `Down ${Math.abs(margin)}`;
+  // Landing exactly on the number is a push (that leg is voided), not a loss.
+  const push = margin === needed;
   return {
     current: margin,
     target: needed,
-    state: final ? (covering ? 'hit' : 'miss') : started ? 'live' : 'pre',
+    state: final ? (push ? 'push' : covering ? 'hit' : 'miss') : started ? 'live' : 'pre',
     text: final ? `Final: ${lead.toLowerCase()}` : started ? lead : 'Not started',
   };
 }
@@ -391,7 +451,10 @@ export function isCovering(p: LegProgress, market?: Market): boolean {
 
 // ---------- auto-settle ----------
 
-export type SettleDecision = { status: 'won' | 'lost' } | { review: string } | null;
+export type SettleDecision =
+  | { status: 'won' | 'lost' | 'push'; toWin?: number }
+  | { review: string }
+  | null;
 
 /**
  * Decides a pending ticket from final stats, leg by leg (each leg may be on a
@@ -408,23 +471,35 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
   let allFinal = true;
   let ungradeable = false;
   let noStats: string | null = null;
+  const pushed: number[] = [];
   legs.forEach((l, i) => {
     const game = legGames[i];
-    if (!game || game.state !== 'post') {
+    if (!l.market) {
+      ungradeable = true;
+      if (!game || game.state !== 'post') allFinal = false;
+      return;
+    }
+    if (!game) {
       allFinal = false;
       return;
     }
-    if (!l.market) {
-      ungradeable = true;
+    const p = gradeMarket(l.market, game);
+    // A leg can be lost before its game ends (an under passed, for example).
+    if (p.state === 'miss' && game.state !== 'post' && !(l.market.kind === 'player' && !l.market.under)) {
+      missed = true;
       return;
     }
-    const p = gradeMarket(l.market, game);
-    if (p.state === 'unknown') ungradeable = true;
-    else if (p.state === 'miss') {
-      if (l.market.kind === 'player' && !game.players.has(norm(l.market.player))) {
-        noStats = l.market.player;
-      } else missed = true;
+    if (game.state !== 'post') {
+      allFinal = false;
+      return;
     }
+    const noPlayer = l.market.kind === 'player' && !findPlayerKey(game, l.market.player);
+    if (p.state === 'unknown') ungradeable = true;
+    else if (noPlayer && (p.state === 'miss' || l.market.kind === 'player')) {
+      // Player has no line in the box score: probably didn't play (books void those legs).
+      noStats = (l.market as { player: string }).player;
+    } else if (p.state === 'miss') missed = true;
+    else if (p.state === 'push') pushed.push(i);
   });
   if (missed) return { status: 'lost' }; // one leg lost: the parlay is dead
   if (!allFinal) return null;
@@ -435,6 +510,18 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
   }
   if (ungradeable)
     return { review: "Final — some legs can't be graded automatically. Mark it Won or Lost." };
+  if (pushed.length === legs.length) return { status: 'push' };
+  if (pushed.length) {
+    // Books drop a pushed leg and pay the rest at the remaining legs' odds.
+    const rest = (bet.legs ?? []).filter((_, i) => !pushed.includes(i)).map((l) => l.odds);
+    if (bet.legs?.length && rest.every((o) => o !== null && isValidAmerican(o))) {
+      const dec = rest.reduce<number>((acc, o) => acc * americanToDecimal(o as number), 1);
+      return { status: 'won', toWin: Math.round(bet.stake * (dec - 1) * 100) / 100 };
+    }
+    return {
+      review: `Final — every leg hit except ${pushed.length} that pushed. Books drop a pushed leg and pay the rest at lower odds: mark it Won and enter the paid amount.`,
+    };
+  }
   return { status: 'won' };
 }
 
@@ -451,9 +538,10 @@ export function gradeLegs(
     const game = legGames[i];
     if (!game || game.state !== 'post' || !l.market) return undefined;
     const p = gradeMarket(l.market, game);
+    if (l.market.kind === 'player' && !findPlayerKey(game, l.market.player)) return 'void';
     if (p.state === 'hit') return 'hit';
+    if (p.state === 'push') return 'void';
     if (p.state !== 'miss') return undefined;
-    if (l.market.kind === 'player' && !game.players.has(norm(l.market.player))) return 'void';
     return 'miss';
   });
 }
@@ -613,7 +701,12 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
           }
           const decision = autoSettle(latest, legGames);
           if (decision && 'status' in decision) {
-            updated = { ...(updated ?? latest), status: decision.status, settledBy: 'auto' };
+            updated = {
+              ...(updated ?? latest),
+              status: decision.status,
+              settledBy: 'auto',
+              ...(decision.toWin ? { toWin: decision.toWin } : {}),
+            };
           }
           if (updated) saveBet(updated);
         }

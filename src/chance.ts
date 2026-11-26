@@ -170,9 +170,10 @@ function atLeastMore(stat: PlayerStat, need: number, rate: number, remaining: nu
  * of reaching the line matches the leg's odds (minus the book's cut), or a
  * 50/50 at the line when the leg has no odds of its own.
  */
-function priorRate(stat: PlayerStat, line: number, odds?: number | null): number {
+function priorRate(stat: PlayerStat, line: number, odds?: number | null, under = false): number {
   const implied = odds != null ? impliedProbability(odds) : NaN;
-  const p = Number.isFinite(implied) ? Math.min(0.97, Math.max(0.03, implied * 0.955)) : 0.5;
+  let p = Number.isFinite(implied) ? Math.min(0.97, Math.max(0.03, implied * 0.955)) : 0.5;
+  if (under) p = 1 - p; // the odds are for the under; we need the chance of the over
   let lo = line * 0.05;
   let hi = line * 6 + 5;
   for (let i = 0; i < 60; i++) {
@@ -189,6 +190,7 @@ function playerChance(
   stat: PlayerStat,
   elapsed: number,
   odds?: number | null,
+  under = false,
 ): number {
   const need = line - current;
   if (need <= 0) return 1;
@@ -198,7 +200,7 @@ function playerChance(
   // counts as one full game of evidence, so a slow first quarter lowers the
   // outlook a little and a slow first half lowers it more, without writing
   // the player off.
-  const prior = priorRate(stat, line, odds);
+  const prior = priorRate(stat, line, odds, under);
   const PRIOR_GAMES = 1;
   const rate = (PRIOR_GAMES * prior + current) / (PRIOR_GAMES + elapsed);
   return atLeastMore(stat, need, rate, remaining);
@@ -224,6 +226,7 @@ export function legChance(
   odds?: number | null,
 ): number | null {
   if (!market || progress.state === 'unknown') return null;
+  if (progress.state === 'push') return 1; // a pushed leg is dropped from the ticket
   if (!game || game.state === 'pre') {
     const implied = odds != null ? impliedProbability(odds) : NaN;
     if (Number.isFinite(implied)) return implied;
@@ -254,8 +257,17 @@ export function legChance(
   };
 
   switch (market.kind) {
-    case 'player':
-      return playerChance(progress.current ?? 0, market.line, market.stat, elapsed, odds);
+    case 'player': {
+      const over = playerChance(
+        progress.current ?? 0,
+        market.line,
+        market.stat,
+        elapsed,
+        odds,
+        !!market.under,
+      );
+      return market.under ? 1 - over : over;
+    }
     case 'moneyline': {
       // ESPN's live win probability is the best estimate available.
       const side = findTeam(game, market.team);
@@ -274,10 +286,15 @@ export function legChance(
       const total = progress.current ?? 0;
       // Scoring pace, starting from the book's total (not the bet's own line,
       // which may be teased or alternate).
-      const base = game.marketTotal ?? market.line;
+      // A team total starts from half the book's total, shifted by the spread.
+      const base = market.team
+        ? game.marketTotal !== null
+          ? (game.marketTotal + expectedMargin(market.team)) / 2
+          : market.line
+        : (game.marketTotal ?? market.line);
       const pace = elapsed > 0.05 ? total / elapsed : base;
       const expectedFinal = total + (elapsed * pace + (1 - elapsed) * base) * remaining;
-      const sd = Math.max(0.5, sdGame * Math.sqrt(remaining));
+      const sd = Math.max(0.5, sdGame * (market.team ? 0.75 : 1) * Math.sqrt(remaining));
       const over = 1 - phi((market.line - expectedFinal) / sd);
       return market.side === 'over' ? over : 1 - over;
     }
