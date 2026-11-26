@@ -216,8 +216,8 @@ export function DashboardScreen({
               first={i === 0}
               title={b.pick}
               sub={`${formatDate(settledDay(b))} · ${formatOdds(b.odds)}${
-                b.legs?.length
-                  ? ` · ${b.legs.filter((l) => l.result === 'hit').length}/${b.legs.length} legs hit`
+                b.legs?.some((l) => l.result)
+                  ? ` · ${b.legs.filter((l) => l.result === 'hit').length} of ${b.legs.length} legs hit`
                   : ''
               }`}
               right={money(-b.stake, true)}
@@ -264,9 +264,8 @@ export function DashboardScreen({
               <View style={{ flex: 1 }}>
                 <Text style={styles.groupName}>{g.key}</Text>
                 <Text style={styles.groupSub}>
-                  {g.summary.wins}-{g.summary.losses}
-                  {g.summary.pushes ? `-${g.summary.pushes}` : ''} · {formatPct(g.summary.winRate)}{' '}
-                  · ROI {formatPct(g.summary.roi)}
+                  {record(g.summary.wins, g.summary.losses, g.summary.pushes)} ·{' '}
+                  {formatPct(g.summary.winRate)} won · ROI {formatPct(g.summary.roi)}
                 </Text>
               </View>
               <Text style={[styles.groupProfit, { color: profitColor(g.summary.profit) }]}>
@@ -278,6 +277,11 @@ export function DashboardScreen({
       </Card>
     </ScrollView>
   );
+}
+
+/** "1W · 3L" (plus pushes): clearer than "1-3". */
+function record(w: number, l: number, p: number): string {
+  return `${w}W · ${l}L${p ? ` · ${p}P` : ''}`;
 }
 
 function PLTile({
@@ -302,7 +306,7 @@ function PLTile({
         {t.count ? money(t.profit, true) : '$0'}
       </Text>
       <Text style={styles.plSub}>
-        {t.count ? `${t.wins}-${t.losses}${t.pushes ? `-${t.pushes}` : ''}` : 'no results'}
+        {t.count ? record(t.wins, t.losses, t.pushes) : 'no results'}
       </Text>
     </View>
   );
