@@ -62,6 +62,10 @@ export interface LiveGame {
   clockSecs: number;
   /** Home team's live win probability (0-1), when ESPN provides it. */
   homeWinPct: number | null;
+  /** Sportsbook line before the game (ESPN's pick center): home spread, e.g. -3 = home favored by 3. */
+  homeSpread: number | null;
+  /** Sportsbook over/under before the game. */
+  marketTotal: number | null;
   /** "3rd & 6 at GB 40" */
   downDistance?: string;
   /** Most recent plays, newest first. */
@@ -220,6 +224,8 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
     .reverse()
     .map((p) => toPlay(p));
   const lastPlay = drivePlays[drivePlays.length - 1];
+  const line = (data.pickcenter ?? []).find((p: any) => Number.isFinite(Number(p?.spread)));
+  const ou = (data.pickcenter ?? []).find((p: any) => Number.isFinite(Number(p?.overUnder)));
   const wp: any[] = data.winprobability ?? [];
   const homeWinPct = wp.length ? Number(wp[wp.length - 1].homeWinPercentage) : NaN;
 
@@ -243,6 +249,8 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
     period: Number(comp?.status?.period ?? 0),
     clockSecs: clockToSecs(comp?.status?.displayClock),
     homeWinPct: Number.isFinite(homeWinPct) ? homeWinPct : null,
+    homeSpread: line ? Number(line.spread) : null,
+    marketTotal: ou ? Number(ou.overUnder) : null,
     downDistance: state(status) === 'in' ? lastPlay?.end?.downDistanceText || undefined : undefined,
     plays: recent,
     scoringPlays: (data.scoringPlays ?? []).map((p: any) => toPlay(p, true)).reverse(),

@@ -235,6 +235,14 @@ export function legChance(
   const elapsed = elapsedFraction(game);
   const remaining = 1 - elapsed;
   const sdGame = MARGIN_SD[game.league] ?? 12;
+  // What the sportsbooks expected before kickoff: the team's expected winning
+  // margin (from the spread) over a full game. Without it, a pick'em.
+  const expectedMargin = (team: string) => {
+    if (game.homeSpread === null) return 0;
+    const side = findTeam(game, team);
+    if (!side) return 0;
+    return side.team === game.home ? -game.homeSpread : game.homeSpread;
+  };
 
   switch (market.kind) {
     case 'player':
@@ -245,17 +253,21 @@ export function legChance(
       if (side && game.homeWinPct !== null && game.state === 'in') {
         return side.team === game.home ? game.homeWinPct : 1 - game.homeWinPct;
       }
-      const margin = progress.current ?? 0;
+      const margin = (progress.current ?? 0) + expectedMargin(market.team) * remaining;
       return 1 - phi((0.5 - margin) / Math.max(0.5, sdGame * Math.sqrt(remaining)));
     }
     case 'spread': {
-      const margin = progress.current ?? 0; // team score minus opponent
+      // Margin so far plus what the line says is still to come.
+      const margin = (progress.current ?? 0) + expectedMargin(market.team) * remaining;
       return 1 - phi((-market.line - margin) / Math.max(0.5, sdGame * Math.sqrt(remaining)));
     }
     case 'total': {
       const total = progress.current ?? 0;
-      const pace = elapsed > 0.05 ? total / elapsed : market.line;
-      const expectedFinal = total + (elapsed * pace + (1 - elapsed) * market.line) * remaining;
+      // Scoring pace, starting from the book's total (not the bet's own line,
+      // which may be teased or alternate).
+      const base = game.marketTotal ?? market.line;
+      const pace = elapsed > 0.05 ? total / elapsed : base;
+      const expectedFinal = total + (elapsed * pace + (1 - elapsed) * base) * remaining;
       const sd = Math.max(0.5, sdGame * Math.sqrt(remaining));
       const over = 1 - phi((market.line - expectedFinal) / sd);
       return market.side === 'over' ? over : 1 - over;
