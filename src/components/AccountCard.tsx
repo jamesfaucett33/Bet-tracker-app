@@ -153,6 +153,11 @@ export function AccountCard() {
           </>
         ) : (
           <>
+            {sync.signedOutNote ? (
+              <Text style={[styles.body, { color: colors.push, fontWeight: '700' }]}>
+                {sync.signedOutNote}
+              </Text>
+            ) : null}
             <Text style={styles.body}>
               Sign in so your bets are saved online and show up everywhere — Home Screen app,
               Safari, Chrome or a new phone.

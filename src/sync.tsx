@@ -69,6 +69,8 @@ interface SyncCtx {
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  /** Set when this device was signed out because the password changed elsewhere. */
+  signedOutNote: string | null;
   /** Sets a new password for the signed-in account; returns an error message or null. */
   changePassword: (password: string) => Promise<string | null>;
   syncNow: () => void;
@@ -93,6 +95,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   betsRef.current = bets;
   const busy = useRef(false);
   const pullDone = useRef(false);
+  /** Why this device was signed out, shown on the sign-in form. */
+  const [signedOutNote, setSignedOutNote] = useState<string | null>(null);
 
   const userId = session?.user?.id ?? null;
 
@@ -151,6 +155,21 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     busy.current = true;
     setState('syncing');
     try {
+      // Was this device signed out elsewhere (e.g. the password was changed on
+      // another device)? Only a definite "no" from the server counts; being
+      // offline never signs you out.
+      const { error: who } = await sb.auth.getUser();
+      const status = (who as { status?: number } | null)?.status ?? 0;
+      if (who && (status === 401 || status === 403)) {
+        await sb.auth.signOut({ scope: 'local' }).catch(() => {});
+        pullDone.current = false;
+        synced.current = {};
+        setLastSync(null);
+        setSignedOutNote(
+          'You were signed out because your password was changed. Sign in with the new password.',
+        );
+        return;
+      }
       if (!pullDone.current) {
         const raw = await AsyncStorage.getItem(syncedKey(userId));
         synced.current = raw ? JSON.parse(raw) : {};
@@ -237,6 +256,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const sb = getClient();
     if (!sb) return 'Cloud sync is not set up yet.';
     const { error: err } = await sb.auth.signInWithPassword({ email: email.trim(), password });
+    if (!err) setSignedOutNote(null);
     return err ? friendlyAuthError(err.message) : null;
   }, []);
 
@@ -261,7 +281,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const sb = getClient();
     if (!sb) return 'Cloud sync is not set up yet.';
     const { error: err } = await sb.auth.updateUser({ password });
-    return err ? friendlyAuthError(err.message) : null;
+    if (err) return friendlyAuthError(err.message);
+    // Sign every other phone / browser out of this account; this one stays in.
+    await sb.auth.signOut({ scope: 'others' }).catch(() => {});
+    return null;
   }, []);
 
   const signOut = useCallback(async () => {
@@ -284,11 +307,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       signUp,
       changePassword,
       signOut,
+      signedOutNote,
       syncNow: () => {
         runSync();
       },
     }),
-    [session, state, lastSync, error, count, signIn, signUp, changePassword, signOut, runSync],
+    [session, state, lastSync, error, count, signIn, signUp, changePassword, signOut, runSync, signedOutNote],
   );
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }
