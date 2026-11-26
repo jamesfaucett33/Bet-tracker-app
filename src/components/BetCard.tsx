@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatAmount, formatDate } from '../format';
 import { useBetLive } from '../live';
 import { GameHeader, legsSummary, LiveLegs } from './LiveLegs';
@@ -59,6 +59,16 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
                 (l) => `• ${l.pick || 'Leg'}${l.odds === null ? '' : ` (${formatOdds(l.odds)})`}`,
               )
               .join('\n')}
+          </Text>
+        ) : null}
+
+        {bet.trackerUrl ? (
+          <Text
+            style={styles.tracker}
+            onPress={() => Linking.openURL(bet.trackerUrl!)}
+            accessibilityRole="link"
+          >
+            View ticket on {bet.book || 'sportsbook'} ↗
           </Text>
         ) : null}
 
@@ -124,6 +134,7 @@ const styles = StyleSheet.create({
   pick: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
   legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
+  tracker: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: space.sm },
   summary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
   toWin: { color: colors.pending, fontSize: 13, fontWeight: '700' },
   profit: { fontSize: 15, fontWeight: '800' },

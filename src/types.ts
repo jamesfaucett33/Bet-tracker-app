@@ -83,6 +83,8 @@ export interface Bet {
   /** For single bets: what has to happen. Parlays keep this on each leg. */
   market?: Market;
   game?: GameRef;
+  /** The sportsbook's own ticket tracker page (from the slip's QR code). */
+  trackerUrl?: string;
 }
 
 export interface Settings {

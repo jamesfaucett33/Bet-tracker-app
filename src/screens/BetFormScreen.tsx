@@ -19,6 +19,7 @@ import {
   parlayOdds,
   potentialProfit,
 } from '../odds';
+import { decodeSlipQr, deriveTrackerUrl } from '../qr';
 import { PickSource, pickSlipImage, readBetSlip, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -53,7 +54,7 @@ function scannedToBet(sb: ScannedBet): Bet | null {
 }
 
 export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void }) {
-  const { settings, saveBet, deleteBet } = useStore();
+  const { settings, saveBet, deleteBet, bets } = useStore();
   const isEdit = !!bet;
 
   const [date, setDate] = useState(bet?.date ?? todayISO());
@@ -94,6 +95,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [gameRef, setGameRef] = useState<GameRef | undefined>(bet?.game);
   const [scannedMarket, setScannedMarket] = useState<Market | undefined>(undefined);
   const [scannedPick, setScannedPick] = useState('');
+  const [trackerUrl, setTrackerUrl] = useState<string | undefined>(bet?.trackerUrl);
 
   const multiLegType = MULTI_LEG.includes(betType);
   const multiLeg = multiLegType && oddsFromLegs;
@@ -155,6 +157,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       notes: notes.trim() || undefined,
       legs: finalLegs,
       game: gameRef,
+      trackerUrl,
       market:
         !multiLegType && pick.trim() === (bet?.pick ?? scannedPick)
           ? (bet?.market ?? scannedMarket)
@@ -213,8 +216,17 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       if (!image) return;
       setScanning(true);
       setScanNote('');
-      const found = await readBetSlip(settings.anthropicApiKey, image);
+      const [found, qr] = await Promise.all([
+        readBetSlip(settings.anthropicApiKey, image),
+        decodeSlipQr(image),
+      ]);
       applyScan(found[0]);
+      // The slip's QR (when readable) links to the sportsbook's ticket tracker;
+      // otherwise build that link from the printed ticket number.
+      const first = found[0];
+      setTrackerUrl(
+        found.length === 1 && qr ? qr : deriveTrackerUrl(first.book, first.notes, bets),
+      );
       setExtraScans(found.slice(1));
       setScanNote(
         found.length > 1
