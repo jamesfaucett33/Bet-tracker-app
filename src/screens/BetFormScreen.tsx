@@ -197,6 +197,16 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const save = (quiet = false): boolean => {
     setSubmitted(true);
     if (!valid) return false;
+    // Same-game parlay: every original leg is on one game, so an edited leg is too.
+    const legGamesBefore = sourceLegs.map((l) => l.game).filter(Boolean) as GameRef[];
+    const sgpGame =
+      legGamesBefore.length === sourceLegs.length &&
+      legGamesBefore.length > 0 &&
+      legGamesBefore.every(
+        (g) => g.away === legGamesBefore[0].away && g.home === legGamesBefore[0].home,
+      )
+        ? legGamesBefore[0]
+        : undefined;
     const keptLegs = showLegs
       ? legs
           // Keep legs with a pick; in "odds from legs" mode also legs priced without
@@ -212,7 +222,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
               pick: l.pick.trim(),
               odds: isValidAmerican(o) ? o : null,
               ...(same?.market ? { market: same.market } : {}),
-              ...(same?.game ? { game: same.game } : {}),
+              ...(same?.game
+                ? { game: same.game }
+                : sgpGame
+                  ? { game: sgpGame } // edited leg on a same-game parlay: still that game
+                  : {}),
               ...(same?.result && !l.voided ? { result: same.result } : {}),
               ...(l.voided ? { voided: true, result: 'void' as const } : {}),
             };
@@ -243,11 +257,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           ? (bet?.market ?? scannedMarket)
           : undefined,
     };
-    // Voiding (or un-voiding) a leg on an auto-settled ticket: grade it again.
-    const voidsChanged =
-      !!bet &&
-      (bet.legs ?? []).some((l) => !!l.voided !== !!finalLegs?.find((x) => x.id === l.id)?.voided);
-    if (voidsChanged && bet?.settledBy === 'auto' && status === bet.status) {
+    // Fixing the legs (or voiding one) on an auto-settled ticket: grade it again.
+    const legText = (ls?: { pick: string; voided?: boolean }[]) =>
+      (ls ?? []).map((l) => `${l.pick.trim().toLowerCase()}|${!!l.voided}`).join('||');
+    const legsChanged = !!bet && legText(bet.legs) !== legText(finalLegs);
+    if (legsChanged && bet?.settledBy === 'auto' && status === bet.status) {
       next.status = 'pending';
       next.settledAt = undefined;
       next.toWin = printedToWin ?? undefined;
