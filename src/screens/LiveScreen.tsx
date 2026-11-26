@@ -194,9 +194,9 @@ export function legsOnGame(
 /** What to say for a player with no line in a final box score. */
 function noStatsText(game: LiveGame, name: string): string {
   const st = playerStatus(game, name);
-  if (st === 'zero') return 'Played · no stats (counts as 0)';
-  if (st === 'out') return 'Ruled out (leg voided by the book)';
-  return 'Not found in the box score — check your ticket';
+  if (st === 'zero') return 'No stats · counts as 0';
+  if (st === 'out') return 'Listed out · counts as 0 unless you void the leg';
+  return 'Not in the box score · counts as 0 unless you void the leg';
 }
 
 /** Every player in your legs on this game: full stat line (live or final) and your props on them. */

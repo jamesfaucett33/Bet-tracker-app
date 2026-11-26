@@ -82,7 +82,9 @@ export type Market =
   | { kind: 'moneyline'; team: string }
   | { kind: 'spread'; team: string; line: number }
   /** Game total, or one team's points when `team` is set (team total). */
-  | { kind: 'total'; side: 'over' | 'under'; line: number; team?: string };
+  | { kind: 'total'; side: 'over' | 'under'; line: number; team?: string }
+  /** A leg you voided: it no longer counts (like a push). */
+  | { kind: 'void' };
 
 /** The game a bet is on, used to find live scores. */
 export interface GameRef {
@@ -101,6 +103,8 @@ export interface ParlayLeg {
   game?: GameRef;
   /** How the leg finished, from the final stats (kept after the ticket is dead). */
   result?: LegResult;
+  /** You marked it void (e.g. the player was inactive): dropped from the ticket. */
+  voided?: boolean;
 }
 
 /** void = couldn't be graded (e.g. the player didn't play); push = landed exactly on the line. */

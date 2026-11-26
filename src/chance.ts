@@ -236,7 +236,7 @@ export function legChance(
   odds?: number | null,
 ): number | null {
   if (!market || progress.state === 'unknown') return null;
-  if (progress.state === 'push') return 1; // a pushed leg is dropped from the ticket
+  if (progress.state === 'push' || market.kind === 'void') return 1; // dropped from the ticket
   if (!game || game.state === 'pre') {
     const implied = odds != null ? impliedProbability(odds) : NaN;
     if (Number.isFinite(implied)) return implied;

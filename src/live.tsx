@@ -493,6 +493,8 @@ export function findPlayerKey(game: LiveGame, name: string): string | undefined 
 
 export function gradeMarket(market: Market | undefined, game: LiveGame | undefined): LegProgress {
   if (!market) return { current: null, target: null, state: 'unknown', text: '' };
+  // You voided it: dropped from the ticket, like a push.
+  if (market.kind === 'void') return { current: null, target: null, state: 'push', text: 'Void' };
   if (!game) {
     const target = market.kind === 'player' ? market.line : null;
     return { current: null, target, state: 'pre', text: 'Game not found yet' };
@@ -502,18 +504,8 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
 
   if (market.kind === 'player') {
     const key = findPlayerKey(game, market.player);
-    if (final && !key) {
-      const status = playerStatus(game, market.player);
-      // Ruled out, or a name we can't find: books void legs for players who don't play.
-      if (status !== 'zero')
-        return {
-          current: null,
-          target: market.line,
-          state: 'unknown',
-          text: status === 'out' ? 'Ruled out' : 'No stats',
-        };
-      // On the roster and active, just no stats: he played and got 0.
-    }
+    // Not in the box score counts as 0. If he was inactive, mark the leg void
+    // on the ticket (Bet details) and it's dropped instead.
     const stats = key ? game.players.get(key) : undefined;
     const current = started ? statValue(stats, market.stat) : 0;
     const push = final && market.pushAt !== undefined && current === market.pushAt;
@@ -614,6 +606,10 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
   const pushed: number[] = [];
   legs.forEach((l, i) => {
     const game = legGames[i];
+    if (l.market?.kind === 'void') {
+      pushed.push(i);
+      return;
+    }
     if (!l.market) {
       ungradeable = true;
       if (!game || game.state !== 'post') allFinal = false;
@@ -633,12 +629,8 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
       allFinal = false;
       return;
     }
-    // A player who didn't play (or can't be found) is left for you; one who played
-    // and got nothing is graded on 0.
-    const noPlayer =
-      l.market.kind === 'player' &&
-      game.state === 'post' &&
-      ['out', 'unknown'].includes(playerStatus(game, l.market.player));
+    // Missing players count as 0; only a leg you void is dropped.
+    const noPlayer = false;
     if (noPlayer) {
       // Player has no line in the box score: probably didn't play (books void those legs).
       noStats = (l.market as { player: string }).player;
@@ -683,8 +675,7 @@ export function gradeLegs(
     const game = legGames[i];
     if (!game || game.state !== 'post' || !l.market) return undefined;
     const p = gradeMarket(l.market, game);
-    if (l.market.kind === 'player' && ['out', 'unknown'].includes(playerStatus(game, l.market.player)))
-      return 'void';
+    if (l.market.kind === 'void') return 'void';
     if (p.state === 'hit') return 'hit';
     if (p.state === 'push') return 'push';
     if (p.state !== 'miss') return undefined;

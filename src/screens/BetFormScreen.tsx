@@ -36,6 +36,8 @@ interface LegDraft {
   id: string;
   pick: string;
   odds: string;
+  /** Marked void (e.g. the player was inactive). */
+  voided?: boolean;
 }
 
 const MULTI_LEG: BetType[] = ['Parlay', 'Teaser'];
@@ -92,6 +94,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       id: l.id,
       pick: l.pick,
       odds: l.odds === null ? '' : formatOdds(l.odds),
+      voided: l.voided,
     })) ?? [
       { id: uid(), pick: '', odds: '-110' },
       { id: uid(), pick: '', odds: '-110' },
@@ -210,7 +213,8 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
               odds: isValidAmerican(o) ? o : null,
               ...(same?.market ? { market: same.market } : {}),
               ...(same?.game ? { game: same.game } : {}),
-              ...(same?.result ? { result: same.result } : {}),
+              ...(same?.result && !l.voided ? { result: same.result } : {}),
+              ...(l.voided ? { voided: true, result: 'void' as const } : {}),
             };
           })
       : [];
@@ -239,6 +243,15 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           ? (bet?.market ?? scannedMarket)
           : undefined,
     };
+    // Voiding (or un-voiding) a leg on an auto-settled ticket: grade it again.
+    const voidsChanged =
+      !!bet &&
+      (bet.legs ?? []).some((l) => !!l.voided !== !!finalLegs?.find((x) => x.id === l.id)?.voided);
+    if (voidsChanged && bet?.settledBy === 'auto' && status === bet.status) {
+      next.status = 'pending';
+      next.settledAt = undefined;
+      next.toWin = printedToWin ?? undefined;
+    }
     // The same ticket can never be logged twice.
     const dupe = findDuplicate(next, bets, bet?.id);
     if (dupe) {
@@ -703,6 +716,22 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                         !isValidAmerican(parseNumber(leg.odds)) && { borderColor: colors.loss },
                     ]}
                   />
+                  {isEdit && leg.pick.trim() ? (
+                    <Pressable
+                      onPress={() =>
+                        setLegs((ls) =>
+                          ls.map((l) => (l.id === leg.id ? { ...l, voided: !l.voided } : l)),
+                        )
+                      }
+                      style={[styles.voidBtn, leg.voided && styles.voidBtnOn]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${leg.voided ? 'Un-void' : 'Void'} leg ${i + 1}`}
+                    >
+                      <Text style={[styles.voidText, leg.voided && { color: colors.bg }]}>
+                        {leg.voided ? 'Void' : 'Void?'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   {legs.length > (oddsFromLegs ? 2 : 1) ? (
                     <Pressable
                       onPress={() => setLegs((ls) => ls.filter((l) => l.id !== leg.id))}
@@ -961,6 +990,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   removeLeg: { color: colors.textFaint, fontSize: 16, paddingHorizontal: 4 },
+  voidBtn: {
+    borderWidth: 1,
+    borderColor: colors.push,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  voidBtnOn: { backgroundColor: colors.push },
+  voidText: { color: colors.push, fontSize: 12, fontWeight: '800' },
   addLeg: { paddingVertical: space.sm },
   link: { color: colors.accent, fontWeight: '600', fontSize: 14 },
   parlayOdds: { color: colors.textDim, marginTop: space.xs },

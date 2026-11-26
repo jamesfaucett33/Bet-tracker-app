@@ -343,6 +343,7 @@ const legKey = (l: ParlayLeg) => {
   if (!m) return null;
   if (m.kind === 'player') return `p|${m.player.toLowerCase()}|${m.stat}`;
   if (m.kind === 'moneyline' || m.kind === 'spread') return `t|${m.kind}|${m.team.toLowerCase()}`;
+  if (m.kind === 'void') return null;
   return `o|${m.side}`;
 };
 

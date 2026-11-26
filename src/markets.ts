@@ -191,6 +191,8 @@ export function describeMarket(m: Market): string {
       return `${m.team} ${m.line > 0 ? '+' : ''}${m.line}`;
     case 'total':
       return `${m.team ? `${m.team} team total ` : ''}${m.side === 'over' ? 'Over' : 'Under'} ${m.line}`;
+    case 'void':
+      return 'Void';
   }
 }
 
@@ -199,7 +201,11 @@ export function betMarkets(bet: Bet): { label: string; market?: Market }[] {
   if (bet.legs?.length) {
     return bet.legs.map((l) => ({
       label: l.pick,
-      market: isGradeable(l.pick) ? (l.market ?? parseMarket(l.pick)) : undefined,
+      market: l.voided
+        ? ({ kind: 'void' } as Market)
+        : isGradeable(l.pick)
+          ? (l.market ?? parseMarket(l.pick))
+          : undefined,
     }));
   }
   return [
