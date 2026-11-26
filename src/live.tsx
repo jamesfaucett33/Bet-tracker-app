@@ -583,8 +583,14 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
       const value = game.state === 'pre' ? 0 : valueIn(q);
       const over = final || game.period > q; // that quarter is finished
       const now = game.state === 'in' && game.period === q;
-      const state: LegState =
-        value >= market.line ? 'hit' : over ? 'miss' : now ? 'live' : 'pre';
+      // A quarter only counts once it's over: yards can still go backwards.
+      const state: LegState = over
+        ? value >= market.line
+          ? 'hit'
+          : 'miss'
+        : now
+          ? 'live'
+          : 'pre';
       return { label: `Q${q}`, value, state };
     });
     const state: LegState = parts.some((x) => x.state === 'miss')
