@@ -95,6 +95,9 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   );
 }
 
+const money = (n: number) =>
+  `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 function TeamColumn({ team, align }: { team: TeamScore; align: 'left' | 'right' }) {
   return (
     <View style={[styles.teamCol, align === 'right' && { alignItems: 'flex-end' }]}>
@@ -219,12 +222,10 @@ function GameCast({
               <View style={styles.ticketHead}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.ticketTitle} numberOfLines={1}>
-                    {formatOdds(bet.odds)} · ${bet.stake.toFixed(2)} → $
-                    {potentialProfit(bet.stake, bet.odds).toFixed(2)}
+                    {bet.pick}
                   </Text>
                   <Text style={styles.ticketSub} numberOfLines={1}>
-                    {bet.pick}
-                    {bet.book ? ` · ${bet.book}` : ''}
+                    {[bet.book, bet.notes].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
                 {chance !== null && !missed && game.state !== 'post' ? (
@@ -235,6 +236,28 @@ function GameCast({
                     <Text style={styles.bigChipLabel}>to cash</Text>
                   </View>
                 ) : null}
+              </View>
+              <View style={styles.statStrip}>
+                {[
+                  { label: 'Odds', value: formatOdds(bet.odds) },
+                  { label: 'Wagered', value: money(bet.stake) },
+                  { label: 'To win', value: money(potentialProfit(bet.stake, bet.odds)), hi: true },
+                  {
+                    label: 'Payout',
+                    value: money(bet.stake + potentialProfit(bet.stake, bet.odds)),
+                  },
+                ].map((st) => (
+                  <View key={st.label} style={styles.stat}>
+                    <Text style={styles.statLabel}>{st.label}</Text>
+                    <Text
+                      style={[styles.statValue, st.hi && { color: colors.accent }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {st.value}
+                    </Text>
+                  </View>
+                ))}
               </View>
               {summary ? (
                 <Text style={[styles.ticketSummary, { color: summary.color }]}>{summary.text}</Text>
@@ -439,8 +462,30 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   ticketHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  ticketTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  ticketTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   ticketSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  statStrip: {
+    flexDirection: 'row',
+    marginTop: space.md,
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    paddingVertical: space.sm,
+  },
+  stat: { flex: 1, alignItems: 'center', paddingHorizontal: 2 },
+  statLabel: {
+    color: colors.textFaint,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  statValue: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
   ticketSummary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
   ticketLeg: {
     marginTop: space.md,
