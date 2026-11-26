@@ -124,7 +124,9 @@ function UpdateBanner() {
   if (!ready) return null;
   return (
     <Pressable
-      onPress={() => location.reload()}
+      // A plain reload can come back with the browser's cached copy of the old
+      // version for up to 10 minutes; a fresh URL always loads the new one.
+      onPress={() => location.replace(`${location.pathname}?v=${Date.now()}`)}
       style={[styles.banner, { backgroundColor: colors.accent }]}
       accessibilityRole="button"
     >

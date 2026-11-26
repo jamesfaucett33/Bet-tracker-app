@@ -622,10 +622,10 @@ export function GameRow({
     game.state === 'post'
       ? `${here.length} leg${here.length === 1 ? '' : 's'} here · ${dotCounts(here.map((st) => dotForState(st, true)))}`
       : alive.length === 0
-      ? `${tickets.length === 1 ? 'Ticket' : 'All tickets'} busted 💀`
-      : `${tickets.length} ticket${tickets.length === 1 ? '' : 's'}` +
-        (alive.length < tickets.length ? ` · ${alive.length} alive` : '') +
-        (best !== null ? ` · best ${formatChance(best)} to cash` : '');
+        ? `${tickets.length === 1 ? 'Your bet' : `All ${tickets.length} bets`} busted 💀`
+        : `${tickets.length} bet${tickets.length === 1 ? '' : 's'} riding` +
+          (alive.length < tickets.length ? ` · ${alive.length} alive` : '') +
+          (best !== null ? ` · best ${formatChance(best)}` : '');
   const team = (t: TeamScore, leading: boolean) => (
     <View style={styles.rowTeam}>
       <TeamLogo team={t} size={22} />
