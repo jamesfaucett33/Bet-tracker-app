@@ -12,23 +12,26 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
+import { LiveScreen } from './src/screens/LiveScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
-import { LiveProvider } from './src/live';
+import { LiveProvider, useLive } from './src/live';
 import { StoreProvider, useStore } from './src/store';
 import { colors, space } from './src/theme';
 import { Bet } from './src/types';
 
-type Tab = 'dashboard' | 'bets' | 'settings';
+type Tab = 'dashboard' | 'live' | 'bets' | 'settings';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: '▦' },
+  { key: 'live', label: 'Live', icon: '◉' },
   { key: 'bets', label: 'Bets', icon: '☰' },
   { key: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
 const TITLES: Record<Tab, string> = {
   dashboard: 'Bet Tracker',
+  live: 'Live',
   bets: 'My Bets',
   settings: 'Settings',
 };
@@ -104,6 +107,8 @@ function ImportBanner({ link }: { link: ReturnType<typeof useLinkImport> }) {
 function Main() {
   const { loaded } = useStore();
   const link = useLinkImport();
+  const { games } = useLive();
+  const anyLive = [...games.values()].some((g) => g.state === 'in');
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('dashboard');
   // undefined = closed, null = new bet, Bet = editing
@@ -128,6 +133,7 @@ function Main() {
 
       <View style={{ flex: 1 }}>
         {tab === 'dashboard' && <DashboardScreen onEditBet={openBet} />}
+        {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
         {tab === 'settings' && <SettingsScreen />}
       </View>
@@ -158,7 +164,15 @@ function Main() {
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.tabIcon, active && { color: colors.accent }]}>{t.icon}</Text>
+              <Text
+                style={[
+                  styles.tabIcon,
+                  active && { color: colors.accent },
+                  t.key === 'live' && anyLive && { color: colors.loss },
+                ]}
+              >
+                {t.icon}
+              </Text>
               <Text style={[styles.tabLabel, active && { color: colors.accent }]}>{t.label}</Text>
             </Pressable>
           );

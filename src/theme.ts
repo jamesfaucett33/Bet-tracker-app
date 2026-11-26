@@ -1,17 +1,18 @@
+// Seahawks palette: College Navy, Action Green, Wolf Gray.
 export const colors = {
-  bg: '#0B0F14',
-  surface: '#141A22',
-  surfaceAlt: '#1C2430',
-  border: '#263040',
-  text: '#E8EDF3',
-  textDim: '#8B98A9',
-  textFaint: '#5D6979',
-  accent: '#2ECC71',
-  accentDim: '#1E8C4E',
-  win: '#2ECC71',
+  bg: '#001229',
+  surface: '#002244', // College Navy
+  surfaceAlt: '#0D3157',
+  border: '#1D4470',
+  text: '#F2F5F8',
+  textDim: '#A5ACAF', // Wolf Gray
+  textFaint: '#6E7F94',
+  accent: '#69BE28', // Action Green
+  accentDim: '#3F7A14',
+  win: '#69BE28',
   loss: '#FF5A5F',
   push: '#F5B942',
-  pending: '#4DA3FF',
+  pending: '#4FB3FF',
 };
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 };

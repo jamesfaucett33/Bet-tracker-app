@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { isCovering, LegProgress, LiveGame } from '../live';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { formatChance } from '../chance';
+import { isCovering, LegProgress, LiveGame, TeamScore } from '../live';
 import { colors, radius, space } from '../theme';
 import { Market } from '../types';
 
@@ -8,6 +9,19 @@ interface LegRow {
   label: string;
   market?: Market;
   progress: LegProgress;
+  chance?: number | null;
+}
+
+/** Green when likely, amber when it's a coin flip, red when it's a long shot. */
+export function chanceColor(c: number): string {
+  if (c >= 0.6) return colors.win;
+  if (c >= 0.3) return colors.push;
+  return colors.loss;
+}
+
+export function TeamLogo({ team, size = 20 }: { team: TeamScore; size?: number }) {
+  if (!team.logo) return null;
+  return <Image source={{ uri: team.logo }} style={{ width: size, height: size }} />;
 }
 
 const STATE_COLOR = {
@@ -29,9 +43,13 @@ export function GameHeader({ game }: { game: LiveGame }) {
           {live ? 'LIVE' : final ? 'FINAL' : 'UPCOMING'}
         </Text>
       </View>
-      <Text style={styles.score} numberOfLines={1}>
-        {game.away.abbr} {game.away.score} – {game.home.abbr} {game.home.score}
-      </Text>
+      <View style={styles.scoreRow}>
+        <TeamLogo team={game.away} />
+        <Text style={styles.score} numberOfLines={1}>
+          {game.away.abbr} {game.away.score} – {game.home.score} {game.home.abbr}
+        </Text>
+        <TeamLogo team={game.home} />
+      </View>
       {!final ? (
         <Text style={styles.clock} numberOfLines={1}>
           {game.detail}
@@ -69,6 +87,15 @@ export function LiveLegs({ legs }: { legs: LegRow[] }) {
               <Text style={[styles.legValue, { color: p.state === 'live' ? colors.text : color }]}>
                 {p.text}
               </Text>
+              {leg.chance !== null &&
+              leg.chance !== undefined &&
+              (p.state === 'live' || p.state === 'pre') ? (
+                <View style={[styles.chip, { borderColor: chanceColor(leg.chance) }]}>
+                  <Text style={[styles.chipText, { color: chanceColor(leg.chance) }]}>
+                    {formatChance(leg.chance)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {p.state !== 'unknown' ? (
               <View style={styles.track}>
@@ -114,6 +141,16 @@ const styles = StyleSheet.create({
   badgeText: { color: colors.textDim, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.loss },
   score: { color: colors.text, fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  chipText: { fontSize: 11, fontWeight: '800', fontVariant: ['tabular-nums'] },
   clock: { color: colors.textDim, fontSize: 12, marginLeft: 'auto' },
   legs: { marginTop: space.sm, gap: 10 },
   leg: {},

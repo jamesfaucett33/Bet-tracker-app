@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { betChance, legChance } from './chance';
 import { betGame, betMarkets } from './markets';
 import { useStore } from './store';
 import { Bet, GameRef, Market, PlayerStat } from './types';
@@ -32,6 +33,17 @@ export interface TeamScore {
   short: string; // "Packers"
   abbr: string; // "GB"
   score: number;
+  logo?: string;
+  color?: string; // team color, "#204e32"
+  hasBall?: boolean;
+}
+
+export interface Play {
+  text: string;
+  clock: string;
+  period: number;
+  team?: string; // abbreviation of the team with the ball
+  scoring?: boolean;
 }
 
 export interface LiveGame {
@@ -42,6 +54,19 @@ export interface LiveGame {
   away: TeamScore;
   /** normalized player name -> stat group -> label -> value */
   players: Map<string, Record<string, Record<string, string>>>;
+  /** Display names as ESPN writes them, keyed like `players`. */
+  playerNames: Map<string, string>;
+  league: string;
+  period: number;
+  /** Seconds left in the current period. */
+  clockSecs: number;
+  /** Home team's live win probability (0-1), when ESPN provides it. */
+  homeWinPct: number | null;
+  /** "3rd & 6 at GB 40" */
+  downDistance?: string;
+  /** Most recent plays, newest first. */
+  plays: Play[];
+  scoringPlays: Play[];
   updatedAt: number;
 }
 
@@ -73,7 +98,10 @@ function teamMatches(team: TeamScore, name: string): boolean {
   return candidates.some((c) => c === n || n.includes(c) || c.includes(n));
 }
 
-function findTeam(game: LiveGame, name: string): { team: TeamScore; other: TeamScore } | null {
+export function findTeam(
+  game: LiveGame,
+  name: string,
+): { team: TeamScore; other: TeamScore } | null {
   if (teamMatches(game.home, name)) return { team: game.home, other: game.away };
   if (teamMatches(game.away, name)) return { team: game.away, other: game.home };
   return null;
@@ -82,12 +110,31 @@ function findTeam(game: LiveGame, name: string): { team: TeamScore; other: TeamS
 // ---------- ESPN fetchers ----------
 
 function toTeam(c: any): TeamScore {
+  const logo = c.team?.logos?.[0]?.href ?? c.team?.logo;
   return {
     name: c.team?.displayName ?? '',
     short: c.team?.shortDisplayName ?? c.team?.name ?? '',
     abbr: c.team?.abbreviation ?? '',
     score: Number(c.score ?? 0) || 0,
+    logo: logo || undefined,
+    color: c.team?.color ? `#${c.team.color}` : undefined,
+    hasBall: c.possession === true,
   };
+}
+
+function toPlay(p: any, scoring = false): Play {
+  return {
+    text: String(p.text ?? p.shortText ?? '').trim(),
+    clock: p.clock?.displayValue ?? '',
+    period: Number(p.period?.number ?? 0),
+    team: p.team?.abbreviation,
+    scoring: scoring || !!p.scoringPlay,
+  };
+}
+
+function clockToSecs(display: string | undefined): number {
+  const m = /^(\d+):(\d{2})/.exec(display ?? '');
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
 }
 
 function ymd(iso: string, addDays: number): string {
@@ -129,6 +176,7 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
   const away = toTeam(comps.find((c: any) => c.homeAway === 'away') ?? {});
 
   const players: LiveGame['players'] = new Map();
+  const playerNames = new Map<string, string>();
   for (const team of data.boxscore?.players ?? []) {
     for (const group of team.statistics ?? []) {
       const groupName = String(group.name ?? 'stats');
@@ -141,6 +189,7 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
         labels.forEach((label, i) => (row[label.toUpperCase()] = String(a.stats?.[i] ?? '')));
         entry[groupName] = row;
         players.set(key, entry);
+        playerNames.set(key, a.athlete?.displayName ?? key);
         // Also index by "first-initial last" so "M. Stafford" style names match.
         const parts = key.split(' ');
         if (parts.length > 1) players.set(`${parts[0][0]} ${parts.slice(1).join(' ')}`, entry);
@@ -148,16 +197,46 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
     }
   }
 
+  // Recent plays: football has drives; other sports list plays directly.
+  const drivePlays: any[] = data.drives?.current?.plays ?? [];
+  const flatPlays: any[] = data.plays ?? [];
+  const recent = (drivePlays.length ? drivePlays : flatPlays)
+    .filter((p) => p?.text)
+    .slice(-8)
+    .reverse()
+    .map((p) => toPlay(p));
+  const lastPlay = drivePlays[drivePlays.length - 1];
+  const wp: any[] = data.winprobability ?? [];
+  const homeWinPct = wp.length ? Number(wp[wp.length - 1].homeWinPercentage) : NaN;
+
+  // Possession isn't always on the header competitors; fall back to the drive.
+  const driveTeam = data.drives?.current?.team?.abbreviation;
+  if (state(status) === 'in' && !home.hasBall && !away.hasBall && driveTeam) {
+    if (driveTeam === home.abbr) home.hasBall = true;
+    else if (driveTeam === away.abbr) away.hasBall = true;
+  }
+  if (state(status) !== 'in') home.hasBall = away.hasBall = false;
+
   return {
     eventId,
-    state: (status.state as LiveGame['state']) ?? 'pre',
+    state: state(status),
     detail: status.shortDetail ?? status.detail ?? '',
     home,
     away,
     players,
+    playerNames,
+    league: league.toUpperCase(),
+    period: Number(comp?.status?.period ?? 0),
+    clockSecs: clockToSecs(comp?.status?.displayClock),
+    homeWinPct: Number.isFinite(homeWinPct) ? homeWinPct : null,
+    downDistance: state(status) === 'in' ? lastPlay?.end?.downDistanceText || undefined : undefined,
+    plays: recent,
+    scoringPlays: (data.scoringPlays ?? []).map((p: any) => toPlay(p, true)).reverse(),
     updatedAt: Date.now(),
   };
 }
+
+const state = (status: any): LiveGame['state'] => (status?.state as LiveGame['state']) ?? 'pre';
 
 // ---------- grading ----------
 
@@ -383,6 +462,9 @@ export function useLive() {
 export function useBetLive(bet: Bet) {
   const { games } = useLive();
   const game = games.get(bet.id);
-  const legs = betMarkets(bet).map((m) => ({ ...m, progress: gradeMarket(m.market, game) }));
-  return { game, legs };
+  const legs = betMarkets(bet).map((m) => {
+    const progress = gradeMarket(m.market, game);
+    return { ...m, progress, chance: legChance(m.market, progress, game) };
+  });
+  return { game, legs, chance: game ? betChance(legs.map((l) => l.chance)) : null };
 }

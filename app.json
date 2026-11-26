@@ -6,11 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0F14",
+    "backgroundColor": "#001229",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B0F14"
+      "backgroundColor": "#001229"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,7 @@
     "android": {
       "package": "com.jamesfaucett.bettracker",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0F14",
+        "backgroundColor": "#001229",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -32,8 +32,8 @@
       "output": "single",
       "name": "Bet Tracker",
       "shortName": "Bets",
-      "themeColor": "#0B0F14",
-      "backgroundColor": "#0B0F14"
+      "themeColor": "#001229",
+      "backgroundColor": "#001229"
     },
     "experiments": {
       "baseUrl": "/Bet-tracker-app"

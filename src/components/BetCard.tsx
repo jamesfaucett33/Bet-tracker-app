@@ -2,7 +2,8 @@ import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatAmount, formatDate } from '../format';
 import { useBetLive } from '../live';
-import { GameHeader, legsSummary, LiveLegs } from './LiveLegs';
+import { formatChance } from '../chance';
+import { chanceColor, GameHeader, legsSummary, LiveLegs } from './LiveLegs';
 import { betProfit, formatOdds, potentialProfit } from '../odds';
 import { useStore } from '../store';
 import { colors, profitColor, radius, space, statusColor } from '../theme';
@@ -19,7 +20,7 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const { settings, setStatus } = useStore();
   const profit = betProfit(bet);
   const toWin = potentialProfit(bet.stake, bet.odds);
-  const { game, legs: liveLegs } = useBetLive(bet);
+  const { game, legs: liveLegs, chance } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
   const summary = showLive ? legsSummary(liveLegs) : null;
 
@@ -48,9 +49,16 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
           <>
             <GameHeader game={game} />
             <LiveLegs legs={liveLegs} />
-            {summary ? (
-              <Text style={[styles.summary, { color: summary.color }]}>{summary.text}</Text>
-            ) : null}
+            <View style={styles.summaryRow}>
+              {summary ? (
+                <Text style={[styles.summary, { color: summary.color }]}>{summary.text}</Text>
+              ) : null}
+              {chance !== null && game.state !== 'post' && !summary?.text.includes('missed') ? (
+                <Text style={[styles.summary, { color: chanceColor(chance), marginLeft: 'auto' }]}>
+                  ≈{formatChance(chance)} to cash
+                </Text>
+              ) : null}
+            </View>
           </>
         ) : bet.legs && bet.legs.length > 0 ? (
           <Text style={styles.legs} numberOfLines={4}>
@@ -135,6 +143,7 @@ const styles = StyleSheet.create({
   legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
   tracker: { color: colors.accent, fontSize: 13, fontWeight: '600', marginTop: space.sm },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   summary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
   toWin: { color: colors.pending, fontSize: 13, fontWeight: '700' },
   profit: { fontSize: 15, fontWeight: '800' },
