@@ -57,6 +57,12 @@ export interface LiveGame {
   players: Map<string, Record<string, Record<string, string>>>;
   /** Display names as ESPN writes them, keyed like `players`. */
   playerNames: Map<string, string>;
+  /** Players ruled Out on the game's injury report (normalized names). */
+  outPlayers: Set<string>;
+  /** Anyone else on the injury report (questionable / doubtful): may not have played. */
+  doubtPlayers: Set<string>;
+  /** Both teams' rosters (normalized names), loaded once the game is final. */
+  rosterPlayers: Set<string>;
   league: string;
   period: number;
   /** Seconds left in the current period. */
@@ -208,12 +214,82 @@ export async function findEventId(game: GameRef, betDate: string): Promise<strin
   return null;
 }
 
+const rosters = new Map<string, Promise<string[]>>(); // "path|teamId" -> normalized names
+
+/** A team's roster (normalized names), fetched once per session. */
+function teamRoster(path: string, teamId: string): Promise<string[]> {
+  if (!teamId) return Promise.resolve([]);
+  const k = `${path}|${teamId}`;
+  if (!rosters.has(k)) {
+    rosters.set(
+      k,
+      getJSON(`${ESPN}/${path}/teams/${teamId}/roster`)
+        .then((d: any) => {
+          // Football groups players by unit; other sports list them flat.
+          const people: any[] = (d.athletes ?? []).flatMap((a: any) => (a.items ? a.items : [a]));
+          return people.map((a) => norm(a.fullName ?? a.displayName ?? '')).filter(Boolean);
+        })
+        .catch(() => {
+          rosters.delete(k);
+          return [] as string[];
+        }),
+    );
+  }
+  return rosters.get(k)!;
+}
+
+/** Whether a name is in a set of normalized names: full name, or a unique last name. */
+function nameIn(names: Set<string>, name: string): boolean {
+  const k = norm(name);
+  if (!k) return false;
+  if (names.has(k)) return true;
+  const last = k.split(' ').pop()!;
+  const words = k.split(' ');
+  const hits = [...names].filter(
+    (n) => n.endsWith(` ${last}`) && (words.length === 1 || n.startsWith(words[0][0])),
+  );
+  return hits.length === 1;
+}
+
+/**
+ * Did this player take part in a final game?
+ * - 'box': has a line in the box score
+ * - 'zero': on the roster and not ruled out, but no stats: played and got nothing (counts as 0)
+ * - 'out': ruled out on the injury report (books void the leg)
+ * - 'unknown': name not found anywhere (maybe misspelled): left for you to decide
+ */
+export function playerStatus(game: LiveGame, name: string): 'box' | 'zero' | 'out' | 'unknown' {
+  if (findPlayerKey(game, name)) return 'box';
+  if (nameIn(game.outPlayers, name)) return 'out';
+  // Questionable and no stats: may have been a late scratch, so don't assume 0.
+  if (nameIn(game.doubtPlayers, name)) return 'unknown';
+  if (nameIn(game.rosterPlayers, name)) return 'zero';
+  return 'unknown';
+}
+
 export async function fetchLiveGame(league: string, eventId: string): Promise<LiveGame> {
   const path = LEAGUE_PATHS[league.toUpperCase()];
   const data = await getJSON(`${ESPN}/${path}/summary?event=${eventId}`);
   const comp = data.header?.competitions?.[0];
   const status = comp?.status?.type ?? {};
   const comps = comp?.competitors ?? [];
+  // Who was ruled out, and (for a final game) who was on each team: a player
+  // missing from the box score either didn't play or played and got nothing.
+  const outPlayers = new Set<string>();
+  const doubtPlayers = new Set<string>();
+  for (const t of data.injuries ?? [])
+    for (const i of t.injuries ?? []) {
+      const who = norm(i.athlete?.displayName ?? '');
+      if (!who) continue;
+      if (/out|inactive|injured reserve|suspend/i.test(String(i.status ?? ''))) outPlayers.add(who);
+      else doubtPlayers.add(who);
+    }
+  const rosterPlayers = new Set<string>();
+  if (state(comp?.status?.type ?? {}) === 'post') {
+    for (const c of comps) {
+      for (const name of await teamRoster(path, String(c.team?.id ?? ''))) rosterPlayers.add(name);
+    }
+  }
   const home = toTeam(comps.find((c: any) => c.homeAway === 'home') ?? {});
   const away = toTeam(comps.find((c: any) => c.homeAway === 'away') ?? {});
 
@@ -269,6 +345,9 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
     away,
     players,
     playerNames,
+    outPlayers,
+    doubtPlayers,
+    rosterPlayers,
     league: league.toUpperCase(),
     period: Number(comp?.status?.period ?? 0),
     clockSecs: clockToSecs(comp?.status?.displayClock),
@@ -424,8 +503,16 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
   if (market.kind === 'player') {
     const key = findPlayerKey(game, market.player);
     if (final && !key) {
-      // Not in the final box score: probably didn't play (books void these legs).
-      return { current: null, target: market.line, state: 'unknown', text: 'No stats' };
+      const status = playerStatus(game, market.player);
+      // Ruled out, or a name we can't find: books void legs for players who don't play.
+      if (status !== 'zero')
+        return {
+          current: null,
+          target: market.line,
+          state: 'unknown',
+          text: status === 'out' ? 'Ruled out' : 'No stats',
+        };
+      // On the roster and active, just no stats: he played and got 0.
     }
     const stats = key ? game.players.get(key) : undefined;
     const current = started ? statValue(stats, market.stat) : 0;
@@ -546,7 +633,12 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
       allFinal = false;
       return;
     }
-    const noPlayer = l.market.kind === 'player' && !findPlayerKey(game, l.market.player);
+    // A player who didn't play (or can't be found) is left for you; one who played
+    // and got nothing is graded on 0.
+    const noPlayer =
+      l.market.kind === 'player' &&
+      game.state === 'post' &&
+      ['out', 'unknown'].includes(playerStatus(game, l.market.player));
     if (noPlayer) {
       // Player has no line in the box score: probably didn't play (books void those legs).
       noStats = (l.market as { player: string }).player;
@@ -591,7 +683,8 @@ export function gradeLegs(
     const game = legGames[i];
     if (!game || game.state !== 'post' || !l.market) return undefined;
     const p = gradeMarket(l.market, game);
-    if (l.market.kind === 'player' && !findPlayerKey(game, l.market.player)) return 'void';
+    if (l.market.kind === 'player' && ['out', 'unknown'].includes(playerStatus(game, l.market.player)))
+      return 'void';
     if (p.state === 'hit') return 'hit';
     if (p.state === 'push') return 'push';
     if (p.state !== 'miss') return undefined;

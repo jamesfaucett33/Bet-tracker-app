@@ -17,6 +17,7 @@ import {
   betEventIds,
   findPlayerKey,
   gameLine,
+  playerStatus,
   gradeMarket,
   LegProgress,
   LiveGame,
@@ -190,6 +191,14 @@ export function legsOnGame(
   return out;
 }
 
+/** What to say for a player with no line in a final box score. */
+function noStatsText(game: LiveGame, name: string): string {
+  const st = playerStatus(game, name);
+  if (st === 'zero') return 'Played · no stats (counts as 0)';
+  if (st === 'out') return 'Ruled out (leg voided by the book)';
+  return 'Not found in the box score — check your ticket';
+}
+
 /** Every player in your legs on this game: full stat line (live or final) and your props on them. */
 function YourPlayers({ game, bets }: { game: LiveGame; bets: Bet[] }) {
   const { legGames } = useLive();
@@ -220,7 +229,7 @@ function YourPlayers({ game, bets }: { game: LiveGame; bets: Bet[] }) {
               {game.players.get(key)
                 ? statLine(game.players.get(key))
                 : final
-                  ? 'No stats recorded (may not have played)'
+                  ? noStatsText(game, p.name)
                   : 'No stats yet'}
             </Text>
             {p.props.map((prop) => {
@@ -296,7 +305,7 @@ export function TicketList({
               ? 'Game not found yet'
               : game.players.get(key) || game.state !== 'post'
                 ? statLine(game.players.get(key))
-                : 'No stats recorded (may not have played)',
+                : noStatsText(game, market.player),
             gameText,
             live: game?.state === 'in',
             prop: {
@@ -615,13 +624,9 @@ export function GameRow({
     (m, st) => (st.chance !== null && (m === null || st.chance > m) ? st.chance : m),
     null,
   );
-  // Finished game: how your legs on it went.
-  const here = legsOnGame(tickets, game, legGames).map((l) => gradeMarket(l.market, game).state);
-  const missN = here.filter((st) => st === 'miss').length;
   const summary =
     game.state === 'post'
-      ? `${tickets.length} bet${tickets.length === 1 ? '' : 's'} on this game` +
-        (missN ? ` · ${missN} leg${missN === 1 ? '' : 's'} missed here` : '')
+      ? `${tickets.length} bet${tickets.length === 1 ? '' : 's'} on this game`
       : alive.length === 0
         ? `${tickets.length === 1 ? 'Your bet' : `All ${tickets.length} bets`} busted 💀`
         : `${tickets.length} bet${tickets.length === 1 ? '' : 's'} riding` +
@@ -665,9 +670,7 @@ export function GameRow({
             {
               color:
                 game.state === 'post'
-                  ? missN
-                    ? colors.loss
-                    : colors.win
+                  ? colors.text
                   : alive.length
                     ? best !== null
                       ? chanceColor(best)
@@ -679,10 +682,20 @@ export function GameRow({
         >
           {summary}
         </Text>
-        {/* One dot per leg you have in this game: green hit, orange to play, red missed. */}
+        {/* One dot per bet: green won (or every leg hit), red busted, orange still going. */}
         <LegDots
-          kinds={legsOnGame(tickets, game, legGames).map((l) =>
-            dotForState(gradeMarket(l.market, game).state, game.state === 'post'),
+          kinds={tickets.map((b, i) =>
+            b.status === 'won'
+              ? 'hit'
+              : b.status === 'lost'
+                ? 'miss'
+                : b.status === 'push'
+                  ? 'push'
+                  : statuses[i].missed
+                    ? 'miss'
+                    : statuses[i].allHit && game.state === 'post'
+                      ? 'hit'
+                      : 'live',
           )}
         />
       </View>
