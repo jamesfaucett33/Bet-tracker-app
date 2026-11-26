@@ -48,6 +48,12 @@ const COUNT_STATS: PlayerStat[] = [
   'threes',
   'rebounds',
   'assists',
+  'passCompletions',
+  'passAttempts',
+  'rushAttempts',
+  'interceptions',
+  'steals',
+  'blocks',
 ];
 
 /**

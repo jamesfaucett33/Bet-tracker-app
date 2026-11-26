@@ -8,6 +8,12 @@ import { Bet, GameRef, Market, PLAYER_STATS, PlayerStat } from './types';
 
 // Order matters: combined stats must be matched before their parts.
 const STAT_PATTERNS: [RegExp, PlayerStat][] = [
+  [/(pass(ing)?\s*)?completions?|\bcmp\b/i, 'passCompletions'],
+  [/pass(ing)?\s*attempts?|\bpass\s*att\b/i, 'passAttempts'],
+  [/rush(ing)?\s*attempts?|\bcarries\b/i, 'rushAttempts'],
+  [/interceptions?(\s*thrown)?|\bints?\b/i, 'interceptions'],
+  [/\bsteals?\b|\bstl\b/i, 'steals'],
+  [/\bblocks?\b|\bblk\b/i, 'blocks'],
   [/pass(ing)?\s*(\+|and|&)\s*rush(ing)?\s*(yds|yards)/i, 'passRushYds'],
   [/rush(ing)?\s*(\+|and|&)\s*rec(eiving)?\s*(yds|yards)/i, 'rushRecYds'],
   [/pts\s*\+\s*reb\s*\+\s*ast|points\s*\+\s*rebounds\s*\+\s*assists|\bpra\b/i, 'pra'],
@@ -34,7 +40,8 @@ export function parseMarket(text: string): Market | undefined {
 
   // "Over 47.5" / "o47.5" / "Under 220" (game totals)
   const tot = /\b(over|under|o|u)\s*(\d+(?:\.\d+)?)\b/i.exec(t);
-  if (tot && !/yds|yards|rec|pts|reb|ast/i.test(t)) {
+  const statWords = /yds|yards|rec|pts|reb|ast/i.test(t) || STAT_PATTERNS.some(([re]) => re.test(t));
+  if (tot && (/\btotal\b/i.test(t) || !statWords)) {
     const side = tot[1].toLowerCase().startsWith('o') ? 'over' : 'under';
     return { kind: 'total', side, line: Number(tot[2]) };
   }

@@ -42,6 +42,12 @@ export const PLAYER_STATS = {
   assists: 'Assists',
   threes: '3-pointers',
   pra: 'Pts + reb + ast',
+  passCompletions: 'Passing completions',
+  passAttempts: 'Passing attempts',
+  rushAttempts: 'Rushing attempts',
+  interceptions: 'Interceptions thrown',
+  steals: 'Steals',
+  blocks: 'Blocks',
 } as const;
 export type PlayerStat = keyof typeof PLAYER_STATS;
 

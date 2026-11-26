@@ -25,7 +25,7 @@ How to fill each field (when something isn't on the slip, use "" for text, 0 for
 - ticket_id: the ticket or bet ID if printed, else "".
 - away_team / home_team: full team names of the game when one game is shown (e.g. "Green Bay Packers" at "Los Angeles Rams"); "A at B" or "A @ B" means A is away. "" for multi-game parlays or futures.
 - market (on each leg, and on the bet itself for single bets; kind "none" on parlays): how the outcome is graded.
-  kind "player" for player props with player (full name), stat and line: "250+" means line 250; "over 249.5" means line 250. Stats: passYds, rushYds, recYds, receptions, passRushYds, rushRecYds, passTd, anyTd (anytime TD = line 1), fgMade, points, rebounds, assists, threes, pra.
+  kind "player" for player props with player (full name), stat and line: "250+" means line 250; "over 249.5" means line 250. Stats: passYds, rushYds, recYds, receptions, passRushYds, rushRecYds, passTd, anyTd (anytime TD = line 1), fgMade, points, rebounds, assists, threes, pra, passCompletions, passAttempts, rushAttempts (carries), interceptions (thrown), steals, blocks.
   kind "moneyline" with team; kind "spread" with team and line (e.g. -3.5); kind "total" with side over/under and line for game totals; kind "other" if none fit. Unused fields are "", 0 or "none".
 
 Copy numbers exactly as printed; never invent odds, amounts or dates that aren't on the image. If the image contains no bet slip, return an empty bets list and say what you see in problem; otherwise problem is "".`;

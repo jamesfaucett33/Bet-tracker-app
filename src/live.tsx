@@ -306,6 +306,18 @@ function statValue(stats: Record<string, Record<string, string>> | undefined, st
       return any('3PT');
     case 'pra':
       return any('PTS') + any('REB') + any('AST');
+    case 'passCompletions':
+      return g('passing', 'C/ATT'); // "13/22" -> 13
+    case 'passAttempts':
+      return num(stats.passing?.['C/ATT']?.split('/')[1]);
+    case 'rushAttempts':
+      return g('rushing', 'CAR');
+    case 'interceptions':
+      return g('passing', 'INT');
+    case 'steals':
+      return any('STL');
+    case 'blocks':
+      return any('BLK');
   }
 }
 
