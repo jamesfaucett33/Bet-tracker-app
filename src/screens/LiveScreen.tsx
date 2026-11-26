@@ -92,9 +92,14 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   const kind = dotForState(p.state);
   const color = DOT_COLOR[kind === 'toPlay' ? 'none' : kind];
   const chipColor = chance !== null ? chanceColor(chance) : colors.textDim;
+  const teamLeg = !/\d+\s*\/\s*\d+/.test(p.text); // player props read "136 / 250"
   const fill =
     p.state === 'hit'
       ? 1
+      : teamLeg
+        ? p.state === 'live' && chance !== null
+          ? chance
+          : 0
       : p.current !== null && p.target
         ? Math.min(1, Math.max(0, p.current / p.target))
         : 0;
@@ -293,6 +298,7 @@ export function TicketList({
                 ? statLine(game.players.get(key))
                 : 'No stats recorded (may not have played)',
             gameText,
+            live: game?.state === 'in',
             prop: {
               label: propLabel(market),
               progress,
@@ -305,6 +311,7 @@ export function TicketList({
           player: null,
           statLine: null,
           gameText,
+          live: game?.state === 'in',
           prop: { label: m.label, progress, chance },
         };
       });
@@ -422,14 +429,18 @@ export function TicketList({
             {expanded ? (
             <>
             {legs.map((leg) => (
-              <View key={leg.id} style={styles.ticketLeg}>
+              <View key={leg.id} style={[styles.ticketLeg, leg.live && styles.liveLeg]}>
                 {leg.player ? (
                   <>
                     <Text style={styles.playerName}>{leg.player}</Text>
                     <Text style={styles.playerLine}>{leg.statLine}</Text>
                   </>
                 ) : null}
-                {leg.gameText ? <Text style={styles.legGameLine}>{leg.gameText}</Text> : null}
+                {leg.gameText ? (
+                  <Text style={[styles.legGameLine, leg.live && styles.liveGameLine]}>
+                    {leg.gameText}
+                  </Text>
+                ) : null}
                 <PropMeter prop={leg.prop} final={overall === 'post'} />
               </View>
             ))}
@@ -877,6 +888,15 @@ const styles = StyleSheet.create({
   playerName: { color: colors.text, fontSize: 14, fontWeight: '800' },
   playerLine: { color: colors.textDim, fontSize: 13, marginTop: 2 },
   prop: { marginTop: space.sm },
+  liveLeg: {
+    marginHorizontal: -space.md,
+    paddingHorizontal: space.md,
+    paddingBottom: space.sm,
+    backgroundColor: colors.toPlay + '14',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.toPlay,
+  },
+  liveGameLine: { color: colors.toPlay, fontWeight: '800' },
   legGameLine: { color: colors.textFaint, fontSize: 11, marginTop: 2 },
   ticket: {
     backgroundColor: colors.surface,

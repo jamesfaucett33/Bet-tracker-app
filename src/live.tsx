@@ -826,7 +826,7 @@ export function gameLine(g: LiveGame): string {
   const score = `${g.away.abbr} ${g.away.score}–${g.home.score} ${g.home.abbr}`;
   if (g.state === 'post') return `${score} · Final`;
   if (g.state === 'pre') return `${g.away.abbr} @ ${g.home.abbr} · ${g.detail}`;
-  return `${score} · ${g.detail}`;
+  return `● LIVE · ${score} · ${g.detail}`;
 }
 
 /** Live progress for every leg of a bet, each against its own game. */

@@ -13,6 +13,8 @@ interface LegRow {
   chance?: number | null;
   /** That leg's own game, for multi-game parlays. */
   gameText?: string;
+  /** The leg's game, when known (a live one is highlighted). */
+  game?: LiveGame;
 }
 
 /** Green when likely, amber when it's a coin flip, red when it's a long shot. */
@@ -73,14 +75,15 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
         const teamMarket =
           leg.market && (leg.market.kind === 'moneyline' || leg.market.kind === 'spread');
         const covering = isCovering(p, leg.market);
+        const live = leg.game?.state === 'in';
         let fill = 0;
         if (p.state === 'hit') fill = 1;
-        else if (teamMarket) fill = covering ? 1 : 0.08;
+        else if (teamMarket) fill = live && leg.chance != null ? leg.chance : covering ? 1 : 0;
         else if (p.current !== null && p.target)
           fill = Math.min(1, Math.max(0, p.current / p.target));
         const barColor = color;
         return (
-          <View key={i} style={styles.leg}>
+          <View key={i} style={[styles.leg, live && styles.liveLeg]}>
             <View style={styles.legTop}>
               <Dot kind={dotForState(p.state)} />
               <Text style={styles.legLabel} numberOfLines={1}>
@@ -99,7 +102,11 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
                 </View>
               ) : null}
             </View>
-            {leg.gameText ? <Text style={styles.legGame}>{leg.gameText}</Text> : null}
+            {leg.gameText ? (
+              <Text style={[styles.legGame, live && { color: colors.toPlay, fontWeight: '800' }]}>
+                {leg.gameText}
+              </Text>
+            ) : null}
             {p.state !== 'unknown' ? (
               <View style={styles.track}>
                 <View
@@ -137,6 +144,13 @@ export function legsSummary(
 }
 
 const styles = StyleSheet.create({
+  liveLeg: {
+    backgroundColor: colors.toPlay + '14',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.toPlay,
+    paddingLeft: 8,
+    borderRadius: 4,
+  },
   gameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm },
   badge: {
     flexDirection: 'row',
