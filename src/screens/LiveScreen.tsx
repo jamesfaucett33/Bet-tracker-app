@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BetCard } from '../components/BetCard';
-import { formatChance, legChance } from '../chance';
-import { chanceColor, TeamLogo } from '../components/LiveLegs';
+import { betChance, formatChance, legChance } from '../chance';
+import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
+import { formatOdds, potentialProfit } from '../odds';
 import { SectionTitle } from '../components/ui';
 import { gradeMarket, LegProgress, LiveGame, TeamScore, useLive } from '../live';
 import { betMarkets } from '../markets';
 import { useStore } from '../store';
-import { colors, radius, space } from '../theme';
+import { colors, radius, space, statusColor } from '../theme';
 import { Bet, PLAYER_STATS } from '../types';
 
 const norm = (s: string) =>
@@ -144,34 +144,48 @@ function GameCast({
   onEditBet: (b: Bet) => void;
 }) {
   const live = game.state === 'in';
-  // Players that appear on your tickets for this game.
-  const players = useMemo(() => {
-    // Every prop on your tickets for this game, grouped by player. The same
-    // prop on two tickets (e.g. Kyren Williams 30+ rec yds) shows once.
-    const byPlayer = new Map<string, { name: string; props: Map<string, PlayerProp> }>();
-    for (const b of gameBets) {
-      for (const m of betMarkets(b)) {
+  const { setStatus } = useStore();
+  // One box per ticket: every leg graded, with the player's stat line.
+  const tickets = useMemo(() => {
+    const list = gameBets.map((bet) => {
+      const legs = betMarkets(bet).map((m, i) => {
+        const progress = gradeMarket(m.market, game);
+        const chance = legChance(m.market, progress, game);
         const market = m.market;
-        if (market?.kind !== 'player') continue;
-        const key = norm(market.player);
-        const entry = byPlayer.get(key) ?? { name: market.player, props: new Map() };
-        const propKey = `${market.stat}|${market.line}`;
-        if (!entry.props.has(propKey)) {
-          const progress = gradeMarket(market, game);
-          entry.props.set(propKey, {
-            label: `${market.line}+ ${PLAYER_STATS[market.stat].toLowerCase()}`,
-            progress,
-            chance: legChance(market, progress, game),
-          });
+        if (market?.kind === 'player') {
+          const key = norm(market.player);
+          return {
+            id: `${bet.id}-${i}`,
+            player: game.playerNames.get(key) ?? market.player,
+            statLine: statLine(game.players.get(key)),
+            prop: {
+              label: `${market.line}+ ${PLAYER_STATS[market.stat].toLowerCase()}`,
+              progress,
+              chance,
+            },
+          };
         }
-        byPlayer.set(key, entry);
-      }
-    }
-    return [...byPlayer.entries()].map(([key, { name, props }]) => ({
-      name: game.playerNames.get(key) ?? name,
-      line: statLine(game.players.get(key)),
-      props: [...props.values()],
-    }));
+        return {
+          id: `${bet.id}-${i}`,
+          player: null,
+          statLine: null,
+          prop: { label: m.label, progress, chance },
+        };
+      });
+      const chances = legs.map((l) => l.prop.chance);
+      const chance = betChance(chances);
+      const summary = legsSummary(
+        legs.map((l) => ({
+          label: l.prop.label,
+          progress: l.prop.progress,
+          chance: l.prop.chance,
+        })),
+        game.state,
+      );
+      return { bet, legs, chance, summary };
+    });
+    // Tickets still alive first, best chance on top.
+    return list.sort((a, b) => (b.chance ?? -1) - (a.chance ?? -1));
   }, [gameBets, game]);
 
   return (
@@ -194,27 +208,68 @@ function GameCast({
         <WinBar game={game} />
       </View>
 
-      {players.length ? (
-        <>
-          <SectionTitle>Your Players</SectionTitle>
-          <View style={styles.panel}>
-            {players.map((p, i) => (
-              <View key={p.name} style={[styles.playerRow, i > 0 && styles.divider]}>
-                <Text style={styles.playerName}>{p.name}</Text>
-                <Text style={styles.playerLine}>{p.line}</Text>
-                {p.props.map((prop) => (
-                  <PropMeter key={prop.label} prop={prop} final={game.state === 'post'} />
-                ))}
+      <SectionTitle>Your Tickets ({tickets.length})</SectionTitle>
+      {tickets.map(({ bet, legs, chance, summary }) => {
+        const missed = legs.some((l) => l.prop.progress.state === 'miss');
+        const allHit = legs.every((l) => l.prop.progress.state === 'hit');
+        const borderColor = missed ? colors.loss : allHit ? colors.push : colors.border;
+        return (
+          <View key={bet.id} style={[styles.ticket, { borderColor }]}>
+            <Pressable onPress={() => onEditBet(bet)} accessibilityRole="button">
+              <View style={styles.ticketHead}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.ticketTitle} numberOfLines={1}>
+                    {formatOdds(bet.odds)} · ${bet.stake.toFixed(2)} → $
+                    {potentialProfit(bet.stake, bet.odds).toFixed(2)}
+                  </Text>
+                  <Text style={styles.ticketSub} numberOfLines={1}>
+                    {bet.pick}
+                    {bet.book ? ` · ${bet.book}` : ''}
+                  </Text>
+                </View>
+                {chance !== null && !missed && game.state !== 'post' ? (
+                  <View style={[styles.bigChip, { borderColor: chanceColor(chance) }]}>
+                    <Text style={[styles.bigChipText, { color: chanceColor(chance) }]}>
+                      {formatChance(chance)}
+                    </Text>
+                    <Text style={styles.bigChipLabel}>to cash</Text>
+                  </View>
+                ) : null}
+              </View>
+              {summary ? (
+                <Text style={[styles.ticketSummary, { color: summary.color }]}>{summary.text}</Text>
+              ) : null}
+            </Pressable>
+            {legs.map((leg) => (
+              <View key={leg.id} style={styles.ticketLeg}>
+                {leg.player ? (
+                  <>
+                    <Text style={styles.playerName}>{leg.player}</Text>
+                    <Text style={styles.playerLine}>{leg.statLine}</Text>
+                  </>
+                ) : null}
+                <PropMeter prop={leg.prop} final={game.state === 'post'} />
               </View>
             ))}
+            {game.state === 'post' ? (
+              <View style={styles.settleRow}>
+                {(['won', 'lost', 'push'] as const).map((st) => (
+                  <Pressable
+                    key={st}
+                    onPress={() => setStatus(bet.id, st)}
+                    style={[styles.settleBtn, { borderColor: statusColor[st] }]}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.settleText, { color: statusColor[st] }]}>
+                      {st === 'won' ? 'Won' : st === 'lost' ? 'Lost' : 'Push'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </View>
-        </>
-      ) : null}
-
-      <SectionTitle>Your Tickets ({gameBets.length})</SectionTitle>
-      {gameBets.map((b) => (
-        <BetCard key={b.id} bet={b} onPress={() => onEditBet(b)} />
-      ))}
+        );
+      })}
 
       {game.plays.length ? (
         <>
@@ -376,6 +431,42 @@ const styles = StyleSheet.create({
   playerName: { color: colors.text, fontSize: 14, fontWeight: '800' },
   playerLine: { color: colors.textDim, fontSize: 13, marginTop: 2 },
   prop: { marginTop: space.sm },
+  ticket: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    padding: space.md,
+    marginBottom: space.md,
+  },
+  ticketHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  ticketTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  ticketSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  ticketSummary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
+  ticketLeg: {
+    marginTop: space.md,
+    paddingTop: space.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  bigChip: {
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+    minWidth: 62,
+  },
+  bigChipText: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  bigChipLabel: { color: colors.textFaint, fontSize: 10, fontWeight: '700' },
+  settleRow: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  settleBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  settleText: { fontWeight: '700', fontSize: 13 },
   propTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   propLabel: { flex: 1, minWidth: 0, color: colors.text, fontSize: 13, fontWeight: '600' },
   propValue: { color: colors.text, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
