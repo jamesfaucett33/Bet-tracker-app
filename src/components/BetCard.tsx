@@ -2,8 +2,7 @@ import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate } from '../format';
 import { autoSettle, gameLine, useBetLive } from '../live';
-import { formatChance } from '../chance';
-import { chanceColor, GameHeader, legsSummary, LiveLegs } from './LiveLegs';
+import { GameHeader, legsSummary, LiveLegs } from './LiveLegs';
 import { Dot, dotCounts, dotForResult } from './LegDots';
 import { TicketMoney } from './TicketMoney';
 import { formatOdds } from '../odds';
@@ -20,7 +19,7 @@ const STATUS_LABEL: Record<BetStatus, string> = {
 
 export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const { setStatus } = useStore();
-  const { game, legs: liveLegs, chance, legGames, multiGame } = useBetLive(bet);
+  const { game, legs: liveLegs, legGames, multiGame } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
   // Overall state across every leg's game (multi-game parlays span several).
   const overall: 'pre' | 'in' | 'post' = legGames.every((g) => g?.state === 'post')
@@ -85,11 +84,6 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
             <View style={styles.summaryRow}>
               {summary ? (
                 <Text style={[styles.summary, { color: summary.color }]}>{summary.text}</Text>
-              ) : null}
-              {chance !== null && overall !== 'post' && !summary?.text.includes('missed') ? (
-                <Text style={[styles.summary, { color: chanceColor(chance), marginLeft: 'auto' }]}>
-                  ≈{formatChance(chance)} to cash
-                </Text>
               ) : null}
             </View>
           </>

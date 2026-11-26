@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { betChance, formatChance, legChance } from '../chance';
-import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
+import { betChance, legChance } from '../chance';
+import { legsSummary, TeamLogo } from '../components/LiveLegs';
 import {
   Dot,
   DOT_COLOR,
@@ -87,19 +87,23 @@ interface PlayerProp {
 
 /** One prop: label, current / target, progress bar and live chance. */
 function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
-  const { progress: p, chance } = prop;
-  const done = p.state === 'hit' || p.state === 'miss' || p.state === 'push';
-  // Bar in the dot colors; the % chip keeps its own chance color.
+  const { progress: p } = prop;
+  // Bar in the dot colors.
   const kind = dotForState(p.state);
   const color = DOT_COLOR[kind === 'toPlay' ? 'none' : kind];
-  const chipColor = chance !== null ? chanceColor(chance) : colors.textDim;
   const teamLeg = !/\d+\s*\/\s*\d+/.test(p.text); // player props read "136 / 250"
+  // Real progress, not a chance: player stats toward the line, totals toward
+  // the number, spreads / moneylines full while covering.
+  const isTotal = / pts \//.test(p.text);
+  const covering = p.current !== null && p.target !== null && p.current > p.target;
   const fill =
     p.state === 'hit'
       ? 1
-      : teamLeg
-        ? p.state === 'live' && chance !== null
-          ? chance
+      : teamLeg && !isTotal
+        ? p.state === 'live'
+          ? covering
+            ? 1
+            : 0.12
           : 0
       : p.current !== null && p.target
         ? Math.min(1, Math.max(0, p.current / p.target))
@@ -114,11 +118,6 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
           {final && p.state === 'hit' ? ' · final' : ''}
         </Text>
         <Text style={styles.propValue}>{p.text}</Text>
-        {!done && chance !== null ? (
-          <View style={[styles.chip, { borderColor: chipColor }]}>
-            <Text style={[styles.chipText, { color: chipColor }]}>{formatChance(chance)}</Text>
-          </View>
-        ) : null}
       </View>
       <View style={styles.track}>
         <View
@@ -376,14 +375,6 @@ export function TicketList({
                     {[bet.book, bet.notes].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
-                {chance !== null && !missed && overall !== 'post' ? (
-                  <View style={[styles.bigChip, { borderColor: chanceColor(chance) }]}>
-                    <Text style={[styles.bigChipText, { color: chanceColor(chance) }]}>
-                      {formatChance(chance)}
-                    </Text>
-                    <Text style={styles.bigChipLabel}>to cash</Text>
-                  </View>
-                ) : null}
               </View>
               {!expanded ? (
                 <>
@@ -620,18 +611,13 @@ export function GameRow({
   const tickets = [...entry.single, ...entry.parlays];
   const statuses = tickets.map((b) => ticketStatus(b, legGames.get(b.id) ?? [], game));
   const alive = statuses.filter((st) => !st.missed);
-  const best = alive.reduce<number | null>(
-    (m, st) => (st.chance !== null && (m === null || st.chance > m) ? st.chance : m),
-    null,
-  );
   const summary =
     game.state === 'post'
       ? `${tickets.length} bet${tickets.length === 1 ? '' : 's'} on this game`
       : alive.length === 0
         ? `${tickets.length === 1 ? 'Your bet' : `All ${tickets.length} bets`} busted 💀`
         : `${tickets.length} bet${tickets.length === 1 ? '' : 's'} riding` +
-          (alive.length < tickets.length ? ` · ${alive.length} alive` : '') +
-          (best !== null ? ` · best ${formatChance(best)}` : '');
+          (alive.length < tickets.length ? ` · ${alive.length} alive` : '');
   const team = (t: TeamScore, leading: boolean) => (
     <View style={styles.rowTeam}>
       <TeamLogo team={t} size={22} />
@@ -672,9 +658,7 @@ export function GameRow({
                 game.state === 'post'
                   ? colors.text
                   : alive.length
-                    ? best !== null
-                      ? chanceColor(best)
-                      : colors.textDim
+                    ? colors.text
                     : colors.loss,
             },
           ]}
@@ -790,10 +774,6 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
           parlayBets={open.parlays}
           onEditBet={onEditBet}
         />
-        <Text style={styles.footnote}>
-          Hit chances are rough estimates from each leg's pace and the time left (ESPN's win
-          probability for moneylines). Same-game legs are treated as independent.
-        </Text>
       </ScrollView>
     );
   }

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { formatChance } from '../chance';
 import { isCovering, LegProgress, LiveGame, TeamScore } from '../live';
 import { dotCounts, dotForState, Dot } from './LegDots';
 import { colors, radius, space } from '../theme';
@@ -78,7 +77,8 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
         const live = leg.game?.state === 'in';
         let fill = 0;
         if (p.state === 'hit') fill = 1;
-        else if (teamMarket) fill = live && leg.chance != null ? leg.chance : covering ? 1 : 0;
+        // Spread / moneyline: full while covering, a sliver while not.
+        else if (teamMarket) fill = p.state === 'live' || live ? (covering ? 1 : 0.12) : 0;
         else if (p.current !== null && p.target)
           fill = Math.min(1, Math.max(0, p.current / p.target));
         const barColor = color;
@@ -92,15 +92,6 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
               <Text style={[styles.legValue, { color: p.state === 'live' ? colors.text : color }]}>
                 {p.text}
               </Text>
-              {leg.chance !== null &&
-              leg.chance !== undefined &&
-              (p.state === 'live' || p.state === 'pre') ? (
-                <View style={[styles.chip, { borderColor: chanceColor(leg.chance) }]}>
-                  <Text style={[styles.chipText, { color: chanceColor(leg.chance) }]}>
-                    {formatChance(leg.chance)}
-                  </Text>
-                </View>
-              ) : null}
             </View>
             {leg.gameText ? (
               <Text style={[styles.legGame, live && { color: colors.toPlay, fontWeight: '800' }]}>
