@@ -245,12 +245,14 @@ function TicketList({
         const borderColor = missed ? colors.loss : allHit ? colors.push : colors.border;
         const expanded = open.has(bet.id);
         return (
-          <View key={bet.id} style={[styles.ticket, { borderColor }]}>
-            <Pressable
-              onPress={() => toggle(bet.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`${bet.pick}, ${expanded ? 'tap to collapse' : 'tap for details'}`}
-            >
+          <Pressable
+            key={bet.id}
+            onPress={() => toggle(bet.id)}
+            style={[styles.ticket, { borderColor }]}
+            accessibilityRole="button"
+            accessibilityLabel={`${bet.pick}, ${expanded ? 'tap to collapse' : 'tap to expand'}`}
+          >
+            <View>
               <View style={styles.ticketHead}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.ticketTitle} numberOfLines={1}>
@@ -328,7 +330,7 @@ function TicketList({
               {expanded && summary ? (
                 <Text style={[styles.ticketSummary, { color: summary.color }]}>{summary.text}</Text>
               ) : null}
-            </Pressable>
+            </View>
             {expanded ? (
             <>
             {legs.map((leg) => (
@@ -359,17 +361,17 @@ function TicketList({
                 ))}
               </View>
             ) : null}
-            <View style={styles.openRow}>
-              <Pressable onPress={() => toggle(bet.id)} accessibilityRole="button" hitSlop={8}>
-                <Text style={styles.more}>▴ Show less</Text>
-              </Pressable>
-              <Pressable onPress={() => onEditBet(bet)} accessibilityRole="button" hitSlop={8}>
-                <Text style={[styles.more, { color: colors.accent }]}>Edit ticket</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => onEditBet(bet)}
+              style={({ pressed }) => [styles.detailsBtn, pressed && { opacity: 0.7 }]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.detailsBtnText}>Bet details ›</Text>
+            </Pressable>
+            <Text style={[styles.more, { textAlign: 'center' }]}>Tap the ticket to collapse ▴</Text>
             </>
             ) : null}
-          </View>
+          </Pressable>
         );
       })}
     </>
@@ -835,7 +837,15 @@ const styles = StyleSheet.create({
   legDots: { flexDirection: 'row', gap: 4 },
   legDot: { width: 9, height: 9, borderRadius: 5 },
   more: { color: colors.textFaint, fontSize: 12, fontWeight: '700', marginTop: space.sm },
-  openRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.sm },
+  detailsBtn: {
+    marginTop: space.md,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  detailsBtnText: { color: colors.accent, fontSize: 15, fontWeight: '800' },
   ticketSummary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
   ticketLeg: {
     marginTop: space.md,

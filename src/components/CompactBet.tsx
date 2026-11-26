@@ -27,16 +27,16 @@ export function CompactBet({
 
   if (open) {
     return (
-      <View>
-        <BetCard bet={bet} onPress={onEdit} />
+      <View style={styles.openWrap}>
+        <BetCard bet={bet} onPress={() => setOpen(false)} />
         <Pressable
-          onPress={() => setOpen(false)}
-          style={styles.less}
+          onPress={onEdit}
+          style={({ pressed }) => [styles.detailsBtn, pressed && { opacity: 0.7 }]}
           accessibilityRole="button"
-          hitSlop={8}
         >
-          <Text style={styles.lessText}>▲ Show less · tap the card to edit</Text>
+          <Text style={styles.detailsBtnText}>Bet details ›</Text>
         </Pressable>
+        <Text style={styles.lessText}>Tap the ticket to collapse ▴</Text>
       </View>
     );
   }
@@ -143,6 +143,21 @@ const styles = StyleSheet.create({
   chev: { color: colors.textFaint, fontSize: 12 },
   dots: { flexDirection: 'row', gap: 4, marginTop: 3 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  less: { alignItems: 'center', marginTop: -space.sm, marginBottom: space.md },
-  lessText: { color: colors.textFaint, fontSize: 12, fontWeight: '600' },
+  openWrap: { marginBottom: space.md },
+  detailsBtn: {
+    marginTop: -space.xs,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  detailsBtnText: { color: colors.accent, fontSize: 15, fontWeight: '800' },
+  lessText: {
+    color: colors.textFaint,
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 6,
+  },
 });
