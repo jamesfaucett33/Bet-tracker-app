@@ -620,7 +620,8 @@ export function GameRow({
   const missN = here.filter((st) => st === 'miss').length;
   const summary =
     game.state === 'post'
-      ? `${here.length} leg${here.length === 1 ? '' : 's'} here · ${dotCounts(here.map((st) => dotForState(st, true)))}`
+      ? `${tickets.length} bet${tickets.length === 1 ? '' : 's'} on this game` +
+        (missN ? ` · ${missN} leg${missN === 1 ? '' : 's'} missed here` : '')
       : alive.length === 0
         ? `${tickets.length === 1 ? 'Your bet' : `All ${tickets.length} bets`} busted 💀`
         : `${tickets.length} bet${tickets.length === 1 ? '' : 's'} riding` +
