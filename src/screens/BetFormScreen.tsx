@@ -19,11 +19,10 @@ import {
   parlayOdds,
   potentialProfit,
 } from '../odds';
-import { canReadOnDevice, readTextOnDevice } from '../ocr';
+import { canReadOnDevice } from '../ocr';
 import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
-import { mergeReads, parseSlipText, slipProblems } from '../slipParser';
-import { verifyPlayers } from '../roster';
-import { PickSource, pickSlipImage, readBetSlip, ScanError, ScannedBet } from '../scan';
+import { readSlip } from '../readSlip';
+import { PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
 import { Bet, BET_TYPES, BetStatus, BetType, GameRef, Market, ParlayLeg } from '../types';
@@ -35,6 +34,13 @@ interface LegDraft {
 }
 
 const MULTI_LEG: BetType[] = ['Parlay', 'Teaser'];
+
+interface BatchItem {
+  photo: number;
+  bet?: ScannedBet;
+  trackerUrl?: string;
+  error?: string;
+}
 
 function scannedToBet(sb: ScannedBet): Bet | null {
   if (sb.odds === null || sb.stake === null) return null;
@@ -99,6 +105,9 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [scannedMarket, setScannedMarket] = useState<Market | undefined>(undefined);
   const [scannedPick, setScannedPick] = useState('');
   const [trackerUrl, setTrackerUrl] = useState<string | undefined>(bet?.trackerUrl);
+  const [batch, setBatch] = useState<{ total: number; done: number; items: BatchItem[] } | null>(
+    null,
+  );
 
   const multiLegType = MULTI_LEG.includes(betType);
   const multiLeg = multiLegType && oddsFromLegs;
@@ -231,43 +240,27 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       return;
     }
     try {
-      const image = await pickSlipImage(source);
-      if (!image) return;
+      const images = await pickSlipImages(source);
+      if (!images.length) return;
+      if (images.length > 1) {
+        await scanBatch(images);
+        return;
+      }
       setScanning(true);
       setScanNote('');
-      const qr = await decodeSlipQr(image);
       let found: ScannedBet[];
-      if (useAI) {
-        found = await readBetSlip(settings.anthropicApiKey, image);
-      } else {
-        // Read the photo up to three ways (as-is, shadow-removed, high
-        // contrast), check player names against the real rosters, and
-        // combine the reads until every leg is accounted for.
-        const reads: ScannedBet[] = [];
-        let read: ScannedBet | null = null;
-        for (const mode of ['plain', 'shadowfree', 'contrast'] as const) {
-          const text = await readTextOnDevice(image, mode);
-          (globalThis as { __scanTexts?: string[] }).__scanTexts = [
-            ...((globalThis as { __scanTexts?: string[] }).__scanTexts ?? []),
-            text,
-          ];
-          const parsed = parseSlipText(text, qr);
-          reads.push(await verifyPlayers(parsed, parsed.game ?? reads.find((r) => r.game)?.game));
-          read = mergeReads(reads);
-          (globalThis as { __scanReads?: unknown }).__scanReads = reads; // for troubleshooting
-          if (!slipProblems(read).length) break;
-        }
-        read = read!;
-        const problems = slipProblems(read);
-        if (problems.length) {
+      let qr: string | null;
+      try {
+        const res = await readSlip(images[0], settings.anthropicApiKey);
+        found = res.bets;
+        qr = res.qr;
+      } catch (e) {
+        if (e instanceof ScanError && !useAI) {
           // Never save a ticket with a dropped leg: ask for a better photo instead.
-          notify(
-            'Take a new picture',
-            `Couldn't read ${problems.join(', ')} clearly. Retake it straight on, filling the screen, in good light with no shadow or glare across the print.`,
-          );
+          notify('Take a new picture', e.message);
           return;
         }
-        found = [read];
+        throw e;
       }
       applyScan(found[0]);
       // The slip's QR (when readable) links to the sportsbook's ticket tracker;
@@ -294,6 +287,67 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     }
   };
 
+  // ---- several photos at once ----
+  const scanBatch = async (images: string[]) => {
+    setBatch({ total: images.length, done: 0, items: [] });
+    const items: BatchItem[] = [];
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const res = await readSlip(images[i], settings.anthropicApiKey);
+        res.bets.forEach((b) =>
+          items.push({
+            photo: i + 1,
+            bet: b,
+            trackerUrl:
+              (res.bets.length === 1 && res.qr) || deriveTrackerUrl(b.book, b.notes, bets),
+          }),
+        );
+      } catch (e) {
+        items.push({
+          photo: i + 1,
+          error: e instanceof Error ? e.message : 'Something went wrong.',
+        });
+      }
+      setBatch({ total: images.length, done: i + 1, items: [...items] });
+    }
+  };
+
+  const saveBatch = () => {
+    if (!batch) return;
+    const seen = new Set(bets.map((b) => ticketDigits(b)).filter(Boolean) as string[]);
+    let saved = 0;
+    let dupes = 0;
+    let incomplete = 0;
+    for (const item of batch.items) {
+      if (!item.bet) continue;
+      const b = scannedToBet(item.bet);
+      if (!b) {
+        incomplete++;
+        continue;
+      }
+      const ticket = ticketDigits(b);
+      if (ticket && seen.has(ticket)) {
+        dupes++;
+        continue;
+      }
+      if (ticket) seen.add(ticket);
+      saveBet({ ...b, trackerUrl: item.trackerUrl || undefined });
+      saved++;
+    }
+    const failed = batch.items.filter((i) => i.error).length;
+    const extra = [
+      dupes ? `${dupes} already logged` : '',
+      incomplete ? `${incomplete} missing odds/stake` : '',
+      failed ? `${failed} photo${failed === 1 ? '' : 's'} to retake` : '',
+    ].filter(Boolean);
+    notify(
+      `Saved ${saved} bet${saved === 1 ? '' : 's'}`,
+      extra.length ? `Skipped: ${extra.join(', ')}.` : 'All set.',
+    );
+    setBatch(null);
+    onClose();
+  };
+
   const saveAllScanned = () => {
     setSubmitted(true);
     if (!valid) return;
@@ -316,6 +370,93 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     !book.trim() || settings.books.includes(book.trim())
       ? settings.books
       : [book.trim(), ...settings.books];
+
+  if (batch) {
+    const ready = batch.items.filter((i) => i.bet && scannedToBet(i.bet));
+    const reading = batch.done < batch.total;
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => setBatch(null)}
+            hitSlop={12}
+            accessibilityRole="button"
+            disabled={reading}
+          >
+            <Text style={styles.headerBtn}>Back</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>
+            {reading ? `Reading ${batch.done + 1} of ${batch.total}…` : 'Review Slips'}
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView contentContainerStyle={styles.container}>
+          {reading ? (
+            <View style={styles.scanning}>
+              <ActivityIndicator color={colors.accent} />
+              <Text style={styles.scanText}>
+                Reading photo {batch.done + 1} of {batch.total}…
+              </Text>
+            </View>
+          ) : null}
+          {batch.items.map((item, i) => {
+            const ok = item.bet && scannedToBet(item.bet);
+            const ticket = item.bet ? ticketDigits({ notes: item.bet.notes }) : null;
+            const dupe = !!ticket && bets.some((b) => ticketDigits(b) === ticket);
+            return (
+              <View key={i} style={[styles.batchCard, !ok && { borderColor: colors.loss }]}>
+                <Text style={styles.batchPhoto}>
+                  Photo {item.photo}
+                  {dupe ? ' · already logged, will skip' : ''}
+                </Text>
+                {item.bet ? (
+                  <>
+                    <Text style={styles.batchTitle}>
+                      {ok ? '✅ ' : '⚠️ '}
+                      {item.bet.pick || item.bet.betType}
+                    </Text>
+                    <Text style={styles.batchMeta}>
+                      {[
+                        item.bet.book,
+                        item.bet.odds !== null ? formatOdds(item.bet.odds) : 'odds ?',
+                        item.bet.stake !== null ? `$${item.bet.stake.toFixed(2)}` : 'stake ?',
+                        item.bet.date,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                    {item.bet.legs.map((l) => (
+                      <Text key={l.id} style={styles.batchLeg}>
+                        • {l.pick}
+                      </Text>
+                    ))}
+                  </>
+                ) : (
+                  <Text style={[styles.batchMeta, { color: colors.loss }]}>❌ {item.error}</Text>
+                )}
+              </View>
+            );
+          })}
+          {!reading ? (
+            <>
+              <Button
+                title={
+                  ready.length
+                    ? `Save ${ready.length} bet${ready.length === 1 ? '' : 's'}`
+                    : 'Nothing to save'
+                }
+                onPress={saveBatch}
+                disabled={!ready.length}
+              />
+              <Text style={[styles.scanText, { textAlign: 'center', marginTop: space.sm }]}>
+                Tickets marked ❌ or ⚠️ aren't saved — retake those photos.
+              </Text>
+            </>
+          ) : null}
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -347,7 +488,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
               <>
                 <Text style={styles.scanTitle}>📷 Scan a bet slip</Text>
                 <Text style={styles.scanText}>
-                  Snap a paper ticket or pick a screenshot from your sportsbook app.
+                  Snap a paper ticket, or choose one or more photos and screenshots at once.
                 </Text>
                 <View style={styles.scanBtns}>
                   <Button
@@ -356,7 +497,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                     style={{ flex: 1, paddingVertical: 10 }}
                   />
                   <Button
-                    title="Choose Photo"
+                    title="Choose Photos"
                     variant="secondary"
                     onPress={() => scan('library')}
                     style={{ flex: 1, paddingVertical: 10 }}
@@ -622,6 +763,18 @@ const styles = StyleSheet.create({
     gap: space.md,
     paddingVertical: space.md,
   },
+  batchCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.md,
+    marginBottom: space.md,
+  },
+  batchPhoto: { color: colors.textFaint, fontSize: 12, fontWeight: '700' },
+  batchTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
+  batchMeta: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  batchLeg: { color: colors.text, fontSize: 13, marginTop: 3 },
   legHint: { color: colors.textFaint, fontSize: 12, marginBottom: space.sm },
   label: { color: colors.textDim, fontSize: 13, fontWeight: '600', marginBottom: 6 },
   row: { flexDirection: 'row', gap: space.md },

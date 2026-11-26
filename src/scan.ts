@@ -43,20 +43,8 @@ export interface ScannedBet {
 
 export type PickSource = 'camera' | 'library';
 
-/** Opens the camera or photo library and returns a JPEG (base64) small enough to send. */
-export async function pickSlipImage(source: PickSource): Promise<string | null> {
-  if (source === 'camera') {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) throw new Error('Camera permission is needed to scan a bet slip.');
-  }
-  const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
-  const result =
-    source === 'camera'
-      ? await ImagePicker.launchCameraAsync(opts)
-      : await ImagePicker.launchImageLibraryAsync(opts);
-  if (result.canceled || !result.assets?.length) return null;
-
-  const asset = result.assets[0];
+/** Shrinks a picked photo to a JPEG (base64) small enough to send and read. */
+async function toJpeg(asset: ImagePicker.ImagePickerAsset): Promise<string> {
   const ctx = ImageManipulator.manipulate(asset.uri);
   const { width = 0, height = 0 } = asset;
   if (Math.max(width, height) > MAX_EDGE || !width || !height) {
@@ -66,6 +54,30 @@ export async function pickSlipImage(source: PickSource): Promise<string | null> 
   const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.85, base64: true });
   if (!saved.base64) throw new Error('Could not read that image.');
   return saved.base64.replace(/^data:image\/\w+;base64,/, '');
+}
+
+/**
+ * Opens the camera (one photo) or the photo library (pick as many as you
+ * like) and returns each photo as a JPEG (base64).
+ */
+export async function pickSlipImages(source: PickSource): Promise<string[]> {
+  if (source === 'camera') {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new Error('Camera permission is needed to scan a bet slip.');
+  }
+  const result =
+    source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
+      : await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 1,
+          allowsMultipleSelection: true,
+          selectionLimit: 25,
+        });
+  if (result.canceled || !result.assets?.length) return [];
+  const out: string[] = [];
+  for (const asset of result.assets) out.push(await toJpeg(asset));
+  return out;
 }
 
 const SYSTEM_PROMPT = `You read photos and screenshots of sports betting slips (printed retail tickets, sportsbook app screenshots, bet history pages) and extract each bet on them for a personal bet-tracking app.
