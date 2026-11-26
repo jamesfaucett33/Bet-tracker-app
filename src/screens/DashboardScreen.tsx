@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BetCard } from '../components/BetCard';
 import { ProfitChart } from '../components/ProfitChart';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
@@ -7,12 +7,20 @@ import { formatAmount, formatPct } from '../format';
 import { useLive } from '../live';
 import { filterByPeriod, groupBy, Period, profitSeries, summarize } from '../stats';
 import { useStore } from '../store';
+import { useSync } from '../sync';
 import { colors, profitColor, radius, space } from '../theme';
 import { Bet } from '../types';
 
 type Breakdown = 'sport' | 'betType' | 'book';
 
-export function DashboardScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
+export function DashboardScreen({
+  onEditBet,
+  onOpenSettings,
+}: {
+  onEditBet: (bet: Bet) => void;
+  onOpenSettings?: () => void;
+}) {
+  const sync = useSync();
   const { bets, settings } = useStore();
   const [period, setPeriod] = useState<Period>('all');
   const [breakdown, setBreakdown] = useState<Breakdown>('sport');
@@ -31,6 +39,15 @@ export function DashboardScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {sync.configured && !sync.email ? (
+        <Pressable onPress={onOpenSettings} style={styles.backup} accessibilityRole="button">
+          <Text style={styles.backupTitle}>☁️ Back up your bets</Text>
+          <Text style={styles.backupText}>
+            Bets are only on this browser right now. Sign in (Settings) to save them to your account
+            and see them on every device.
+          </Text>
+        </Pressable>
+      ) : null}
       <Segmented<Period>
         value={period}
         onChange={setPeriod}
@@ -169,6 +186,16 @@ function Stat({
 
 const styles = StyleSheet.create({
   container: { padding: space.lg, paddingBottom: 120 },
+  backup: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.push,
+    padding: space.md,
+    marginBottom: space.md,
+  },
+  backupTitle: { color: colors.push, fontSize: 15, fontWeight: '800' },
+  backupText: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   hero: { marginTop: space.lg },
   heroLabel: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
   heroValue: { fontSize: 40, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },

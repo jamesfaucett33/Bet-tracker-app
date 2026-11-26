@@ -29,6 +29,8 @@ interface Store {
   exportData: () => string;
   importData: (json: string) => { ok: true; count: number } | { ok: false; error: string };
   clearAll: () => void;
+  /** Apply bets from cloud sync without re-stamping them. */
+  applyRemote: (upserts: Bet[], deletedIds: string[]) => void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -87,7 +89,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   }, [bets, settings, loaded]);
 
-  const saveBet = useCallback((bet: Bet) => {
+  const saveBet = useCallback((input: Bet) => {
+    const bet = { ...input, updatedAt: Date.now() };
     setBets((prev) => {
       const exists = prev.some((b) => b.id === bet.id);
       return sortBets(exists ? prev.map((b) => (b.id === bet.id ? bet : b)) : [...prev, bet]);
@@ -99,7 +102,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setStatus = useCallback((id: string, status: BetStatus) => {
-    setBets((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
+    setBets((prev) => prev.map((b) => (b.id === id ? { ...b, status, updatedAt: Date.now() } : b)));
   }, []);
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
@@ -131,7 +134,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return { ok: false as const, error: 'None of the bets in that data were valid.' };
       setBets((prev) => {
         const byId = new Map(prev.map((b) => [b.id, b]));
-        valid.forEach((b) => byId.set(b.id, b));
+        const now = Date.now();
+        valid.forEach((b) => byId.set(b.id, { ...b, updatedAt: now }));
         return sortBets([...byId.values()]);
       });
       if (!Array.isArray(data) && data.settings) {
@@ -150,6 +154,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
+  const applyRemote = useCallback((upserts: Bet[], deletedIds: string[]) => {
+    if (!upserts.length && !deletedIds.length) return;
+    setBets((prev) => {
+      const byId = new Map(prev.map((b) => [b.id, b]));
+      deletedIds.forEach((id) => byId.delete(id));
+      upserts.filter(isBet).forEach((b) => byId.set(b.id, b));
+      return sortBets([...byId.values()]);
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       loaded,
@@ -162,6 +176,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       exportData,
       importData,
       clearAll,
+      applyRemote,
     }),
     [
       loaded,
@@ -174,6 +189,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       exportData,
       importData,
       clearAll,
+      applyRemote,
     ],
   );
 

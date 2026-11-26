@@ -85,6 +85,8 @@ export interface Bet {
   game?: GameRef;
   /** The sportsbook's own ticket tracker page (from the slip's QR code). */
   trackerUrl?: string;
+  /** Last change (ms), used to merge with cloud sync: newest edit wins. */
+  updatedAt?: number;
 }
 
 export interface Settings {

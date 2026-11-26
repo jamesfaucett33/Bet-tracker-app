@@ -17,6 +17,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { LiveProvider, useLive } from './src/live';
 import { StoreProvider, useStore } from './src/store';
+import { SyncProvider } from './src/sync';
 import { colors, space } from './src/theme';
 import { Bet } from './src/types';
 
@@ -132,7 +133,9 @@ function Main() {
       </SafeAreaView>
 
       <View style={{ flex: 1 }}>
-        {tab === 'dashboard' && <DashboardScreen onEditBet={openBet} />}
+        {tab === 'dashboard' && (
+          <DashboardScreen onEditBet={openBet} onOpenSettings={() => setTab('settings')} />
+        )}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
         {tab === 'settings' && <SettingsScreen />}
@@ -205,10 +208,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
-        <LiveProvider>
-          <StatusBar style="light" />
-          <Main />
-        </LiveProvider>
+        <SyncProvider>
+          <LiveProvider>
+            <StatusBar style="light" />
+            <Main />
+          </LiveProvider>
+        </SyncProvider>
       </StoreProvider>
     </SafeAreaProvider>
   );

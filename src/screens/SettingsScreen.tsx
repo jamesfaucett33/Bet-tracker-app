@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { AccountCard } from '../components/AccountCard';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
 import { parseNumber } from '../format';
 import { cleanKey, testKey } from '../scan';
@@ -107,6 +108,8 @@ export function SettingsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <AccountCard />
+
       <SectionTitle>Bankroll & Units</SectionTitle>
       <Card>
         <Field
@@ -247,8 +250,8 @@ export function SettingsScreen() {
       <SectionTitle>Backup</SectionTitle>
       <Card style={{ gap: space.md }}>
         <Text style={styles.body}>
-          Your {bets.length} bet{bets.length === 1 ? ' is' : 's are'} saved on this device only.
-          Export a backup regularly so you don't lose them.
+          Export a backup file of your {bets.length} bet{bets.length === 1 ? '' : 's'} any time.
+          When you're signed in, bets are also backed up to your account automatically.
         </Text>
         <Button title="Export Backup" variant="secondary" onPress={doExport} />
         <Button
