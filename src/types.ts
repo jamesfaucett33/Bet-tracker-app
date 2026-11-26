@@ -89,6 +89,11 @@ export interface Bet {
   trackerUrl?: string;
   /** Last change (ms), used to merge with cloud sync: newest edit wins. */
   updatedAt?: number;
+  /**
+   * Exact profit if it wins, as printed on the ticket. Books price parlays from
+   * unrounded leg odds, so this can differ by cents from the American odds.
+   */
+  toWin?: number;
   /** 'auto' when the app settled it from the game's final stats. */
   settledBy?: 'auto';
 }

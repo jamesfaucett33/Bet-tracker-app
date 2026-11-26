@@ -30,11 +30,16 @@ export function potentialProfit(stake: number, odds: number): number {
   return stake * (dec - 1);
 }
 
+/** Profit if the bet wins: the ticket's printed amount when known, else from the odds. */
+export function betToWin(bet: Bet): number {
+  return bet.toWin && bet.toWin > 0 ? bet.toWin : potentialProfit(bet.stake, bet.odds);
+}
+
 /** Realized profit/loss of a bet. Pending and pushed bets count as 0. */
 export function betProfit(bet: Bet): number {
   switch (bet.status) {
     case 'won':
-      return potentialProfit(bet.stake, bet.odds);
+      return betToWin(bet);
     case 'lost':
       return -bet.stake;
     default:

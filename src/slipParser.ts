@@ -298,6 +298,7 @@ export function parseSlipText(raw: string, qrUrl?: string | null): ScannedBet {
     pick,
     odds,
     stake,
+    toWin: toWin && toWin > 0 ? Math.round(toWin * 100) / 100 : null,
     book,
     date: parseDate(text) ?? '', // filled in by mergeReads / the caller
     status: 'pending',
@@ -385,6 +386,7 @@ export function mergeReads(reads: ScannedBet[]): ScannedBet {
     odds: (pick('odds') as number | null) ?? null,
     book: (pick('book') as string) ?? '',
     notes: (pick('notes') as string) ?? '',
+    toWin: (pick('toWin') as number | null) ?? null,
     date: (pick('date') as string) || todayISO(),
     game: pick('game') as ScannedBet['game'],
     expectedLegs: (pick('expectedLegs') as number | undefined) ?? undefined,

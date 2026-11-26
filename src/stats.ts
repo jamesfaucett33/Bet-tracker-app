@@ -1,4 +1,4 @@
-import { betProfit, potentialProfit } from './odds';
+import { betProfit, betToWin } from './odds';
 import { Bet } from './types';
 
 export interface Summary {
@@ -33,7 +33,7 @@ export function summarize(bets: Bet[]): Summary {
     if (b.status === 'pending') {
       s.pending++;
       s.pendingStake += b.stake;
-      s.pendingToWin += potentialProfit(b.stake, b.odds);
+      s.pendingToWin += betToWin(b);
       continue;
     }
     if (b.status === 'won') s.wins++;

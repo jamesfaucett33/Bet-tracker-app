@@ -30,6 +30,8 @@ export interface ScannedBet {
   pick: string;
   odds: number | null;
   stake: number | null;
+  /** Profit if it wins, exactly as printed on the slip. */
+  toWin?: number | null;
   book: string;
   date: string;
   status: BetStatus;
@@ -274,6 +276,7 @@ function normalize(b: RawBet): ScannedBet {
     pick: b.pick?.trim() ?? '',
     odds,
     stake: b.stake !== null && b.stake > 0 ? Math.round(b.stake * 100) / 100 : null,
+    toWin: b.to_win !== null && b.to_win > 0 ? Math.round(b.to_win * 100) / 100 : null,
     book: b.sportsbook?.trim() ?? '',
     date,
     status,

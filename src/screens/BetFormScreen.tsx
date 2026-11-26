@@ -54,6 +54,7 @@ function scannedToBet(sb: ScannedBet): Bet | null {
     pick: sb.pick || `${sb.legs.length}-leg ${sb.betType.toLowerCase()}`,
     odds: sb.odds,
     stake: sb.stake,
+    toWin: sb.toWin ?? undefined,
     book: sb.book,
     status: sb.status,
     notes: sb.notes || undefined,
@@ -74,6 +75,8 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [odds, setOdds] = useState(bet ? formatOdds(bet.odds) : '-110');
   const [stakeMode, setStakeMode] = useState<'$' | 'u'>('$');
   const [stake, setStake] = useState(bet ? String(bet.stake) : '');
+  // Exact "to win" printed on the ticket (optional; overrides the odds math).
+  const [toWinInput, setToWinInput] = useState(bet?.toWin ? bet.toWin.toFixed(2) : '');
   const [book, setBook] = useState(bet?.book ?? settings.books[0] ?? '');
   const [status, setStatus] = useState<BetStatus>(bet?.status ?? 'pending');
   const [notes, setNotes] = useState(bet?.notes ?? '');
@@ -145,7 +148,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   }, [date, oddsNum, stakeNum, pick, multiLeg, multiLegType]);
 
   const valid = Object.keys(errors).length === 0;
-  const toWin = valid ? potentialProfit(stakeNum, oddsNum) : 0;
+  const printedRaw = parseNumber(toWinInput);
+  const printedToWin =
+    Number.isFinite(printedRaw) && printedRaw > 0 ? Math.round(printedRaw * 100) / 100 : null;
+  const toWin = valid ? (printedToWin ?? potentialProfit(stakeNum, oddsNum)) : 0;
   const implied = impliedProbability(oddsNum);
 
   const save = (allowDuplicate = false) => {
@@ -192,6 +198,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       pick: finalPick,
       odds: oddsNum,
       stake: Math.round(stakeNum * 100) / 100,
+      toWin: printedToWin ?? undefined,
       book: book.trim(),
       status,
       notes: notes.trim() || undefined,
@@ -221,6 +228,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     setOdds(sb.odds === null ? '' : formatOdds(sb.odds));
     setStakeMode('$');
     setStake(sb.stake === null ? '' : String(sb.stake));
+    setToWinInput(sb.toWin ? sb.toWin.toFixed(2) : '');
     setBook(sb.book); // blank if unreadable, never a leftover default
     setDate(sb.date);
     setStatus(sb.status);
@@ -707,12 +715,23 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         </View>
 
         <View style={styles.toWinBox}>
-          <Text style={styles.toWinLabel}>To win</Text>
+          <Text style={styles.toWinLabel}>
+            {printedToWin !== null ? 'To win (from ticket)' : 'To win'}
+          </Text>
           <Text style={styles.toWinValue}>{formatAmount(toWin, settings)}</Text>
           <Text style={styles.toWinLabel}>
             Payout {formatAmount(valid ? toWin + stakeNum : 0, settings)}
           </Text>
         </View>
+
+        <Field
+          label="To win as printed on ticket (optional)"
+          value={toWinInput}
+          onChangeText={setToWinInput}
+          placeholder={valid ? potentialProfit(stakeNum, oddsNum).toFixed(2) : '84.55'}
+          keyboardType="decimal-pad"
+          hint="Books price parlays from exact leg odds, so their amount can differ by a few cents. Enter it to match your ticket."
+        />
 
         <Text style={styles.label}>Sportsbook</Text>
         <ChipRow options={bookOptions} value={book} onChange={setBook} />

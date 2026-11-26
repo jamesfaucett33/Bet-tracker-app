@@ -4,7 +4,7 @@ import { formatAmount, formatDate } from '../format';
 import { autoSettle, gameLine, useBetLive } from '../live';
 import { formatChance } from '../chance';
 import { chanceColor, GameHeader, legsSummary, LiveLegs } from './LiveLegs';
-import { betProfit, formatOdds, potentialProfit } from '../odds';
+import { betProfit, betToWin, formatOdds } from '../odds';
 import { useStore } from '../store';
 import { colors, profitColor, radius, space, statusColor } from '../theme';
 import { Bet, BetStatus } from '../types';
@@ -19,7 +19,7 @@ const STATUS_LABEL: Record<BetStatus, string> = {
 export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const { settings, setStatus } = useStore();
   const profit = betProfit(bet);
-  const toWin = potentialProfit(bet.stake, bet.odds);
+  const toWin = betToWin(bet);
   const { game, legs: liveLegs, chance, legGames, multiGame } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
   // Overall state across every leg's game (multi-game parlays span several).

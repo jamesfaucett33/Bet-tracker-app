@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { betChance, formatChance, legChance } from '../chance';
 import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
-import { formatOdds, potentialProfit } from '../odds';
+import { betToWin, formatOdds } from '../odds';
 import { SectionTitle } from '../components/ui';
 import { gameLine, gradeMarket, LegProgress, LiveGame, TeamScore, useLive } from '../live';
 import { betMarkets } from '../markets';
@@ -246,10 +246,10 @@ function TicketList({
                 {[
                   { label: 'Odds', value: formatOdds(bet.odds) },
                   { label: 'Wagered', value: money(bet.stake) },
-                  { label: 'To win', value: money(potentialProfit(bet.stake, bet.odds)), hi: true },
+                  { label: 'To win', value: money(betToWin(bet)), hi: true },
                   {
                     label: 'Payout',
-                    value: money(bet.stake + potentialProfit(bet.stake, bet.odds)),
+                    value: money(bet.stake + betToWin(bet)),
                   },
                 ].map((st) => (
                   <View key={st.label} style={styles.stat}>
