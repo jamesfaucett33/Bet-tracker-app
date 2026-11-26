@@ -26,7 +26,7 @@ import { duplicateMessage, findDuplicate, sameTicket } from '../dupes';
 import { cheer } from '../cheer';
 import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
 import { readSlip, SlipRead } from '../readSlip';
-import { PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
+import { PickedImage, PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
 import { Bet, BET_TYPES, BetStatus, BetType, GameRef, Market, ParlayLeg } from '../types';
@@ -281,7 +281,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       let qr: string | null;
       let res: SlipRead;
       try {
-        res = await readSlip(images[0], settings.anthropicApiKey);
+        res = await readSlip(images[0].data, settings.anthropicApiKey, images[0].screenshot);
         found = res.bets;
         qr = res.qr;
       } catch (e) {
@@ -306,7 +306,9 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       setScanNote(
         found.length > 1
           ? `Found ${found.length} bets. Showing the first — check it, then save.`
-          : res.usedAI
+          : res.freeScreenshot
+            ? '📱 Screenshot read on your phone — free, no AI scan used. Check the details, then save.'
+            : res.usedAI
             ? 'Slip read with AI. Check the details below, then save.'
             : res.limitReached
               ? 'Beta AI scan cap reached — read on your phone instead. Double-check every field.'
@@ -323,12 +325,12 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   };
 
   // ---- several photos at once ----
-  const scanBatch = async (images: string[]) => {
+  const scanBatch = async (images: PickedImage[]) => {
     setBatch({ total: images.length, done: 0, items: [] });
     const items: BatchItem[] = [];
     for (let i = 0; i < images.length; i++) {
       try {
-        const res = await readSlip(images[i], settings.anthropicApiKey);
+        const res = await readSlip(images[i].data, settings.anthropicApiKey, images[i].screenshot);
         if (res.limitReached) setShowCap(true);
         res.bets.forEach((b) =>
           items.push({

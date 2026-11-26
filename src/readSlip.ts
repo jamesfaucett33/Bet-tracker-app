@@ -14,6 +14,25 @@ export interface SlipRead {
   usedCloud?: boolean;
   /** This account's free AI credit ran out; the phone read the slip instead. */
   limitReached?: boolean;
+  /** A screenshot the phone read by itself (free, no AI). */
+  freeScreenshot?: boolean;
+}
+
+/** The phone's own read (free): tries each image mode until nothing is missing. */
+async function readOnPhone(
+  image: string,
+  qr: string | null,
+  modes: ('plain' | 'shadowfree' | 'contrast')[],
+): Promise<{ read: ScannedBet; problems: string[] }> {
+  const reads: ScannedBet[] = [];
+  let read: ScannedBet | null = null;
+  for (const mode of modes) {
+    const parsed = parseSlipText(await readTextOnDevice(image, mode), qr);
+    reads.push(await verifyPlayers(parsed, parsed.game ?? reads.find((r) => r.game)?.game));
+    read = mergeReads(reads);
+    if (!slipProblems(read).length) break;
+  }
+  return { read: read!, problems: slipProblems(read!) };
 }
 
 /**
@@ -23,8 +42,26 @@ export interface SlipRead {
  * reads. Throws ScanError asking for a new picture rather than returning a
  * ticket with a dropped leg.
  */
-export async function readSlip(image: string, apiKey: string): Promise<SlipRead> {
+export async function readSlip(
+  image: string,
+  apiKey: string,
+  screenshot = false,
+): Promise<SlipRead> {
   const qr = await decodeSlipQr(image);
+
+  // Screenshots (websites, sportsbook apps) are clean enough for the phone to
+  // read for free. Only if that read is missing something does the AI step in.
+  let phoneTry: { read: ScannedBet; problems: string[] } | null = null;
+  if (screenshot) {
+    try {
+      phoneTry = await readOnPhone(image, qr, ['plain', 'contrast']);
+      if (!phoneTry.problems.length)
+        return { bets: [phoneTry.read], qr, usedAI: false, freeScreenshot: true };
+    } catch {
+      // the phone couldn't read it at all; let the AI try
+    }
+  }
+
   if (apiKey.trim()) {
     return { bets: await readBetSlip(apiKey, image), qr, usedAI: true };
   }
@@ -41,19 +78,14 @@ export async function readSlip(image: string, apiKey: string): Promise<SlipRead>
     }
   }
 
-  const reads: ScannedBet[] = [];
-  let read: ScannedBet | null = null;
-  for (const mode of ['plain', 'shadowfree', 'contrast'] as const) {
-    const parsed = parseSlipText(await readTextOnDevice(image, mode), qr);
-    reads.push(await verifyPlayers(parsed, parsed.game ?? reads.find((r) => r.game)?.game));
-    read = mergeReads(reads);
-    if (!slipProblems(read).length) break;
-  }
-  const problems = slipProblems(read!);
+  const { read, problems } =
+    phoneTry ?? (await readOnPhone(image, qr, ['plain', 'shadowfree', 'contrast']));
   if (problems.length) {
     throw new ScanError(
-      `Couldn't read ${problems.join(', ')} clearly. Retake it straight on, filling the screen, in good light with no shadow or glare across the print.`,
+      screenshot
+        ? `Couldn't read ${problems.join(', ')} from that screenshot. Crop it to just the bet slip (zoomed in, nothing cut off) and try again.`
+        : `Couldn't read ${problems.join(', ')} clearly. Retake it straight on, filling the screen, in good light with no shadow or glare across the print.`,
     );
   }
-  return { bets: [read!], qr, usedAI: false, limitReached };
+  return { bets: [read], qr, usedAI: false, limitReached };
 }

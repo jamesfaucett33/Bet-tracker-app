@@ -58,11 +58,38 @@ async function toJpeg(asset: ImagePicker.ImagePickerAsset): Promise<string> {
   return saved.base64.replace(/^data:image\/\w+;base64,/, '');
 }
 
+export interface PickedImage {
+  /** JPEG, base64 */
+  data: string;
+  /** A screenshot (website / app), not a camera photo of a paper ticket. */
+  screenshot: boolean;
+}
+
+/**
+ * Screenshots are sharp, flat images of a website or app, which the phone can
+ * read for free. Tells them apart from camera photos of paper tickets: iPhone
+ * and Android screenshots are PNGs (or named "Screenshot..."), and are shaped
+ * like the screen (tall and thin), while camera photos are about 4:3.
+ */
+export function looksLikeScreenshot(asset: ImagePicker.ImagePickerAsset, source: PickSource): boolean {
+  if (source === 'camera') return false;
+  const name = (asset.fileName ?? '').toLowerCase();
+  const type = (asset.mimeType ?? '').toLowerCase();
+  if (type.includes('png') || /\.png$/.test(name) || asset.uri.startsWith('data:image/png')) return true;
+  if (/screen ?shot|screen_shot|screen-shot/.test(name)) return true;
+  const { width = 0, height = 0 } = asset;
+  if (width && height) {
+    const ratio = Math.max(width, height) / Math.min(width, height);
+    if (ratio >= 1.85) return true; // phone-screen shaped
+  }
+  return false;
+}
+
 /**
  * Opens the camera (one photo) or the photo library (pick as many as you
- * like) and returns each photo as a JPEG (base64).
+ * like) and returns each photo as a JPEG (base64), marked when it's a screenshot.
  */
-export async function pickSlipImages(source: PickSource): Promise<string[]> {
+export async function pickSlipImages(source: PickSource): Promise<PickedImage[]> {
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) throw new Error('Camera permission is needed to scan a bet slip.');
@@ -77,8 +104,9 @@ export async function pickSlipImages(source: PickSource): Promise<string[]> {
           selectionLimit: 25,
         });
   if (result.canceled || !result.assets?.length) return [];
-  const out: string[] = [];
-  for (const asset of result.assets) out.push(await toJpeg(asset));
+  const out: PickedImage[] = [];
+  for (const asset of result.assets)
+    out.push({ data: await toJpeg(asset), screenshot: looksLikeScreenshot(asset, source) });
   return out;
 }
 
