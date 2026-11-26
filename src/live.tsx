@@ -882,3 +882,74 @@ export function useBetPhases(): (bet: Bet) => BetPhase {
     return betPhase(bet, perLeg?.length ? perLeg : g ? [g] : undefined);
   };
 }
+
+// ---------- recent finished games (for the Past tab) ----------
+
+const finishedGames = new Map<string, LiveGame>(); // eventId -> final game (never changes)
+
+/** The ESPN game each leg of a bet is on, as far as the app knows. */
+export function betEventIds(bet: Bet, perLeg?: (LiveGame | undefined)[]): (string | undefined)[] {
+  const markets = betMarkets(bet);
+  return markets.map((_, i) => {
+    if (perLeg?.[i]) return perLeg[i]!.eventId;
+    const stored = bet.legs?.length ? bet.legs[i]?.game?.eventId : bet.game?.eventId;
+    return stored;
+  });
+}
+
+/**
+ * Finished games you had a ticket on within the last `days` days, newest
+ * first. Uses what the live tracker already has, and fetches the final box
+ * score for anything else (once; final games don't change).
+ */
+export function useRecentGames(days = 7): LiveGame[] {
+  const { bets } = useStore();
+  const { legGames, games } = useLive();
+  const [list, setList] = useState<LiveGame[]>([]);
+  const since = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().slice(0, 10);
+  })();
+  const refs = new Map<string, string>(); // eventId -> league
+  for (const b of bets) {
+    if (b.date < since && (b.settledAt ?? 0) < Date.parse(since)) continue;
+    const league = (b.sport || 'NFL').toUpperCase();
+    b.legs?.forEach((l) => l.game?.eventId && refs.set(l.game.eventId, l.game.league || league));
+    if (b.game?.eventId) refs.set(b.game.eventId, b.game.league || league);
+    for (const g of legGames.get(b.id) ?? []) if (g) refs.set(g.eventId, g.league);
+    const g = games.get(b.id);
+    if (g) refs.set(g.eventId, g.league);
+  }
+  // Live tracker data first: anything it already has as final.
+  for (const g of [...games.values(), ...[...legGames.values()].flat()])
+    if (g && g.state === 'post') finishedGames.set(g.eventId, g);
+  const key = [...refs.keys()].sort().join(',');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      for (const [eventId, league] of refs) {
+        if (finishedGames.has(eventId)) continue;
+        try {
+          const g = await fetchLiveGame(league, eventId);
+          if (g.state === 'post') finishedGames.set(eventId, g);
+        } catch {
+          // offline or unknown league: skip
+        }
+      }
+      if (!cancelled)
+        setList(
+          [...refs.keys()]
+            .map((id) => finishedGames.get(id))
+            .filter((g): g is LiveGame => !!g)
+            .sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0)),
+        );
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return list;
+}

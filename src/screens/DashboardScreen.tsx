@@ -128,7 +128,7 @@ export function DashboardScreen({
         {toSettle.length ? (
           <Pressable
             style={styles.settleNote}
-            onPress={() => onOpenTab?.('live')}
+            onPress={() => onOpenTab?.('bets')}
             accessibilityRole="button"
           >
             <Text style={styles.settleNoteText}>
