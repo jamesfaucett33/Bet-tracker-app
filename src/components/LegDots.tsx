@@ -4,14 +4,15 @@ import { colors } from '../theme';
 
 /**
  * One dot per leg, the same everywhere in the app:
- * green = hit, orange = still to play / in play, red = missed,
+ * green = hit, solid orange = playing now, hollow orange = not started yet, red = missed,
  * amber = pushed (dropped from the ticket), grey = no result (couldn't be graded, e.g. a
  * player with no stats).
  */
-export type DotKind = 'hit' | 'toPlay' | 'miss' | 'push' | 'none';
+export type DotKind = 'hit' | 'live' | 'toPlay' | 'miss' | 'push' | 'none';
 
 export const DOT_COLOR: Record<DotKind, string> = {
   hit: colors.win,
+  live: colors.toPlay,
   toPlay: colors.toPlay,
   miss: colors.loss,
   push: colors.push,
@@ -24,23 +25,52 @@ export function LegDots({ kinds, size = 9 }: { kinds: DotKind[]; size?: number }
       {kinds.map((k, i) => (
         <View
           key={i}
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: DOT_COLOR[k],
-            opacity: k === 'none' ? 0.6 : 1,
-          }}
+          style={dotStyle(k, size)}
         />
       ))}
     </View>
   );
 }
 
+/** Not-started legs are hollow rings; everything else is a filled dot. */
+function dotStyle(k: DotKind, size: number) {
+  return k === 'toPlay'
+    ? {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: 1.5,
+        borderColor: DOT_COLOR.toPlay,
+      }
+    : {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: DOT_COLOR[k],
+        opacity: k === 'none' ? 0.6 : 1,
+      };
+}
+
+/** "✓ 1 hit · 1 live · 13 to play" (and missed / pushed / no result when there are any). */
+export function dotCounts(kinds: DotKind[]): string {
+  const n = (k: DotKind) => kinds.filter((x) => x === k).length;
+  return [
+    n('hit') ? `✓ ${n('hit')} hit` : '',
+    n('live') ? `${n('live')} live` : '',
+    n('toPlay') ? `${n('toPlay')} to play` : '',
+    n('miss') ? `${n('miss')} missed` : '',
+    n('push') ? `${n('push')} pushed` : '',
+    n('none') ? `${n('none')} no result` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** The key: what each dot color means. */
 export function DotLegend({ showNone = true }: { showNone?: boolean }) {
   const items: [DotKind, string][] = [
     ['hit', 'hit'],
+    ['live', 'live'],
     ['toPlay', 'to play'],
     ['miss', 'missed'],
     ...(showNone ? ([['none', 'no result']] as [DotKind, string][]) : []),
@@ -49,7 +79,7 @@ export function DotLegend({ showNone = true }: { showNone?: boolean }) {
     <View style={styles.legend}>
       {items.map(([k, label]) => (
         <View key={k} style={styles.item}>
-          <View style={[styles.legendDot, { backgroundColor: DOT_COLOR[k] }]} />
+          <View style={dotStyle(k, 8)} />
           <Text style={styles.legendText}>{label}</Text>
         </View>
       ))}

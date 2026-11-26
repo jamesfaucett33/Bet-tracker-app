@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { betChance, formatChance, legChance } from '../chance';
 import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
-import { DotKind, DotLegend, LegDots } from '../components/LegDots';
+import { DotKind, DotLegend, dotCounts, LegDots } from '../components/LegDots';
 import { betToWin, formatOdds } from '../odds';
 import { SectionTitle } from '../components/ui';
 import {
@@ -166,12 +166,13 @@ function WinBar({ game }: { game: LiveGame }) {
   );
 }
 
-/** Dot color for a leg: green hit, orange still to play, red missed. */
+/** Dot for a leg: green hit, solid orange playing now, hollow orange not started, red missed. */
 function dotFor(state: LegProgress['state'], final = false): DotKind {
   if (state === 'hit') return 'hit';
   if (state === 'miss') return 'miss';
   if (state === 'push') return 'push';
   if (state === 'unknown' || final) return 'none';
+  if (state === 'live') return 'live';
   return 'toPlay';
 }
 
@@ -378,11 +379,14 @@ function TicketList({
                     </Text>
                     <LegDots kinds={legs.map((l) => dotFor(l.prop.progress.state))} />
                   </View>
-                  {summary ? (
-                    <Text style={[styles.ticketSummary, { color: summary.color }]}>
-                      {summary.text}
-                    </Text>
-                  ) : null}
+                  <Text
+                    style={[
+                      styles.ticketSummary,
+                      { color: missed ? colors.loss : allHit ? colors.win : colors.text },
+                    ]}
+                  >
+                    {dotCounts(legs.map((l) => dotFor(l.prop.progress.state)))}
+                  </Text>
                   <Text style={styles.more}>▾ Tap to see every leg</Text>
                 </>
               ) : null}
@@ -771,6 +775,11 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {refreshRow}
+      {entries.length || multiBets.length ? (
+        <View style={{ marginBottom: space.md }}>
+          <DotLegend showNone={false} />
+        </View>
+      ) : null}
 
       {entries.length === 0 && !multiBets.length ? (
         <View style={styles.empty}>
@@ -787,9 +796,6 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
           <SectionTitle>
             🔴 In progress ({inProgress.length}) · tap a game for your bets
           </SectionTitle>
-          <View style={{ marginTop: -4, marginBottom: space.sm }}>
-            <DotLegend showNone={false} />
-          </View>
           {inProgress.map((e) => (
             <GameRow key={e.game.eventId} entry={e} onPress={() => setSelected(e.game.eventId)} />
           ))}
