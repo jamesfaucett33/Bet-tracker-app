@@ -9,7 +9,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { confirm, notify } from './src/components/ui';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
@@ -35,46 +34,76 @@ const TITLES: Record<Tab, string> = {
 };
 
 /**
- * Web only: a link ending in #import=<base64 JSON> loads bets in one tap,
- * e.g. to share a set of tickets. The user confirms before anything is added.
+ * Web only: a link ending in #import=<base64 JSON> loads bets in one tap.
+ * Shows an in-app banner (browser dialogs can be blocked on page load) and
+ * also reacts when the link is opened in a tab that already has the app.
  */
 function useLinkImport() {
   const { loaded, importData } = useStore();
+  const [pending, setPending] = useState<{ json: string; count: number } | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+
   useEffect(() => {
     if (!loaded || Platform.OS !== 'web') return;
-    const hash = globalThis.location?.hash ?? '';
-    if (!hash.startsWith('#import=')) return;
-    const clear = () => globalThis.history?.replaceState(null, '', globalThis.location.pathname);
-    let json = '';
-    try {
-      const b64 = decodeURIComponent(hash.slice('#import='.length));
-      json = new TextDecoder().decode(
-        Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
-      );
-      const parsed = JSON.parse(json);
-      const count = Array.isArray(parsed) ? parsed.length : (parsed?.bets?.length ?? 0);
-      confirm(
-        'Import bets?',
-        `This link adds ${count} bet${count === 1 ? '' : 's'}.`,
-        () => {
-          const res = importData(json);
-          notify(
-            res.ok ? 'Imported' : 'Import failed',
-            res.ok ? `Added ${res.count} bets.` : res.error,
-          );
-        },
-        'Import',
-      );
-    } catch {
-      notify('Import failed', 'That import link is damaged.');
-    }
-    clear();
-  }, [loaded, importData]);
+    const check = () => {
+      const hash = globalThis.location?.hash ?? '';
+      if (!hash.startsWith('#import=')) return;
+      globalThis.history?.replaceState(null, '', globalThis.location.pathname);
+      try {
+        let b64 = decodeURIComponent(hash.slice('#import='.length))
+          .replace(/-/g, '+')
+          .replace(/_/g, '/')
+          .replace(/\s/g, '');
+        while (b64.length % 4) b64 += '=';
+        const json = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+        const parsed = JSON.parse(json);
+        const count = Array.isArray(parsed) ? parsed.length : (parsed?.bets?.length ?? 0);
+        setResult(null);
+        setPending({ json, count });
+      } catch {
+        setResult('That import link is damaged — copy the whole link and try again.');
+      }
+    };
+    check();
+    globalThis.addEventListener?.('hashchange', check);
+    return () => globalThis.removeEventListener?.('hashchange', check);
+  }, [loaded]);
+
+  const accept = () => {
+    if (!pending) return;
+    const res = importData(pending.json);
+    setPending(null);
+    setResult(res.ok ? `Added ${res.count} bet${res.count === 1 ? '' : 's'}.` : res.error);
+  };
+  return { pending, result, accept, dismiss: () => (setPending(null), setResult(null)) };
+}
+
+function ImportBanner({ link }: { link: ReturnType<typeof useLinkImport> }) {
+  if (!link.pending && !link.result) return null;
+  return (
+    <View style={styles.banner}>
+      <Text style={styles.bannerText}>
+        {link.pending
+          ? `Import ${link.pending.count} bet${link.pending.count === 1 ? '' : 's'} from this link?`
+          : link.result}
+      </Text>
+      <View style={{ flexDirection: 'row', gap: space.sm }}>
+        {link.pending ? (
+          <Pressable onPress={link.accept} style={[styles.bannerBtn, styles.bannerPrimary]}>
+            <Text style={[styles.bannerBtnText, { color: colors.bg }]}>Import</Text>
+          </Pressable>
+        ) : null}
+        <Pressable onPress={link.dismiss} style={styles.bannerBtn}>
+          <Text style={styles.bannerBtnText}>{link.pending ? 'Not now' : 'OK'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
 function Main() {
   const { loaded } = useStore();
-  useLinkImport();
+  const link = useLinkImport();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('dashboard');
   // undefined = closed, null = new bet, Bet = editing
@@ -94,6 +123,7 @@ function Main() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.header}>
         <Text style={styles.title}>{TITLES[tab]}</Text>
+        <ImportBanner link={link} />
       </SafeAreaView>
 
       <View style={{ flex: 1 }}>
@@ -184,6 +214,24 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: 'center', gap: 2 },
   tabIcon: { color: colors.textFaint, fontSize: 20 },
   tabLabel: { color: colors.textFaint, fontSize: 11, fontWeight: '600' },
+  banner: {
+    marginTop: space.sm,
+    padding: space.md,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    gap: space.sm,
+  },
+  bannerText: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  bannerBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceAlt,
+  },
+  bannerPrimary: { backgroundColor: colors.accent },
+  bannerBtnText: { color: colors.text, fontWeight: '700' },
   fab: {
     position: 'absolute',
     right: space.lg,
