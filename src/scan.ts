@@ -101,19 +101,25 @@ How to fill each field:
 
 Copy numbers exactly as printed; never invent odds, amounts or dates that aren't on the image. If the image contains no bet slip, return an empty bets list and say what you see in problem.`;
 
-const MARKET_SCHEMA = {
-  type: ['object', 'null'],
+/** "This value or null", written the way structured outputs accept it. */
+const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: 'null' }] });
+const STR = { type: 'string' };
+const NUM = { type: 'number' };
+const INT = { type: 'integer' };
+
+const MARKET_SCHEMA = nullable({
+  type: 'object',
   additionalProperties: false,
   required: ['kind', 'player', 'stat', 'line', 'team', 'side'],
   properties: {
     kind: { type: 'string', enum: ['player', 'moneyline', 'spread', 'total', 'other'] },
-    player: { type: ['string', 'null'] },
-    stat: { type: ['string', 'null'], enum: [...Object.keys(PLAYER_STATS), null] },
-    line: { type: ['number', 'null'] },
-    team: { type: ['string', 'null'] },
-    side: { type: ['string', 'null'], enum: ['over', 'under', null] },
+    player: nullable(STR),
+    stat: nullable({ type: 'string', enum: Object.keys(PLAYER_STATS) }),
+    line: nullable(NUM),
+    team: nullable(STR),
+    side: nullable({ type: 'string', enum: ['over', 'under'] }),
   },
-} as const;
+});
 
 const SCHEMA = {
   type: 'object',
@@ -145,11 +151,11 @@ const SCHEMA = {
           sport: { type: 'string' },
           bet_type: { type: 'string', enum: [...BET_TYPES] },
           pick: { type: 'string' },
-          odds: { type: ['integer', 'null'] },
-          stake: { type: ['number', 'null'] },
-          to_win: { type: ['number', 'null'] },
-          sportsbook: { type: ['string', 'null'] },
-          placed_date: { type: ['string', 'null'] },
+          odds: nullable(INT),
+          stake: nullable(NUM),
+          to_win: nullable(NUM),
+          sportsbook: nullable(STR),
+          placed_date: nullable(STR),
           status: { type: 'string', enum: ['pending', 'won', 'lost', 'push'] },
           legs: {
             type: 'array',
@@ -159,19 +165,19 @@ const SCHEMA = {
               required: ['pick', 'odds', 'market'],
               properties: {
                 pick: { type: 'string' },
-                odds: { type: ['integer', 'null'] },
+                odds: nullable(INT),
                 market: MARKET_SCHEMA,
               },
             },
           },
-          ticket_id: { type: ['string', 'null'] },
-          away_team: { type: ['string', 'null'] },
-          home_team: { type: ['string', 'null'] },
+          ticket_id: nullable(STR),
+          away_team: nullable(STR),
+          home_team: nullable(STR),
           market: MARKET_SCHEMA,
         },
       },
     },
-    problem: { type: ['string', 'null'] },
+    problem: nullable(STR),
   },
 } as const;
 
