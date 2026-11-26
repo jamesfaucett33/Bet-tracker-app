@@ -21,7 +21,7 @@ import {
 } from '../odds';
 import { canReadOnDevice, readTextOnDevice } from '../ocr';
 import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
-import { parseSlipText } from '../slipParser';
+import { betterRead, parseSlipText, slipProblems } from '../slipParser';
 import { PickSource, pickSlipImage, readBetSlip, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -235,16 +235,25 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       setScanning(true);
       setScanNote('');
       const qr = await decodeSlipQr(image);
-      const found = useAI
-        ? await readBetSlip(settings.anthropicApiKey, image)
-        : [parseSlipText(await readTextOnDevice(image), qr)];
-      if (!useAI && found[0].stake === null && found[0].odds === null && !found[0].legs.length) {
-        notify(
-          "Couldn't read that slip",
-          'Try a straight-on photo in good light, fill it in by hand, or add an AI key in Settings for better reading.',
-        );
-        if (qr) setTrackerUrl(qr);
-        return;
+      let found: ScannedBet[];
+      if (useAI) {
+        found = await readBetSlip(settings.anthropicApiKey, image);
+      } else {
+        // Read once; if anything is missing, read a high-contrast copy too.
+        let read = parseSlipText(await readTextOnDevice(image), qr);
+        if (slipProblems(read).length) {
+          read = betterRead(read, parseSlipText(await readTextOnDevice(image, true), qr));
+        }
+        const problems = slipProblems(read);
+        if (problems.length) {
+          // Never save a ticket with a dropped leg: ask for a better photo instead.
+          notify(
+            'Take a new picture',
+            `Couldn't read ${problems.join(', ')} clearly. Retake it straight on, filling the screen, in good light with no shadow or glare across the print.`,
+          );
+          return;
+        }
+        found = [read];
       }
       applyScan(found[0]);
       // The slip's QR (when readable) links to the sportsbook's ticket tracker;

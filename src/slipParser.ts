@@ -286,5 +286,31 @@ export function parseSlipText(raw: string, qrUrl?: string | null): ScannedBet {
     notes: ticket ? `Ticket ${ticket}` : '',
     game,
     market: undefined,
+    expectedLegs: legCount || undefined,
   };
+}
+
+/**
+ * What's missing from an on-device read. Anything here means the photo
+ * should be retaken rather than saving a ticket with a dropped leg.
+ */
+export function slipProblems(sb: ScannedBet): string[] {
+  const problems: string[] = [];
+  if (sb.stake === null) problems.push('the stake');
+  if (sb.odds === null) problems.push('the odds');
+  if (sb.betType === 'Parlay' || sb.betType === 'Teaser') {
+    const readable = sb.legs.filter((l) => l.market).length;
+    const expected = sb.expectedLegs ?? sb.legs.length;
+    if (!expected || readable < expected)
+      problems.push(expected ? `${expected - readable} of ${expected} legs` : 'the legs');
+  }
+  return problems;
+}
+
+/** The better of two reads of the same slip (fewer problems wins). */
+export function betterRead(a: ScannedBet, b: ScannedBet): ScannedBet {
+  const pa = slipProblems(a).length;
+  const pb = slipProblems(b).length;
+  if (pa !== pb) return pa < pb ? a : b;
+  return b.legs.filter((l) => l.market).length > a.legs.filter((l) => l.market).length ? b : a;
 }

@@ -37,6 +37,8 @@ export interface ScannedBet {
   notes: string;
   game?: GameRef;
   market?: Market;
+  /** Leg count printed on the slip ("3 Leg Same Game Parlay"), when known. */
+  expectedLegs?: number;
 }
 
 export type PickSource = 'camera' | 'library';
