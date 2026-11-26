@@ -452,15 +452,32 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                       {[
                         item.bet.book,
                         item.bet.odds !== null ? formatOdds(item.bet.odds) : 'odds ?',
-                        item.bet.stake !== null ? `$${item.bet.stake.toFixed(2)}` : 'stake ?',
+                        item.bet.stake !== null ? `Bet $${item.bet.stake.toFixed(2)}` : 'bet amount ?',
                         item.bet.date,
                       ]
                         .filter(Boolean)
                         .join(' · ')}
                     </Text>
+                    {item.bet.stake !== null && (item.bet.toWin || item.bet.odds !== null) ? (
+                      (() => {
+                        const stake = item.bet.stake as number;
+                        const win = item.bet.toWin
+                          ? item.bet.toWin
+                          : potentialProfit(stake, item.bet.odds as number);
+                        return (
+                          <Text style={styles.batchPay}>
+                            To win ${win.toFixed(2)} · Payout ${(stake + win).toFixed(2)}
+                            <Text style={styles.batchPayNote}>
+                              {item.bet.toWin ? '  (from ticket)' : '  (from odds — check ticket)'}
+                            </Text>
+                          </Text>
+                        );
+                      })()
+                    ) : null}
                     {item.bet.legs.map((l) => (
                       <Text key={l.id} style={styles.batchLeg}>
                         • {l.pick}
+                        {l.odds !== null ? `  ${formatOdds(l.odds)}` : ''}
                       </Text>
                     ))}
                   </>
@@ -848,6 +865,8 @@ const styles = StyleSheet.create({
   batchPhoto: { color: colors.textFaint, fontSize: 12, fontWeight: '700' },
   batchTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
   batchMeta: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  batchPay: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: 4 },
+  batchPayNote: { color: colors.textDim, fontSize: 12, fontWeight: '400' },
   batchLeg: { color: colors.text, fontSize: 13, marginTop: 3 },
   legHint: { color: colors.textFaint, fontSize: 12, marginBottom: space.sm },
   label: { color: colors.textDim, fontSize: 13, fontWeight: '600', marginBottom: 6 },
