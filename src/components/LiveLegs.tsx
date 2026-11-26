@@ -59,7 +59,7 @@ export function GameHeader({ game }: { game: LiveGame }) {
   );
 }
 
-export function LiveLegs({ legs }: { legs: LegRow[] }) {
+export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: boolean }) {
   return (
     <View style={styles.legs}>
       {legs.map((leg, i) => {
@@ -79,7 +79,7 @@ export function LiveLegs({ legs }: { legs: LegRow[] }) {
           <View key={i} style={styles.leg}>
             <View style={styles.legTop}>
               <Text style={styles.legIcon}>
-                {p.state === 'hit' ? '✅' : p.state === 'miss' ? '❌' : '•'}
+                {p.state === 'hit' ? (final ? '✅' : '✓') : p.state === 'miss' ? '❌' : '•'}
               </Text>
               <Text style={styles.legLabel} numberOfLines={1}>
                 {leg.label}
@@ -114,15 +114,29 @@ export function LiveLegs({ legs }: { legs: LegRow[] }) {
   );
 }
 
-export function legsSummary(legs: LegRow[]): { text: string; color: string } | null {
+export function legsSummary(
+  legs: LegRow[],
+  gameState: LiveGame['state'] = 'in',
+): { text: string; color: string } | null {
   const graded = legs.filter((l) => l.progress.state !== 'unknown');
   if (!graded.length) return null;
   const hit = graded.filter((l) => l.progress.state === 'hit').length;
   const missed = graded.some((l) => l.progress.state === 'miss');
+  const final = gameState === 'post';
   if (missed) return { text: 'A leg missed', color: colors.loss };
-  if (hit === legs.length)
-    return { text: `All ${legs.length} legs hit 🎉 — mark it Won`, color: colors.win };
-  return { text: `${hit} of ${legs.length} legs hit`, color: colors.textDim };
+  if (hit === legs.length) {
+    // Nothing is a winner until the game is final and the book settles it.
+    return final
+      ? {
+          text: `Final — all ${legs.length} legs hit. Mark it Won once it's paid.`,
+          color: colors.win,
+        }
+      : {
+          text: `All ${legs.length} legs hit so far — not final until the game ends`,
+          color: colors.push,
+        };
+  }
+  return { text: `${hit} of ${legs.length} legs hit so far`, color: colors.textDim };
 }
 
 const styles = StyleSheet.create({

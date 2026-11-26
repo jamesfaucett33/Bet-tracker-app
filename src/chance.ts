@@ -104,7 +104,11 @@ export function legChance(
   game: LiveGame | undefined,
 ): number | null {
   if (!market || !game || progress.state === 'unknown') return null;
-  if (progress.state === 'hit') return 1;
+  if (progress.state === 'hit') {
+    // Not official until the game is final; yardage can still drop on a loss.
+    if (game.state === 'post') return 1;
+    return market.kind === 'player' && !COUNT_STATS.includes(market.stat) ? 0.99 : 0.999;
+  }
   if (progress.state === 'miss') return 0;
   const elapsed = elapsedFraction(game);
   const remaining = 1 - elapsed;

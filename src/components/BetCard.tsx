@@ -22,7 +22,7 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const toWin = potentialProfit(bet.stake, bet.odds);
   const { game, legs: liveLegs, chance } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
-  const summary = showLive ? legsSummary(liveLegs) : null;
+  const summary = showLive && game ? legsSummary(liveLegs, game.state) : null;
 
   return (
     <Pressable
@@ -48,7 +48,7 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
         {showLive && game ? (
           <>
             <GameHeader game={game} />
-            <LiveLegs legs={liveLegs} />
+            <LiveLegs legs={liveLegs} final={game.state === 'post'} />
             <View style={styles.summaryRow}>
               {summary ? (
                 <Text style={[styles.summary, { color: summary.color }]}>{summary.text}</Text>

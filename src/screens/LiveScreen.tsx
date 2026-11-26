@@ -55,7 +55,7 @@ interface PlayerProp {
 }
 
 /** One prop: label, current / target, progress bar and live chance. */
-function PropMeter({ prop }: { prop: PlayerProp }) {
+function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   const { progress: p, chance } = prop;
   const done = p.state === 'hit' || p.state === 'miss';
   const color =
@@ -76,7 +76,7 @@ function PropMeter({ prop }: { prop: PlayerProp }) {
     <View style={styles.prop}>
       <View style={styles.propTop}>
         <Text style={styles.propLabel} numberOfLines={1}>
-          {p.state === 'hit' ? '✅ ' : p.state === 'miss' ? '❌ ' : ''}
+          {p.state === 'hit' ? (final ? '✅ ' : '✓ ') : p.state === 'miss' ? '❌ ' : ''}
           {prop.label}
         </Text>
         <Text style={styles.propValue}>{p.text}</Text>
@@ -203,7 +203,7 @@ function GameCast({
                 <Text style={styles.playerName}>{p.name}</Text>
                 <Text style={styles.playerLine}>{p.line}</Text>
                 {p.props.map((prop) => (
-                  <PropMeter key={prop.label} prop={prop} />
+                  <PropMeter key={prop.label} prop={prop} final={game.state === 'post'} />
                 ))}
               </View>
             ))}
