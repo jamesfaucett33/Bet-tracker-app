@@ -39,18 +39,6 @@ function phi(z: number): number {
   return z > 0 ? 1 - p : p;
 }
 
-/** P(Poisson(mean) >= k). */
-function poissonAtLeast(mean: number, k: number): number {
-  if (k <= 0) return 1;
-  if (mean <= 0) return 0;
-  let term = Math.exp(-mean);
-  let cdf = term;
-  for (let i = 1; i < k; i++) {
-    term *= mean / i;
-    cdf += term;
-  }
-  return Math.max(0, Math.min(1, 1 - cdf));
-}
 
 const COUNT_STATS: PlayerStat[] = [
   'receptions',
@@ -61,16 +49,151 @@ const COUNT_STATS: PlayerStat[] = [
   'rebounds',
   'assists',
 ];
-// How "lumpy" each stat is: variance per unit of expected output.
-const SPREAD: Partial<Record<PlayerStat, number>> = {
-  passYds: 12,
-  passRushYds: 12,
-  rushYds: 9,
-  recYds: 11,
-  rushRecYds: 10,
-  points: 2.5,
-  pra: 2.5,
+
+/**
+ * Yards and points pile up one play at a time: a number of catches / carries /
+ * baskets (Poisson), each worth a random amount (gamma). Per play: the average
+ * gain and how even the gains are (higher shape = more even). One catch can be
+ * 3 yards or 60, which is what makes yardage props swing.
+ */
+const PER_PLAY: Partial<Record<PlayerStat, { avg: number; shape: number }>> = {
+  recYds: { avg: 11.5, shape: 1.1 }, // per catch
+  rushYds: { avg: 4.4, shape: 0.55 }, // per carry (lots of 1-3 yard runs, some breakaways)
+  rushRecYds: { avg: 6.5, shape: 0.7 },
+  passYds: { avg: 11, shape: 1.1 }, // per completion
+  passRushYds: { avg: 9.5, shape: 1 },
+  points: { avg: 2.2, shape: 6 }, // per made basket / free-throw trip
+  pra: { avg: 1.4, shape: 3 },
 };
+
+// ---- distributions ----
+
+function lnGamma(z: number): number {
+  // Lanczos approximation
+  const g = 7;
+  const c = [
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
+    1.5056327351493116e-7,
+  ];
+  if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lnGamma(1 - z);
+  z -= 1;
+  let x = c[0];
+  for (let i = 1; i < g + 2; i++) x += c[i] / (z + i);
+  const t = z + g + 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+}
+
+/** Regularized upper incomplete gamma Q(a, x) = P(Gamma(a, 1) >= x). */
+function gammaQ(a: number, x: number): number {
+  if (x <= 0) return 1;
+  if (a <= 0) return 0;
+  const lnPre = -x + a * Math.log(x) - lnGamma(a);
+  if (x < a + 1) {
+    // series for P, then Q = 1 - P
+    let sum = 1 / a;
+    let term = sum;
+    for (let n = 1; n < 500; n++) {
+      term *= x / (a + n);
+      sum += term;
+      if (Math.abs(term) < Math.abs(sum) * 1e-12) break;
+    }
+    return Math.max(0, Math.min(1, 1 - Math.exp(lnPre) * sum));
+  }
+  // continued fraction for Q (Lentz)
+  let b = x + 1 - a;
+  let cc = 1 / 1e-300;
+  let d = 1 / b;
+  let h = d;
+  for (let i = 1; i < 500; i++) {
+    const an = -i * (i - a);
+    b += 2;
+    d = an * d + b;
+    if (Math.abs(d) < 1e-300) d = 1e-300;
+    cc = b + an / cc;
+    if (Math.abs(cc) < 1e-300) cc = 1e-300;
+    d = 1 / d;
+    const del = d * cc;
+    h *= del;
+    if (Math.abs(del - 1) < 1e-12) break;
+  }
+  return Math.max(0, Math.min(1, Math.exp(lnPre) * h));
+}
+
+/** P(Poisson(mean) >= k). */
+function poissonAtLeast(mean: number, k: number): number {
+  if (k <= 0) return 1;
+  if (mean <= 0) return 0;
+  return 1 - gammaQ(k, mean); // P(X >= k) = P_regularized(k, mean) = 1 - Q(k, mean)
+}
+
+/** Poisson probability of exactly n. */
+function poissonPmf(n: number, mean: number): number {
+  return Math.exp(-mean + n * Math.log(mean) - lnGamma(n + 1));
+}
+
+/**
+ * Chance a player gets at least `need` more of a stat, given a per-game rate
+ * and the share of the game left. Counting stats (catches, TDs) are Poisson.
+ * Yards and points add up play by play: P(sum of the remaining plays' gains
+ * reaches the need), summed over how many plays they get.
+ */
+function atLeastMore(stat: PlayerStat, need: number, rate: number, remaining: number): number {
+  if (need <= 0) return 1;
+  if (remaining <= 0 || rate <= 0) return 0;
+  if (COUNT_STATS.includes(stat)) return poissonAtLeast(rate * remaining, Math.ceil(need));
+  const play = PER_PLAY[stat] ?? { avg: 8, shape: 1 };
+  const plays = (rate / play.avg) * remaining; // expected plays left
+  const scale = play.avg / play.shape;
+  const target = Math.max(0, need - 0.5) / scale;
+  const maxN = Math.ceil(plays + 10 * Math.sqrt(plays) + 25);
+  let p = 0;
+  for (let n = 1; n <= maxN; n++) {
+    const w = poissonPmf(n, plays);
+    if (w < 1e-12 && n > plays) break;
+    p += w * gammaQ(n * play.shape, target);
+  }
+  return Math.max(0, Math.min(1, p));
+}
+
+/**
+ * The player's expected full-game output before kickoff: set so the chance
+ * of reaching the line matches the leg's odds (minus the book's cut), or a
+ * 50/50 at the line when the leg has no odds of its own.
+ */
+function priorRate(stat: PlayerStat, line: number, odds?: number | null): number {
+  const implied = odds != null ? impliedProbability(odds) : NaN;
+  const p = Number.isFinite(implied) ? Math.min(0.97, Math.max(0.03, implied * 0.955)) : 0.5;
+  let lo = line * 0.05;
+  let hi = line * 6 + 5;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (atLeastMore(stat, line, mid, 1) < p) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function playerChance(
+  current: number,
+  line: number,
+  stat: PlayerStat,
+  elapsed: number,
+  odds?: number | null,
+): number {
+  const need = line - current;
+  if (need <= 0) return 1;
+  const remaining = 1 - elapsed;
+  if (remaining <= 0) return 0;
+  // Update the pre-game expectation with what's happened so far. The prior
+  // counts as one full game of evidence, so a slow first quarter lowers the
+  // outlook a little and a slow first half lowers it more, without writing
+  // the player off.
+  const prior = priorRate(stat, line, odds);
+  const PRIOR_GAMES = 1;
+  const rate = (PRIOR_GAMES * prior + current) / (PRIOR_GAMES + elapsed);
+  return atLeastMore(stat, need, rate, remaining);
+}
 
 /** Margin standard deviation over a full game, by league (points). */
 const MARGIN_SD: Record<string, number> = {
@@ -82,21 +205,6 @@ const MARGIN_SD: Record<string, number> = {
   NHL: 1.6,
 };
 
-function playerChance(current: number, line: number, stat: PlayerStat, elapsed: number): number {
-  const need = line - current;
-  if (need <= 0) return 1;
-  const remaining = 1 - elapsed;
-  if (remaining <= 0) return 0;
-  // Expected output for the rest of the game: blend the pace so far with the
-  // line (a stand-in for the player's usual output), trusting pace more as
-  // the game goes on.
-  const pace = elapsed > 0.05 ? current / elapsed : line;
-  const perGame = elapsed * pace + (1 - elapsed) * line;
-  const mean = perGame * remaining;
-  if (COUNT_STATS.includes(stat)) return poissonAtLeast(mean, Math.ceil(need));
-  const sd = Math.max(1, Math.sqrt(Math.max(mean, 0.5) * (SPREAD[stat] ?? 8)));
-  return 1 - phi((need - 0.5 - mean) / sd);
-}
 
 /** Chance (0-1) that one leg hits, or null when it can't be estimated. */
 export function legChance(
@@ -130,7 +238,7 @@ export function legChance(
 
   switch (market.kind) {
     case 'player':
-      return playerChance(progress.current ?? 0, market.line, market.stat, elapsed);
+      return playerChance(progress.current ?? 0, market.line, market.stat, elapsed, odds);
     case 'moneyline': {
       // ESPN's live win probability is the best estimate available.
       const side = findTeam(game, market.team);
