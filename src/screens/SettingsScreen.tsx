@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
 import { parseNumber } from '../format';
+import { cleanKey, testKey } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space } from '../theme';
 
@@ -76,6 +77,7 @@ export function SettingsScreen() {
   const [showImport, setShowImport] = useState(false);
   const [apiKey, setApiKey] = useState(settings.anthropicApiKey);
   const keySaved = !!settings.anthropicApiKey && apiKey === settings.anthropicApiKey;
+  const [keyStatus, setKeyStatus] = useState<string | null>(null); // null | 'testing' | 'ok' | error
 
   const doExport = async () => {
     const json = exportData();
@@ -173,8 +175,13 @@ export function SettingsScreen() {
         <View style={styles.addRow}>
           <Button
             title={keySaved ? 'Key saved ✓' : 'Save Key'}
-            onPress={() => updateSettings({ anthropicApiKey: apiKey.trim() })}
-            disabled={keySaved || !apiKey.trim()}
+            onPress={() => {
+              const clean = cleanKey(apiKey);
+              setApiKey(clean);
+              setKeyStatus(null);
+              updateSettings({ anthropicApiKey: clean });
+            }}
+            disabled={keySaved || !cleanKey(apiKey)}
             style={{ flex: 1 }}
           />
           {settings.anthropicApiKey ? (
@@ -189,6 +196,35 @@ export function SettingsScreen() {
             />
           ) : null}
         </View>
+        {settings.anthropicApiKey ? (
+          <>
+            <Text style={styles.fine}>
+              Saved key: {settings.anthropicApiKey.slice(0, 11)}…
+              {settings.anthropicApiKey.slice(-4)} ({settings.anthropicApiKey.length} characters).
+              The end should match the key shown in the Console.
+            </Text>
+            <Button
+              title={keyStatus === 'testing' ? 'Testing…' : 'Test Key'}
+              variant="secondary"
+              disabled={keyStatus === 'testing'}
+              onPress={async () => {
+                setKeyStatus('testing');
+                const err = await testKey(settings.anthropicApiKey);
+                setKeyStatus(err ?? 'ok');
+              }}
+            />
+            {keyStatus && keyStatus !== 'testing' ? (
+              <Text
+                style={[
+                  styles.body,
+                  { color: keyStatus === 'ok' ? colors.win : colors.loss, fontWeight: '600' },
+                ]}
+              >
+                {keyStatus === 'ok' ? '✓ Key works — scanning is ready.' : keyStatus}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
         <Text style={styles.fine}>
           Your key is stored only on this device and is never included in backups. Slip photos are
           sent to Anthropic only to read them.

@@ -199,6 +199,41 @@ interface RawResult {
 
 export class ScanError extends Error {}
 
+/** Removes spaces, line breaks and quotes that sneak in when pasting a key. */
+export const cleanKey = (key: string) => key.replace(/[\s"'`\u200B-\u200D\uFEFF]/g, '');
+
+/**
+ * Sends the key in the `x-api-key` header, exactly as the Console's own
+ * example does.
+ */
+function makeClient(apiKey: string): Anthropic {
+  return new Anthropic({
+    apiKey: null,
+    authToken: null,
+    defaultHeaders: { 'x-api-key': cleanKey(apiKey) },
+    dangerouslyAllowBrowser: true,
+  });
+}
+
+/** Checks a key with a free request (listing models); returns null if it works. */
+export async function testKey(apiKey: string): Promise<string | null> {
+  const key = cleanKey(apiKey);
+  if (!key.startsWith('sk-ant-'))
+    return 'That doesn\'t look like an Anthropic key — it should start with "sk-ant-".';
+  try {
+    await makeClient(key).models.list({ limit: 1 });
+    return null;
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError)
+      return `Rejected (401): ${e.message}. The key was likely copied incompletely or has been deleted — create a new one and paste it right away.`;
+    if (e instanceof Anthropic.PermissionDeniedError) return `No permission (403): ${e.message}`;
+    if (e instanceof Anthropic.APIConnectionError)
+      return 'Could not reach Anthropic. Check your connection.';
+    if (e instanceof Anthropic.APIError) return `Error ${e.status}: ${e.message}`;
+    return e instanceof Error ? e.message : 'Unknown error';
+  }
+}
+
 /** Sends the slip image to Claude and returns the bets it found. */
 export async function readBetSlip(apiKey: string, imageBase64: string): Promise<ScannedBet[]> {
   if (!apiKey.trim()) throw new ScanError('Add your Anthropic API key in Settings to scan slips.');
@@ -206,7 +241,7 @@ export async function readBetSlip(apiKey: string, imageBase64: string): Promise<
   // The key is the user's own and lives only on their device, so calling the
   // API straight from the app is acceptable here. A version sold to other
   // people must route this call through a server that holds the key instead.
-  const client = new Anthropic({ apiKey: apiKey.trim(), dangerouslyAllowBrowser: true });
+  const client = makeClient(apiKey);
 
   let response: Anthropic.Beta.BetaMessage;
   try {
@@ -235,7 +270,9 @@ export async function readBetSlip(apiKey: string, imageBase64: string): Promise<
     });
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError)
-      throw new ScanError('Your API key was rejected. Check it in Settings.');
+      throw new ScanError(
+        `Your API key was rejected (${e.message}). Use Settings → Test Key to check it.`,
+      );
     if (e instanceof Anthropic.PermissionDeniedError)
       throw new ScanError('Your API key does not have access to this model.');
     if (e instanceof Anthropic.RateLimitError)
