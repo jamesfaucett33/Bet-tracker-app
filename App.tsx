@@ -1,11 +1,21 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { confirm, notify } from './src/components/ui';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { LiveProvider } from './src/live';
 import { StoreProvider, useStore } from './src/store';
 import { colors, space } from './src/theme';
 import { Bet } from './src/types';
@@ -24,8 +34,47 @@ const TITLES: Record<Tab, string> = {
   settings: 'Settings',
 };
 
+/**
+ * Web only: a link ending in #import=<base64 JSON> loads bets in one tap,
+ * e.g. to share a set of tickets. The user confirms before anything is added.
+ */
+function useLinkImport() {
+  const { loaded, importData } = useStore();
+  useEffect(() => {
+    if (!loaded || Platform.OS !== 'web') return;
+    const hash = globalThis.location?.hash ?? '';
+    if (!hash.startsWith('#import=')) return;
+    const clear = () => globalThis.history?.replaceState(null, '', globalThis.location.pathname);
+    let json = '';
+    try {
+      const b64 = decodeURIComponent(hash.slice('#import='.length));
+      json = new TextDecoder().decode(
+        Uint8Array.from(atob(b64.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+      );
+      const parsed = JSON.parse(json);
+      const count = Array.isArray(parsed) ? parsed.length : (parsed?.bets?.length ?? 0);
+      confirm(
+        'Import bets?',
+        `This link adds ${count} bet${count === 1 ? '' : 's'}.`,
+        () => {
+          const res = importData(json);
+          notify(
+            res.ok ? 'Imported' : 'Import failed',
+            res.ok ? `Added ${res.count} bets.` : res.error,
+          );
+        },
+        'Import',
+      );
+    } catch {
+      notify('Import failed', 'That import link is damaged.');
+    }
+    clear();
+  }, [loaded, importData]);
+}
+
 function Main() {
   const { loaded } = useStore();
+  useLinkImport();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('dashboard');
   // undefined = closed, null = new bet, Bet = editing
@@ -112,8 +161,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
-        <StatusBar style="light" />
-        <Main />
+        <LiveProvider>
+          <StatusBar style="light" />
+          <Main />
+        </LiveProvider>
       </StoreProvider>
     </SafeAreaProvider>
   );

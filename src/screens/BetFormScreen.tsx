@@ -22,7 +22,7 @@ import {
 import { PickSource, pickSlipImage, readBetSlip, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
-import { Bet, BET_TYPES, BetStatus, BetType } from '../types';
+import { Bet, BET_TYPES, BetStatus, BetType, GameRef, Market, ParlayLeg } from '../types';
 
 interface LegDraft {
   id: string;
@@ -47,6 +47,8 @@ function scannedToBet(sb: ScannedBet): Bet | null {
     status: sb.status,
     notes: sb.notes || undefined,
     legs: sb.legs.length ? sb.legs : undefined,
+    game: sb.game,
+    market: sb.market,
   };
 }
 
@@ -87,6 +89,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [scanning, setScanning] = useState(false);
   const [extraScans, setExtraScans] = useState<ScannedBet[]>([]);
   const [scanNote, setScanNote] = useState('');
+  // Structured data from a scan, kept so live tracking doesn't depend on re-parsing text.
+  const [sourceLegs, setSourceLegs] = useState<ParlayLeg[]>(bet?.legs ?? []);
+  const [gameRef, setGameRef] = useState<GameRef | undefined>(bet?.game);
+  const [scannedMarket, setScannedMarket] = useState<Market | undefined>(undefined);
+  const [scannedPick, setScannedPick] = useState('');
 
   const multiLegType = MULTI_LEG.includes(betType);
   const multiLeg = multiLegType && oddsFromLegs;
@@ -120,7 +127,15 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           .filter((l) => l.pick.trim() || l.odds.trim())
           .map((l) => {
             const o = parseNumber(l.odds);
-            return { id: l.id, pick: l.pick.trim(), odds: isValidAmerican(o) ? o : null };
+            // Keep a structured market (e.g. from a scan) while the leg text is unchanged.
+            const orig = sourceLegs.find((x) => x.id === l.id);
+            const market = orig && orig.pick.trim() === l.pick.trim() ? orig.market : undefined;
+            return {
+              id: l.id,
+              pick: l.pick.trim(),
+              odds: isValidAmerican(o) ? o : null,
+              ...(market ? { market } : {}),
+            };
           })
       : [];
     const finalLegs = keptLegs.length ? keptLegs : undefined;
@@ -139,6 +154,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       status,
       notes: notes.trim() || undefined,
       legs: finalLegs,
+      game: gameRef,
+      market:
+        !multiLegType && pick.trim() === (bet?.pick ?? scannedPick)
+          ? (bet?.market ?? scannedMarket)
+          : undefined,
     });
     onClose();
   };
@@ -162,6 +182,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
     setDate(sb.date);
     setStatus(sb.status);
     setNotes(sb.notes);
+    setSourceLegs(sb.legs);
+    setGameRef(sb.game);
+    setScannedMarket(sb.market);
+    setScannedPick(sb.pick);
     if (sb.legs.length) {
       setLegs(
         sb.legs.map((l) => ({

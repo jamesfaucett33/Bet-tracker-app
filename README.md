@@ -9,6 +9,8 @@ A mobile-first sports bet tracker built with **Expo (React Native)**. One codeba
 
 - 📷 **Scan bet slips**: photograph a paper ticket or pick an app screenshot, and the bet is read
   and filled in for you (uses Claude — see [Bet slip scanning](#bet-slip-scanning))
+- 🔴 **Live tracking**: open bets show the live score, game clock and a progress bar for every leg
+  (e.g. Stafford pass + rush yds 91 / 250), updated every 30 seconds during the game
 - Log bets: sport, bet type, pick, American odds, stake ($ or units), sportsbook, date, notes
 - **Parlays & teasers**: enter each leg and the combined odds are calculated automatically, or
   type the total odds printed on the slip (same game parlays)
@@ -62,6 +64,19 @@ backups.
 
 QR codes and barcodes on retail tickets only hold a ticket ID for the sportsbook's own systems, so
 the app reads the printed slip instead — this works for every sportsbook, paper or app.
+
+## Live tracking
+
+Pending bets are matched to their game (from the scanned slip, or text like "Packers @ Rams" in
+the pick) and polled from ESPN's public scoreboard every 30 seconds while a game is live. Player
+props (yards, receptions, field goals, TDs, points/rebounds/assists, ...), moneylines, spreads and
+totals are graded leg by leg. Supported leagues: NFL, NCAAF, NBA, WNBA, NCAAB, MLB, NHL (player
+props for football and basketball).
+
+> ESPN's feed is unofficial and fine for personal use. A paid version should switch to a licensed
+> provider (SportsDataIO, Sportradar) — only `src/live.tsx` needs to change.
+
+**Import link:** a URL ending in `#import=<base64 JSON>` adds bets in one tap (with a confirm).
 
 ## Run it locally
 

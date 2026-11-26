@@ -4,6 +4,7 @@ import { BetCard } from '../components/BetCard';
 import { ProfitChart } from '../components/ProfitChart';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
 import { formatAmount, formatPct } from '../format';
+import { useLive } from '../live';
 import { filterByPeriod, groupBy, Period, profitSeries, summarize } from '../stats';
 import { useStore } from '../store';
 import { colors, profitColor, radius, space } from '../theme';
@@ -22,6 +23,9 @@ export function DashboardScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }
   const series = useMemo(() => profitSeries(periodBets), [periodBets]);
   const groups = useMemo(() => groupBy(periodBets, (b) => b[breakdown]), [periodBets, breakdown]);
   const pendingBets = useMemo(() => bets.filter((b) => b.status === 'pending'), [bets]);
+  const { games } = useLive();
+  const liveBets = pendingBets.filter((b) => games.get(b.id)?.state === 'in');
+  const otherOpen = pendingBets.filter((b) => games.get(b.id)?.state !== 'in');
 
   const bankroll = settings.startingBankroll + allTime.profit;
 
@@ -37,6 +41,15 @@ export function DashboardScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }
           { value: 'all', label: 'All Time' },
         ]}
       />
+
+      {liveBets.length > 0 ? (
+        <>
+          <SectionTitle>🔴 Live Now ({liveBets.length})</SectionTitle>
+          {liveBets.map((b) => (
+            <BetCard key={b.id} bet={b} onPress={() => onEditBet(b)} />
+          ))}
+        </>
+      ) : null}
 
       <Card style={styles.hero}>
         <Text style={styles.heroLabel}>Profit / Loss</Text>
@@ -116,10 +129,10 @@ export function DashboardScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }
         )}
       </Card>
 
-      {pendingBets.length > 0 ? (
+      {otherOpen.length > 0 ? (
         <>
-          <SectionTitle>Open Bets ({pendingBets.length})</SectionTitle>
-          {pendingBets.slice(0, 5).map((b) => (
+          <SectionTitle>Open Bets ({otherOpen.length})</SectionTitle>
+          {otherOpen.slice(0, 5).map((b) => (
             <BetCard key={b.id} bet={b} onPress={() => onEditBet(b)} />
           ))}
         </>

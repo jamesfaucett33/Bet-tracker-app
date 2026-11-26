@@ -2,8 +2,18 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { todayISO } from './format';
+import { parseMarket } from './markets';
 import { decimalToAmerican, isValidAmerican } from './odds';
-import { BET_TYPES, BetStatus, BetType, ParlayLeg } from './types';
+import {
+  BET_TYPES,
+  BetStatus,
+  BetType,
+  GameRef,
+  Market,
+  ParlayLeg,
+  PLAYER_STATS,
+  PlayerStat,
+} from './types';
 
 /**
  * Bet slip scanning: the user takes/chooses a photo or screenshot of a bet slip,
@@ -25,6 +35,8 @@ export interface ScannedBet {
   status: BetStatus;
   legs: ParlayLeg[];
   notes: string;
+  game?: GameRef;
+  market?: Market;
 }
 
 export type PickSource = 'camera' | 'library';
@@ -68,8 +80,26 @@ How to fill each field:
 - status: won, lost or push only if the slip clearly shows the bet was settled that way (e.g. "Won", "Paid", "Lost", a green check on every leg); otherwise pending.
 - legs: for a parlay or teaser, one entry per leg with the selection (e.g. "Matthew Stafford 250+ passing + rushing yds") and that leg's American odds, or null when the slip doesn't show per-leg odds. Empty for single bets.
 - ticket_id: the ticket or bet ID if printed, else null.
+- away_team / home_team: full team names of the game when one game is shown (e.g. "Green Bay Packers" at "Los Angeles Rams"); "A at B" or "A @ B" means A is away. Null for multi-game parlays or futures.
+- market (on each leg, and on the bet itself for single bets; null on parlays): how the outcome is graded.
+  kind "player" for player props with player (full name), stat and line: "250+" means line 250; "over 249.5" means line 250. Stats: passYds, rushYds, recYds, receptions, passRushYds, rushRecYds, passTd, anyTd (anytime TD = line 1), fgMade, points, rebounds, assists, threes, pra.
+  kind "moneyline" with team; kind "spread" with team and line (e.g. -3.5); kind "total" with side over/under and line for game totals; kind "other" if none fit. Unused fields are null.
 
 Copy numbers exactly as printed; never invent odds, amounts or dates that aren't on the image. If the image contains no bet slip, return an empty bets list and say what you see in problem.`;
+
+const MARKET_SCHEMA = {
+  type: ['object', 'null'],
+  additionalProperties: false,
+  required: ['kind', 'player', 'stat', 'line', 'team', 'side'],
+  properties: {
+    kind: { type: 'string', enum: ['player', 'moneyline', 'spread', 'total', 'other'] },
+    player: { type: ['string', 'null'] },
+    stat: { type: ['string', 'null'], enum: [...Object.keys(PLAYER_STATS), null] },
+    line: { type: ['number', 'null'] },
+    team: { type: ['string', 'null'] },
+    side: { type: ['string', 'null'], enum: ['over', 'under', null] },
+  },
+} as const;
 
 const SCHEMA = {
   type: 'object',
@@ -93,6 +123,9 @@ const SCHEMA = {
           'status',
           'legs',
           'ticket_id',
+          'away_team',
+          'home_team',
+          'market',
         ],
         properties: {
           sport: { type: 'string' },
@@ -109,14 +142,18 @@ const SCHEMA = {
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['pick', 'odds'],
+              required: ['pick', 'odds', 'market'],
               properties: {
                 pick: { type: 'string' },
                 odds: { type: ['integer', 'null'] },
+                market: MARKET_SCHEMA,
               },
             },
           },
           ticket_id: { type: ['string', 'null'] },
+          away_team: { type: ['string', 'null'] },
+          home_team: { type: ['string', 'null'] },
+          market: MARKET_SCHEMA,
         },
       },
     },
@@ -124,9 +161,18 @@ const SCHEMA = {
   },
 } as const;
 
+interface RawMarket {
+  kind: string;
+  player: string | null;
+  stat: string | null;
+  line: number | null;
+  team: string | null;
+  side: string | null;
+}
 interface RawLeg {
   pick: string;
   odds: number | null;
+  market: RawMarket | null;
 }
 interface RawBet {
   sport: string;
@@ -140,6 +186,9 @@ interface RawBet {
   status: string;
   legs: RawLeg[];
   ticket_id: string | null;
+  away_team: string | null;
+  home_team: string | null;
+  market: RawMarket | null;
 }
 interface RawResult {
   bets: RawBet[];
@@ -219,6 +268,19 @@ export async function readBetSlip(apiKey: string, imageBase64: string): Promise<
   return raw.bets.map(normalize);
 }
 
+function toMarket(m: RawMarket | null | undefined, fallbackText: string): Market | undefined {
+  if (m) {
+    if (m.kind === 'player' && m.player && m.stat && m.stat in PLAYER_STATS && m.line !== null)
+      return { kind: 'player', player: m.player, stat: m.stat as PlayerStat, line: m.line };
+    if (m.kind === 'moneyline' && m.team) return { kind: 'moneyline', team: m.team };
+    if (m.kind === 'spread' && m.team && m.line !== null)
+      return { kind: 'spread', team: m.team, line: m.line };
+    if (m.kind === 'total' && (m.side === 'over' || m.side === 'under') && m.line !== null)
+      return { kind: 'total', side: m.side, line: m.line };
+  }
+  return parseMarket(fallbackText);
+}
+
 function normalize(b: RawBet): ScannedBet {
   let odds = b.odds !== null && isValidAmerican(b.odds) ? b.odds : null;
   // Derive odds from stake and to-win when the slip doesn't print them.
@@ -247,7 +309,13 @@ function normalize(b: RawBet): ScannedBet {
       id: `scan${Date.now().toString(36)}${i}`,
       pick: l.pick?.trim() ?? '',
       odds: l.odds !== null && isValidAmerican(l.odds) ? l.odds : null,
+      market: toMarket(l.market, l.pick ?? ''),
     })),
     notes: b.ticket_id ? `Ticket ${b.ticket_id}` : '',
+    game:
+      b.away_team && b.home_team
+        ? { league: b.sport?.trim() || 'Other', away: b.away_team, home: b.home_team }
+        : undefined,
+    market: b.legs?.length ? undefined : toMarket(b.market, b.pick ?? ''),
   };
 }

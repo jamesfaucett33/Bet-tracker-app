@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatAmount, formatDate } from '../format';
+import { useBetLive } from '../live';
+import { GameHeader, legsSummary, LiveLegs } from './LiveLegs';
 import { betProfit, formatOdds, potentialProfit } from '../odds';
 import { useStore } from '../store';
 import { colors, profitColor, radius, space, statusColor } from '../theme';
@@ -17,6 +19,9 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const { settings, setStatus } = useStore();
   const profit = betProfit(bet);
   const toWin = potentialProfit(bet.stake, bet.odds);
+  const { game, legs: liveLegs } = useBetLive(bet);
+  const showLive = bet.status === 'pending' && !!game;
+  const summary = showLive ? legsSummary(liveLegs) : null;
 
   return (
     <Pressable
@@ -39,7 +44,15 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
         <Text style={styles.pick} numberOfLines={2}>
           {bet.pick || 'Untitled bet'}
         </Text>
-        {bet.legs && bet.legs.length > 0 ? (
+        {showLive && game ? (
+          <>
+            <GameHeader game={game} />
+            <LiveLegs legs={liveLegs} />
+            {summary ? (
+              <Text style={[styles.summary, { color: summary.color }]}>{summary.text}</Text>
+            ) : null}
+          </>
+        ) : bet.legs && bet.legs.length > 0 ? (
           <Text style={styles.legs} numberOfLines={4}>
             {bet.legs
               .map(
@@ -111,6 +124,7 @@ const styles = StyleSheet.create({
   pick: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
   legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
+  summary: { fontSize: 13, fontWeight: '700', marginTop: space.sm },
   toWin: { color: colors.pending, fontSize: 13, fontWeight: '700' },
   profit: { fontSize: 15, fontWeight: '800' },
   actions: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
