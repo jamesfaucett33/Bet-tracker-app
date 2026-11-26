@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BetCard } from '../components/BetCard';
-import { TeamLogo } from '../components/LiveLegs';
+import { formatChance, legChance } from '../chance';
+import { chanceColor, TeamLogo } from '../components/LiveLegs';
 import { SectionTitle } from '../components/ui';
-import { LiveGame, TeamScore, useLive } from '../live';
+import { gradeMarket, LegProgress, LiveGame, TeamScore, useLive } from '../live';
 import { betMarkets } from '../markets';
 import { useStore } from '../store';
 import { colors, radius, space } from '../theme';
-import { Bet } from '../types';
+import { Bet, PLAYER_STATS } from '../types';
 
 const norm = (s: string) =>
   s
@@ -45,6 +46,53 @@ function statLine(stats: Record<string, Record<string, string>> | undefined): st
     if (bits.length) parts.push(bits.join(', '));
   }
   return parts.join(' · ') || 'No stats yet';
+}
+
+interface PlayerProp {
+  label: string; // "60+ rushing yds"
+  progress: LegProgress;
+  chance: number | null;
+}
+
+/** One prop: label, current / target, progress bar and live chance. */
+function PropMeter({ prop }: { prop: PlayerProp }) {
+  const { progress: p, chance } = prop;
+  const done = p.state === 'hit' || p.state === 'miss';
+  const color =
+    p.state === 'hit'
+      ? colors.win
+      : p.state === 'miss'
+        ? colors.loss
+        : chance !== null
+          ? chanceColor(chance)
+          : colors.pending;
+  const fill =
+    p.state === 'hit'
+      ? 1
+      : p.current !== null && p.target
+        ? Math.min(1, Math.max(0, p.current / p.target))
+        : 0;
+  return (
+    <View style={styles.prop}>
+      <View style={styles.propTop}>
+        <Text style={styles.propLabel} numberOfLines={1}>
+          {p.state === 'hit' ? '✅ ' : p.state === 'miss' ? '❌ ' : ''}
+          {prop.label}
+        </Text>
+        <Text style={styles.propValue}>{p.text}</Text>
+        {!done && chance !== null ? (
+          <View style={[styles.chip, { borderColor: color }]}>
+            <Text style={[styles.chipText, { color }]}>{formatChance(chance)}</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.track}>
+        <View
+          style={[styles.fill, { width: `${Math.round(fill * 100)}%`, backgroundColor: color }]}
+        />
+      </View>
+    </View>
+  );
 }
 
 function TeamColumn({ team, align }: { team: TeamScore; align: 'left' | 'right' }) {
@@ -98,13 +146,31 @@ function GameCast({
   const live = game.state === 'in';
   // Players that appear on your tickets for this game.
   const players = useMemo(() => {
-    const names = new Map<string, string>();
-    for (const b of gameBets)
-      for (const m of betMarkets(b))
-        if (m.market?.kind === 'player') names.set(norm(m.market.player), m.market.player);
-    return [...names.entries()].map(([key, name]) => ({
+    // Every prop on your tickets for this game, grouped by player. The same
+    // prop on two tickets (e.g. Kyren Williams 30+ rec yds) shows once.
+    const byPlayer = new Map<string, { name: string; props: Map<string, PlayerProp> }>();
+    for (const b of gameBets) {
+      for (const m of betMarkets(b)) {
+        const market = m.market;
+        if (market?.kind !== 'player') continue;
+        const key = norm(market.player);
+        const entry = byPlayer.get(key) ?? { name: market.player, props: new Map() };
+        const propKey = `${market.stat}|${market.line}`;
+        if (!entry.props.has(propKey)) {
+          const progress = gradeMarket(market, game);
+          entry.props.set(propKey, {
+            label: `${market.line}+ ${PLAYER_STATS[market.stat].toLowerCase()}`,
+            progress,
+            chance: legChance(market, progress, game),
+          });
+        }
+        byPlayer.set(key, entry);
+      }
+    }
+    return [...byPlayer.entries()].map(([key, { name, props }]) => ({
       name: game.playerNames.get(key) ?? name,
       line: statLine(game.players.get(key)),
+      props: [...props.values()],
     }));
   }, [gameBets, game]);
 
@@ -136,6 +202,9 @@ function GameCast({
               <View key={p.name} style={[styles.playerRow, i > 0 && styles.divider]}>
                 <Text style={styles.playerName}>{p.name}</Text>
                 <Text style={styles.playerLine}>{p.line}</Text>
+                {p.props.map((prop) => (
+                  <PropMeter key={prop.label} prop={prop} />
+                ))}
               </View>
             ))}
           </View>
@@ -306,6 +375,27 @@ const styles = StyleSheet.create({
   playerRow: { padding: space.md },
   playerName: { color: colors.text, fontSize: 14, fontWeight: '800' },
   playerLine: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  prop: { marginTop: space.sm },
+  propTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  propLabel: { flex: 1, minWidth: 0, color: colors.text, fontSize: 13, fontWeight: '600' },
+  propValue: { color: colors.text, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  chipText: { fontSize: 11, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surfaceAlt,
+    marginTop: 5,
+    overflow: 'hidden',
+  },
+  fill: { height: 6, borderRadius: 3 },
   playRow: { padding: space.md },
   playMeta: { color: colors.accent, fontSize: 11, fontWeight: '800' },
   playText: { color: colors.text, fontSize: 13, marginTop: 2, lineHeight: 18 },
