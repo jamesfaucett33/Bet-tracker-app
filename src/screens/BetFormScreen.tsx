@@ -21,7 +21,7 @@ import {
   potentialProfit,
 } from '../odds';
 import { canReadOnDevice } from '../ocr';
-import { decodeSlipQr, deriveTrackerUrl } from '../qr';
+import { deriveTrackerUrl } from '../qr';
 import { duplicateMessage, findDuplicate, sameTicket } from '../dupes';
 import { cheer } from '../cheer';
 import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
@@ -132,8 +132,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   );
 
   const multiLegType = MULTI_LEG.includes(betType);
+  // A ticket that has legs keeps them whatever bet type is picked.
+  const showLegs = multiLegType || legs.some((l) => l.pick.trim());
   const multiLeg = multiLegType && oddsFromLegs;
-  const legOdds = legs.map((l) => parseNumber(l.odds));
+  // Only legs with a pick count; a blank row's default odds must not change the price.
+  const legOdds = legs.filter((l) => l.pick.trim()).map((l) => parseNumber(l.odds));
   const computedParlay = multiLeg ? parlayOdds(legOdds) : NaN;
   const oddsNum = multiLeg ? computedParlay : parseNumber(odds);
   const stakeInput = parseNumber(stake);
@@ -159,14 +162,28 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const implied = impliedProbability(oddsNum);
 
   const ticketLine = (b: Bet) =>
-    `${b.pick} · $${b.stake.toFixed(2)} to win $${betToWin(b).toFixed(2)}`;
+    `${b.pick} · ${formatAmount(b.stake, settings)} to win ${formatAmount(betToWin(b), settings)}`;
+
+  /**
+   * The game this bet is linked to. If the pick was edited, drop the old
+   * match (it gets looked up again), and drop the game entirely when the new
+   * pick no longer mentions either team.
+   */
+  const keptGame = (): GameRef | undefined => {
+    if (!gameRef || multiLegType) return gameRef;
+    if (pick.trim() === (bet?.pick ?? scannedPick).trim()) return gameRef;
+    const lastWord = (t: string) => t.trim().split(/\s+/).pop()?.toLowerCase() ?? '';
+    const p = pick.toLowerCase();
+    const mentions = [gameRef.away, gameRef.home].some((t) => t && p.includes(lastWord(t)));
+    return mentions ? { league: gameRef.league, away: gameRef.away, home: gameRef.home } : undefined;
+  };
 
   const save = (quiet = false): boolean => {
     setSubmitted(true);
     if (!valid) return false;
-    const keptLegs = multiLegType
+    const keptLegs = showLegs
       ? legs
-          .filter((l) => l.pick.trim() || l.odds.trim())
+          .filter((l) => l.pick.trim()) // a leg is its pick; blank rows aren't legs
           .map((l) => {
             const o = parseNumber(l.odds);
             // Keep a structured market (e.g. from a scan) while the leg text is unchanged.
@@ -199,7 +216,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       status,
       notes: notes.trim() || undefined,
       legs: finalLegs,
-      game: gameRef,
+      game: keptGame(),
       trackerUrl,
       market:
         !multiLegType && pick.trim() === (bet?.pick ?? scannedPick)
@@ -492,7 +509,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                         .filter(Boolean)
                         .join(' · ')}
                     </Text>
-                    {item.bet.stake !== null && (item.bet.toWin || item.bet.odds !== null) ? (
+                    {ok ? (
                       (() => {
                         const stake = item.bet.stake as number;
                         const win = item.bet.toWin
@@ -629,7 +646,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
 
         <View style={{ height: space.lg }} />
 
-        {multiLegType ? (
+        {showLegs ? (
           <View style={styles.legsBox}>
             <View style={styles.legsHeader}>
               <Text style={styles.legsTitle}>Legs</Text>

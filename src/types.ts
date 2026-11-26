@@ -70,7 +70,15 @@ export type Market =
    * Player prop. Over: hits at `line` or more. Under (`under: true`): hits when
    * the final number stays below `line` ("Under 249.5" is stored as line 250).
    */
-  | { kind: 'player'; player: string; stat: PlayerStat; line: number; under?: boolean }
+  | {
+      kind: 'player';
+      player: string;
+      stat: PlayerStat;
+      line: number;
+      under?: boolean;
+      /** Whole-number lines ("Over 250"): landing exactly on it is a push. */
+      pushAt?: number;
+    }
   | { kind: 'moneyline'; team: string }
   | { kind: 'spread'; team: string; line: number }
   /** Game total, or one team's points when `team` is set (team total). */
@@ -95,7 +103,8 @@ export interface ParlayLeg {
   result?: LegResult;
 }
 
-export type LegResult = 'hit' | 'miss' | 'void';
+/** void = couldn't be graded (e.g. the player didn't play); push = landed exactly on the line. */
+export type LegResult = 'hit' | 'miss' | 'push' | 'void';
 
 export interface Bet {
   id: string;

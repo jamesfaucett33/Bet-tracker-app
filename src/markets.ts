@@ -112,8 +112,9 @@ export function parseMarket(text: string): Market | undefined {
   const stat = STAT_PATTERNS.find(([re]) => re.test(t))?.[1];
   if (lineMatch && stat) {
     const raw = lineMatch[1] ?? lineMatch[2];
-    // "over 249.5" means 250+; "250+" means 250+.
+    // "over 249.5" means 250+; "250+" means 250+; "over 250" means 251+ (250 pushes).
     const line = lineMatch[1] ? Number(raw) : Math.floor(Number(raw)) + 1;
+    const pushAt = !lineMatch[1] && Number.isInteger(Number(raw)) ? Number(raw) : undefined;
     const player = t
       .replace(lineMatch[0], ' ')
       .replace(STAT_PATTERNS.find(([, s]) => s === stat)![0], ' ')
@@ -121,7 +122,8 @@ export function parseMarket(text: string): Market | undefined {
       .replace(/\b(alt(ernate)?|player|to record|or more|made)\b/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-    if (player) return { kind: 'player', player, stat, line };
+    if (player)
+      return { kind: 'player', player, stat, line, ...(pushAt !== undefined ? { pushAt } : {}) };
   }
   // "Jared Goff Under 249.5 Passing Yards": hits if he finishes at 249 or fewer.
   const underMatch = /\bunder\s*(\d+(?:\.\d+)?)/i.exec(t);
@@ -132,8 +134,17 @@ export function parseMarket(text: string): Market | undefined {
         .replace(STAT_PATTERNS.find(([, s]) => s === stat)![0], ' ')
         .replace(/\b(alt(ernate)?|player|to record|made)\b/gi, ' '),
     );
-    if (player)
-      return { kind: 'player', player, stat, line: Math.floor(Number(underMatch[1])) + 1, under: true };
+    if (player) {
+      const raw = Number(underMatch[1]);
+      return {
+        kind: 'player',
+        player,
+        stat,
+        line: Math.floor(raw) + 1,
+        under: true,
+        ...(Number.isInteger(raw) ? { pushAt: raw } : {}),
+      };
+    }
   }
   // "Anytime Goalscorer - Connor McDavid" / "McDavid To Score a Goal"
   if (stat === 'goals' && /anytime|goal\s*scorer|to\s*score/i.test(t)) {
@@ -229,5 +240,6 @@ export function betGame(bet: Bet): GameRef | undefined {
 /** "250+ passing yds" or "Under 249.5 passing yds". */
 export function propLabel(m: Extract<Market, { kind: 'player' }>): string {
   const stat = PLAYER_STATS[m.stat].toLowerCase();
+  if (m.pushAt !== undefined) return `${m.under ? 'Under' : 'Over'} ${m.pushAt} ${stat}`;
   return m.under ? `Under ${m.line - 0.5} ${stat}` : `${m.line}+ ${stat}`;
 }

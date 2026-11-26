@@ -1,12 +1,14 @@
 import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatAmount, formatDate } from '../format';
+import { formatDate } from '../format';
 import { autoSettle, gameLine, useBetLive } from '../live';
 import { formatChance } from '../chance';
 import { chanceColor, GameHeader, legsSummary, LiveLegs } from './LiveLegs';
-import { betProfit, betToWin, formatOdds } from '../odds';
+import { Dot, dotCounts, dotForResult } from './LegDots';
+import { TicketMoney } from './TicketMoney';
+import { formatOdds } from '../odds';
 import { useStore } from '../store';
-import { colors, profitColor, radius, space, statusColor } from '../theme';
+import { colors, radius, space, statusColor } from '../theme';
 import { Bet, BetStatus } from '../types';
 
 const STATUS_LABEL: Record<BetStatus, string> = {
@@ -17,9 +19,7 @@ const STATUS_LABEL: Record<BetStatus, string> = {
 };
 
 export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
-  const { settings, setStatus } = useStore();
-  const profit = betProfit(bet);
-  const toWin = betToWin(bet);
+  const { setStatus } = useStore();
   const { game, legs: liveLegs, chance, legGames, multiGame } = useBetLive(bet);
   const showLive = bet.status === 'pending' && !!game;
   // Overall state across every leg's game (multi-game parlays span several).
@@ -32,14 +32,12 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const decision = autoSettle(bet, legGames);
   const review = decision && 'review' in decision ? decision.review : null;
   // Leg-by-leg record once games finish (kept for dead tickets too).
-  const graded = bet.legs?.filter((l) => l.result) ?? [];
+  const legKinds = (bet.legs ?? []).map((l, i) => dotForResult(l.result, legGames[i]?.state));
   const legRecord =
-    bet.status !== 'pending' && graded.length
-      ? `${graded.filter((l) => l.result === 'hit').length} of ${bet.legs!.length} legs hit` +
-        (graded.length < bet.legs!.length
-          ? ` · ${bet.legs!.length - graded.length} still to play`
-          : '')
-      : null;
+    bet.status !== 'pending' && bet.legs?.some((l) => l.result) ? dotCounts(legKinds) : null;
+  // Nothing is won until it's official: Won / Push appear once every game the
+  // app found is final (or it couldn't find any). Lost is always available.
+  const gamesOver = !legGames.some((g) => g && g.state !== 'post');
 
   return (
     <Pressable
@@ -98,14 +96,17 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
         ) : bet.legs && bet.legs.length > 0 ? (
           <>
             {legRecord ? <Text style={styles.legRecord}>{legRecord}</Text> : null}
-            <Text style={styles.legs} numberOfLines={bet.status === 'pending' ? 4 : 12}>
-              {bet.legs
-                .map(
-                  (l) =>
-                    `${l.result === 'hit' ? '✓' : l.result === 'miss' ? '✗' : l.result === 'void' ? '–' : '•'} ${l.pick || 'Leg'}${l.odds === null ? '' : ` (${formatOdds(l.odds)})`}`,
-                )
-                .join('\n')}
-            </Text>
+            <View style={{ marginTop: 4, gap: 3 }}>
+              {bet.legs.map((l, i) => (
+                <View key={l.id} style={styles.legRow}>
+                  <Dot kind={legKinds[i]} size={9} />
+                  <Text style={styles.legs} numberOfLines={2}>
+                    {l.pick || 'Leg'}
+                    {l.odds === null ? '' : ` (${formatOdds(l.odds)})`}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </>
         ) : null}
 
@@ -124,22 +125,12 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
           </Text>
         ) : null}
 
-        <View style={[styles.row, { marginTop: space.sm }]}>
-          <Text style={styles.detail}>
-            {formatDate(bet.date)} · {formatOdds(bet.odds)} · {formatAmount(bet.stake, settings)}
-          </Text>
-          {bet.status === 'pending' ? (
-            <Text style={styles.toWin}>To win {formatAmount(toWin, settings)}</Text>
-          ) : (
-            <Text style={[styles.profit, { color: profitColor(profit) }]}>
-              {formatAmount(profit, settings, { sign: true })}
-            </Text>
-          )}
-        </View>
+        <TicketMoney bet={bet} />
+        <Text style={[styles.detail, { marginTop: 6 }]}>Placed {formatDate(bet.date)}</Text>
 
         {bet.status === 'pending' ? (
           <View style={styles.actions}>
-            {(['won', 'lost', 'push'] as const).map((s) => (
+            {(gamesOver ? (['won', 'lost', 'push'] as const) : (['lost'] as const)).map((s) => (
               <Pressable
                 key={s}
                 onPress={() => setStatus(bet.id, s)}
@@ -185,7 +176,8 @@ const styles = StyleSheet.create({
   status: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
   pick: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
   legRecord: { color: colors.text, fontSize: 13, fontWeight: '700', marginTop: 4 },
-  legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  legs: { color: colors.textDim, fontSize: 13, lineHeight: 18, flex: 1 },
+  legRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
   multi: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: space.sm },
   review: { color: colors.push, fontSize: 13, fontWeight: '600', marginTop: space.sm },

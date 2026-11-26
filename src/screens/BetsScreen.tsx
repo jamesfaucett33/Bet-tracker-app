@@ -5,6 +5,7 @@ import { DotLegend } from '../components/LegDots';
 import { ChipRow, Segmented } from '../components/ui';
 import { formatAmount, formatDate } from '../format';
 import { betProfit } from '../odds';
+import { settledDay, settledOrder } from '../recap';
 import { useStore } from '../store';
 import { colors, profitColor, radius, space } from '../theme';
 import { Bet } from '../types';
@@ -39,15 +40,16 @@ export function BetsScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
         }
         return true;
       })
-      .sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1));
+      .sort((a, b) => settledOrder(b, a)); // newest decided first
   }, [past, result, sport, query]);
 
   const rows = useMemo(() => {
     const out: Row[] = [];
     let day: Extract<Row, { kind: 'day' }> | null = null;
     for (const b of filtered) {
-      if (!day || day.date !== b.date) {
-        day = { kind: 'day', date: b.date, profit: 0 };
+      const d = settledDay(b); // grouped by the day it was decided
+      if (!day || day.date !== d) {
+        day = { kind: 'day', date: d, profit: 0 };
         out.push(day);
       }
       day.profit += betProfit(b);

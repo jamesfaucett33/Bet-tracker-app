@@ -7,7 +7,7 @@ import { useStore } from '../store';
 import { colors, profitColor, radius, space, statusColor } from '../theme';
 import { Bet } from '../types';
 import { BetCard } from './BetCard';
-import { LegDots } from './LegDots';
+import { DotKind, dotCounts, dotForResult, LegDots } from './LegDots';
 
 /**
  * One-line ticket row that opens into the full bet card. Used for Upcoming
@@ -43,15 +43,27 @@ export function CompactBet({
   }
 
   const legs = bet.legs ?? [];
+  // One dot per leg (a single bet is one dot): stored results, else where its game stands.
+  const kinds: DotKind[] = legs.length
+    ? legs.map((l, i) => dotForResult(l.result, legGames[i]?.state))
+    : [
+        bet.status === 'won'
+          ? 'hit'
+          : bet.status === 'lost'
+            ? 'miss'
+            : bet.status === 'push'
+              ? 'push'
+              : legGames[0]?.state === 'in'
+                ? 'live'
+                : 'toPlay',
+      ];
   let sub: string;
   let right: { text: string; color: string };
   if (variant === 'past') {
-    const graded = legs.filter((l) => l.result);
-    const hits = graded.filter((l) => l.result === 'hit').length;
     sub = [
       bet.book,
       legs.length ? `${legs.length} legs` : bet.betType,
-      graded.length ? `${hits}/${legs.length} hit` : '',
+      legs.some((l) => l.result) ? dotCounts(kinds) : '',
       `${formatOdds(bet.odds)} · ${formatAmount(bet.stake, settings)}`,
     ]
       .filter(Boolean)
@@ -63,7 +75,10 @@ export function CompactBet({
       color: bet.status === 'push' ? statusColor.push : profitColor(profit),
     };
   } else {
-    const next = legGames.find((g) => g?.state === 'pre');
+    // The earliest kickoff among games not started yet.
+    const next = legGames
+      .filter((g) => g?.state === 'pre')
+      .sort((a, b) => (a!.startTime ?? 0) - (b!.startTime ?? 0))[0];
     const done = new Set(legGames.filter((g) => g?.state === 'post').map((g) => g!.eventId)).size;
     const total = new Set(legGames.filter(Boolean).map((g) => g!.eventId)).size;
     const kickoff = next
@@ -72,7 +87,7 @@ export function CompactBet({
         : `${multiGame ? 'First game ' : ''}${next.detail}`
       : legGames.some(Boolean)
         ? ''
-        : 'Kickoff not found yet';
+        : 'Game not found yet';
     sub = [kickoff, bet.book, `${formatAmount(bet.stake, settings)} @ ${formatOdds(bet.odds)}`]
       .filter(Boolean)
       .join(' · ');
@@ -100,24 +115,9 @@ export function CompactBet({
           </Text>
           <Text style={styles.chev}>▾</Text>
         </View>
-        {legs.length && variant === 'past' ? (
-          <View style={styles.dots}>
-            <LegDots
-              kinds={legs.map((l, i) =>
-                l.result === 'hit'
-                  ? 'hit'
-                  : l.result === 'miss'
-                    ? 'miss'
-                    : l.result === 'void'
-                      ? 'none'
-                      : legGames[i] && legGames[i]!.state !== 'post'
-                        ? 'toPlay' // dead ticket, but this leg's game is still to come
-                        : 'none',
-              )}
-              size={8}
-            />
-          </View>
-        ) : null}
+        <View style={styles.dots}>
+          <LegDots kinds={kinds} size={8} />
+        </View>
       </View>
     </Pressable>
   );

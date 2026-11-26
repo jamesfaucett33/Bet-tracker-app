@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { CompactBet } from '../components/CompactBet';
 import { formatAmount } from '../format';
-import { useBetPhases } from '../live';
+import { useBetPhases, useLive } from '../live';
 import { betToWin } from '../odds';
 import { useStore } from '../store';
 import { colors, radius, space } from '../theme';
@@ -12,13 +12,25 @@ import { Bet } from '../types';
 export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
   const { bets, settings } = useStore();
   const phaseOf = useBetPhases();
+  const { games, legGames } = useLive();
+  // Soonest kickoff first; tickets whose games aren't found yet go last, by bet date.
+  const kickoff = (b: Bet) => {
+    const times = (legGames.get(b.id) ?? [games.get(b.id)])
+      .map((g) => g?.startTime)
+      .filter((t): t is number => !!t);
+    return times.length ? Math.min(...times) : Number.MAX_SAFE_INTEGER;
+  };
   const upcoming = useMemo(
     () =>
       bets
         .filter((b) => phaseOf(b) === 'upcoming')
-        .sort((a, b) => (a.date === b.date ? a.createdAt - b.createdAt : a.date < b.date ? -1 : 1)),
+        .sort(
+          (a, b) =>
+            kickoff(a) - kickoff(b) ||
+            (a.date === b.date ? a.createdAt - b.createdAt : a.date < b.date ? -1 : 1),
+        ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bets, phaseOf],
+    [bets, phaseOf, games, legGames],
   );
   const staked = upcoming.reduce((s, b) => s + b.stake, 0);
   const toWin = upcoming.reduce((s, b) => s + betToWin(b), 0);

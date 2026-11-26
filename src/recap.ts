@@ -1,4 +1,4 @@
-import { betProfit, betToWin } from './odds';
+import { americanToDecimal, betProfit, betToWin, isValidAmerican } from './odds';
 import { Bet } from './types';
 
 /** Dashboard recap: everything here is about decided tickets, by the day they were decided. */
@@ -20,9 +20,10 @@ export function daysAgoISO(n: number): string {
   return localISO(d);
 }
 
-const settledOrder = (a: Bet, b: Bet) =>
-  (a.settledAt ?? 0) - (b.settledAt ?? 0) ||
+/** Oldest decided first: by decided day, then exact time when known, then entry order. */
+export const settledOrder = (a: Bet, b: Bet) =>
   (settledDay(a) < settledDay(b) ? -1 : settledDay(a) > settledDay(b) ? 1 : 0) ||
+  (a.settledAt ?? 0) - (b.settledAt ?? 0) ||
   a.createdAt - b.createdAt;
 
 /** Settled tickets, oldest decided first. */
@@ -91,14 +92,16 @@ export function closeCalls(bets: Bet[], fromISO: string, n = 4): CloseCall[] {
     if (settledDay(b) < fromISO) continue;
     const misses = b.legs.filter((l) => l.result === 'miss');
     const hits = b.legs.filter((l) => l.result === 'hit').length;
-    if (misses.length !== 1 || hits !== b.legs.length - 1) continue;
-    out.push({
-      bet: b,
-      missed: misses[0].pick,
-      wouldHavePaid: b.stake + betToWin(b),
-      hits,
-      legs: b.legs.length,
-    });
+    const neutral = b.legs.filter((l) => l.result === 'push' || l.result === 'void');
+    // Lost by exactly one leg; pushed / voided legs would have dropped off the ticket.
+    if (misses.length !== 1 || hits + neutral.length !== b.legs.length - 1) continue;
+    const kept = b.legs.filter((l) => !neutral.includes(l));
+    const legOdds = kept.map((l) => l.odds);
+    const paid =
+      neutral.length && legOdds.every((o) => o !== null && isValidAmerican(o))
+        ? b.stake * legOdds.reduce<number>((acc, o) => acc * americanToDecimal(o as number), 1)
+        : b.stake + betToWin(b);
+    out.push({ bet: b, missed: misses[0].pick, wouldHavePaid: paid, hits, legs: b.legs.length });
   }
   return out.sort((a, b) => b.wouldHavePaid - a.wouldHavePaid).slice(0, n);
 }

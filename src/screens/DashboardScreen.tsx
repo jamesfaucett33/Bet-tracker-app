@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProfitChart } from '../components/ProfitChart';
+import { dotCounts, dotForResult } from '../components/LegDots';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
 import { formatAmount, formatDate, formatPct, todayISO } from '../format';
 import { useBetPhases } from '../live';
@@ -44,7 +45,8 @@ export function DashboardScreen({
   const money = (n: number, sign = false) => formatAmount(n, settings, { sign });
 
   const weekStart = daysAgoISO(6);
-  const today = useMemo(() => tally(bets, todayISO()), [bets]);
+  const todayStr = todayISO(); // recomputed after midnight, not stuck on yesterday
+  const today = useMemo(() => tally(bets, todayStr), [bets, todayStr]);
   const week = useMemo(() => tally(bets, weekStart), [bets, weekStart]);
   const allTime = useMemo(() => tally(bets), [bets]);
   const vibe = headline(week, today, (n) => money(n));
@@ -195,7 +197,7 @@ export function DashboardScreen({
               key={c.bet.id}
               first={i === 0}
               title={c.bet.pick}
-              sub={`${c.hits} of ${c.legs} hit · busted by ${c.missed}`}
+              sub={`${c.hits} hit · 1 missed: ${c.missed}`}
               right={`${money(c.wouldHavePaid)}`}
               rightSub="would’ve paid"
               rightColor={colors.push}
@@ -217,7 +219,7 @@ export function DashboardScreen({
               title={b.pick}
               sub={`${formatDate(settledDay(b))} · ${formatOdds(b.odds)}${
                 b.legs?.some((l) => l.result)
-                  ? ` · ${b.legs.filter((l) => l.result === 'hit').length} of ${b.legs.length} legs hit`
+                  ? ` · ${dotCounts(b.legs.map((l) => dotForResult(l.result)))}`
                   : ''
               }`}
               right={money(-b.stake, true)}
@@ -303,7 +305,7 @@ function PLTile({
         numberOfLines={1}
         adjustsFontSizeToFit
       >
-        {t.count ? money(t.profit, true) : '$0'}
+        {money(t.count ? t.profit : 0, !!t.count)}
       </Text>
       <Text style={styles.plSub}>
         {t.count ? record(t.wins, t.losses, t.pushes) : 'no results'}

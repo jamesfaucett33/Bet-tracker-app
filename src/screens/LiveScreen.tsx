@@ -2,7 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { betChance, formatChance, legChance } from '../chance';
 import { chanceColor, legsSummary, TeamLogo } from '../components/LiveLegs';
-import { DotKind, DotLegend, dotCounts, LegDots } from '../components/LegDots';
+import {
+  Dot,
+  DOT_COLOR,
+  DotLegend,
+  dotCounts,
+  dotForState,
+  LegDots,
+} from '../components/LegDots';
+import { formatAmount } from '../format';
 import { betToWin, formatOdds } from '../odds';
 import { SectionTitle } from '../components/ui';
 import {
@@ -18,7 +26,7 @@ import {
 import { betMarkets, propLabel } from '../markets';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
-import { Bet, PLAYER_STATS } from '../types';
+import { Bet } from '../types';
 
 const norm = (s: string) =>
   s
@@ -79,14 +87,10 @@ interface PlayerProp {
 function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   const { progress: p, chance } = prop;
   const done = p.state === 'hit' || p.state === 'miss' || p.state === 'push';
-  const color =
-    p.state === 'hit'
-      ? colors.win
-      : p.state === 'miss'
-        ? colors.loss
-        : chance !== null
-          ? chanceColor(chance)
-          : colors.pending;
+  // Bar in the dot colors; the % chip keeps its own chance color.
+  const kind = dotForState(p.state);
+  const color = DOT_COLOR[kind === 'toPlay' ? 'none' : kind];
+  const chipColor = chance !== null ? chanceColor(chance) : colors.textDim;
   const fill =
     p.state === 'hit'
       ? 1
@@ -96,22 +100,16 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   return (
     <View style={styles.prop}>
       <View style={styles.propTop}>
+        <Dot kind={kind} />
         <Text style={styles.propLabel} numberOfLines={1}>
-          {p.state === 'hit'
-            ? final
-              ? '✅ '
-              : '✓ '
-            : p.state === 'miss'
-              ? '❌ '
-              : p.state === 'push'
-                ? '↩️ Push · '
-                : ''}
+          {p.state === 'push' ? 'Push · ' : ''}
           {prop.label}
+          {final && p.state === 'hit' ? ' · final' : ''}
         </Text>
         <Text style={styles.propValue}>{p.text}</Text>
         {!done && chance !== null ? (
-          <View style={[styles.chip, { borderColor: color }]}>
-            <Text style={[styles.chipText, { color }]}>{formatChance(chance)}</Text>
+          <View style={[styles.chip, { borderColor: chipColor }]}>
+            <Text style={[styles.chipText, { color: chipColor }]}>{formatChance(chance)}</Text>
           </View>
         ) : null}
       </View>
@@ -124,8 +122,6 @@ function PropMeter({ prop, final }: { prop: PlayerProp; final: boolean }) {
   );
 }
 
-const money = (n: number) =>
-  `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function TeamColumn({ team, align }: { team: TeamScore; align: 'left' | 'right' }) {
   return (
@@ -166,15 +162,6 @@ function WinBar({ game }: { game: LiveGame }) {
   );
 }
 
-/** Dot for a leg: green hit, solid orange playing now, hollow orange not started, red missed. */
-function dotFor(state: LegProgress['state'], final = false): DotKind {
-  if (state === 'hit') return 'hit';
-  if (state === 'miss') return 'miss';
-  if (state === 'push') return 'push';
-  if (state === 'unknown' || final) return 'none';
-  if (state === 'live') return 'live';
-  return 'toPlay';
-}
 
 /** The legs of these tickets that are on this game. */
 function legsOnGame(
@@ -222,15 +209,12 @@ function YourPlayers({ game, bets }: { game: LiveGame; bets: Bet[] }) {
             <Text style={styles.playerName}>{p.name}</Text>
             <Text style={styles.playerLine}>{statLine(game.players.get(key))}</Text>
             {p.props.map((prop) => {
-              const st = prop.progress.state;
-              const color =
-                st === 'hit' ? colors.win : st === 'miss' ? colors.loss : colors.textDim;
+              const kind = dotForState(prop.progress.state);
+              const color = kind === 'toPlay' || kind === 'live' ? colors.text : DOT_COLOR[kind];
               return (
                 <View key={prop.label} style={styles.playerProp}>
-                  <Text style={[styles.playerPropLabel, { color }]}>
-                    {st === 'hit' ? (final ? '✅ ' : '✓ ') : st === 'miss' ? '❌ ' : '• '}
-                    {prop.label}
-                  </Text>
+                  <Dot kind={kind} />
+                  <Text style={[styles.playerPropLabel, { color }]}>{prop.label}</Text>
                   <Text style={[styles.playerPropValue, { color }]}>{prop.progress.text}</Text>
                 </View>
               );
@@ -259,7 +243,8 @@ function TicketList({
   startOpen?: boolean;
   onEditBet: (b: Bet) => void;
 }) {
-  const { setStatus } = useStore();
+  const { setStatus, settings } = useStore();
+  const money = (n: number) => formatAmount(n, settings);
   const { legGames } = useLive();
   // Tickets start condensed; tap one to see every leg.
   const [open, setOpen] = useState<Set<string>>(
@@ -338,8 +323,10 @@ function TicketList({
       <SectionTitle>{title}</SectionTitle>
       {tickets.map(({ bet, legs, chance, summary, overall }) => {
         const missed = legs.some((l) => l.prop.progress.state === 'miss');
-        const allHit = legs.every((l) => l.prop.progress.state === 'hit');
-        const borderColor = missed ? colors.loss : allHit ? colors.push : colors.border;
+        const allHit = legs.every(
+          (l) => l.prop.progress.state === 'hit' || l.prop.progress.state === 'push',
+        );
+        const borderColor = missed ? colors.loss : allHit ? colors.win : colors.border;
         const expanded = open.has(bet.id);
         return (
           <Pressable
@@ -377,7 +364,7 @@ function TicketList({
                         {money(betToWin(bet))}
                       </Text>
                     </Text>
-                    <LegDots kinds={legs.map((l) => dotFor(l.prop.progress.state))} />
+                    <LegDots kinds={legs.map((l) => dotForState(l.prop.progress.state))} />
                   </View>
                   <Text
                     style={[
@@ -385,7 +372,7 @@ function TicketList({
                       { color: missed ? colors.loss : allHit ? colors.win : colors.text },
                     ]}
                   >
-                    {dotCounts(legs.map((l) => dotFor(l.prop.progress.state)))}
+                    {dotCounts(legs.map((l) => dotForState(l.prop.progress.state)))}
                   </Text>
                   <Text style={styles.more}>▾ Tap to see every leg</Text>
                 </>
@@ -601,11 +588,10 @@ function GameRow({
   );
   // Finished game: how your legs on it went.
   const here = legsOnGame(tickets, game, legGames).map((l) => gradeMarket(l.market, game).state);
-  const hitN = here.filter((st) => st === 'hit').length;
   const missN = here.filter((st) => st === 'miss').length;
   const summary =
     game.state === 'post'
-      ? `${here.length} leg${here.length === 1 ? '' : 's'} here · ${hitN} ✓${missN ? ` · ${missN} ✗` : ''}`
+      ? `${here.length} leg${here.length === 1 ? '' : 's'} here · ${dotCounts(here.map((st) => dotForState(st, true)))}`
       : alive.length === 0
       ? `${tickets.length === 1 ? 'Ticket' : 'All tickets'} busted 💀`
       : `${tickets.length} ticket${tickets.length === 1 ? '' : 's'}` +
@@ -666,7 +652,7 @@ function GameRow({
         {/* One dot per leg you have in this game: green hit, orange to play, red missed. */}
         <LegDots
           kinds={legsOnGame(tickets, game, legGames).map((l) =>
-            dotFor(gradeMarket(l.market, game).state, game.state === 'post'),
+            dotForState(gradeMarket(l.market, game).state, game.state === 'post'),
           )}
         />
       </View>
@@ -701,9 +687,9 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
     for (const b of bets) {
       if (b.status !== 'pending') continue;
       const phase = phaseOf(b);
-      if (phase !== 'live' && phase !== 'settle') continue;
+      if (phase !== 'live') continue;
       if (isMulti(b)) {
-        if (phase === 'live') multi.push(b);
+        multi.push(b);
         const seen = new Set<string>();
         for (const g of legGames.get(b.id) ?? []) {
           if (!g || g.state === 'pre' || seen.has(g.eventId)) continue;
@@ -777,7 +763,7 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
       {refreshRow}
       {entries.length || multiBets.length ? (
         <View style={{ marginBottom: space.md }}>
-          <DotLegend showNone={false} />
+          <DotLegend />
         </View>
       ) : null}
 

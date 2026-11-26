@@ -1,4 +1,5 @@
 import { betProfit, betToWin } from './odds';
+import { settledDay, settledOrder } from './recap';
 import { Bet } from './types';
 
 export interface Summary {
@@ -67,9 +68,7 @@ export function groupBy(bets: Bet[], keyFn: (b: Bet) => string): GroupRow[] {
 
 /** Cumulative profit after each settled bet, oldest first. */
 export function profitSeries(bets: Bet[]): number[] {
-  const settled = bets
-    .filter((b) => b.status !== 'pending')
-    .sort((a, b) => (a.date === b.date ? a.createdAt - b.createdAt : a.date < b.date ? -1 : 1));
+  const settled = bets.filter((b) => b.status !== 'pending').sort(settledOrder);
   let running = 0;
   return settled.map((b) => (running += betProfit(b)));
 }
@@ -88,5 +87,6 @@ export function filterByPeriod(bets: Bet[], period: Period): Bet[] {
   const m = `${start.getMonth() + 1}`.padStart(2, '0');
   const d = `${start.getDate()}`.padStart(2, '0');
   const startISO = `${start.getFullYear()}-${m}-${d}`;
-  return bets.filter((b) => b.date >= startISO);
+  // Settled tickets count on the day they were decided, open ones on their bet date.
+  return bets.filter((b) => settledDay(b) >= startISO);
 }

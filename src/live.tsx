@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { AppState } from 'react-native';
 import { betChance, legChance } from './chance';
 import { betGame, betMarkets, legGame } from './markets';
-import { americanToDecimal, isValidAmerican } from './odds';
+import { americanToDecimal, decimalToAmerican, isValidAmerican } from './odds';
 import { useStore } from './store';
 import { Bet, GameRef, LegResult, Market, PlayerStat } from './types';
 
@@ -67,6 +67,8 @@ export interface LiveGame {
   homeSpread: number | null;
   /** Sportsbook over/under before the game. */
   marketTotal: number | null;
+  /** Scheduled start, ms since epoch. */
+  startTime?: number;
   /** "3rd & 6 at GB 40" */
   downDistance?: string;
   /** Most recent plays, newest first. */
@@ -271,6 +273,7 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
     period: Number(comp?.status?.period ?? 0),
     clockSecs: clockToSecs(comp?.status?.displayClock),
     homeWinPct: Number.isFinite(homeWinPct) ? homeWinPct : null,
+    startTime: comp?.date ? Date.parse(comp.date) || undefined : undefined,
     homeSpread: line ? Number(line.spread) : null,
     marketTotal: ou ? Number(ou.overUnder) : null,
     downDistance: state(status) === 'in' ? lastPlay?.end?.downDistanceText || undefined : undefined,
@@ -280,7 +283,15 @@ export async function fetchLiveGame(league: string, eventId: string): Promise<Li
   };
 }
 
-const state = (status: any): LiveGame['state'] => (status?.state as LiveGame['state']) ?? 'pre';
+/**
+ * Game state. Only a completed game is final: ESPN also marks postponed and
+ * cancelled games "post", and those must never settle a ticket.
+ */
+const state = (status: any): LiveGame['state'] => {
+  const s = (status?.state as LiveGame['state']) ?? 'pre';
+  if (s === 'post' && status?.completed === false) return 'pre';
+  return s;
+};
 
 // ---------- grading ----------
 
@@ -405,30 +416,35 @@ export function gradeMarket(market: Market | undefined, game: LiveGame | undefin
   if (!market) return { current: null, target: null, state: 'unknown', text: '' };
   if (!game) {
     const target = market.kind === 'player' ? market.line : null;
-    return { current: null, target, state: 'pre', text: 'Waiting for game' };
+    return { current: null, target, state: 'pre', text: 'Game not found yet' };
   }
   const final = game.state === 'post';
   const started = game.state !== 'pre';
 
   if (market.kind === 'player') {
     const key = findPlayerKey(game, market.player);
+    if (final && !key) {
+      // Not in the final box score: probably didn't play (books void these legs).
+      return { current: null, target: market.line, state: 'unknown', text: 'No stats' };
+    }
     const stats = key ? game.players.get(key) : undefined;
     const current = started ? statValue(stats, market.stat) : 0;
+    const push = final && market.pushAt !== undefined && current === market.pushAt;
     if (market.under) {
-      // An under is lost the moment the player reaches the line; won at the final.
+      // An under is lost the moment the player passes the line; won at the final.
       const over = current >= market.line;
       return {
         current,
         target: market.line,
-        state: over ? 'miss' : final ? 'hit' : started ? 'live' : 'pre',
-        text: `${current} (under ${market.line - 0.5})`,
+        state: over ? 'miss' : push ? 'push' : final ? 'hit' : started ? 'live' : 'pre',
+        text: `${current} (under ${market.pushAt ?? market.line - 0.5})`,
       };
     }
     const hit = current >= market.line;
     return {
       current,
       target: market.line,
-      state: hit ? 'hit' : final ? 'miss' : started ? 'live' : 'pre',
+      state: hit ? 'hit' : push ? 'push' : final ? 'miss' : started ? 'live' : 'pre',
       text: `${current} / ${market.line}`,
     };
   }
@@ -531,11 +547,11 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
       return;
     }
     const noPlayer = l.market.kind === 'player' && !findPlayerKey(game, l.market.player);
-    if (p.state === 'unknown') ungradeable = true;
-    else if (noPlayer && (p.state === 'miss' || l.market.kind === 'player')) {
+    if (noPlayer) {
       // Player has no line in the box score: probably didn't play (books void those legs).
       noStats = (l.market as { player: string }).player;
-    } else if (p.state === 'miss') missed = true;
+    } else if (p.state === 'unknown') ungradeable = true;
+    else if (p.state === 'miss') missed = true;
     else if (p.state === 'push') pushed.push(i);
   });
   if (missed) return { status: 'lost' }; // one leg lost: the parlay is dead
@@ -577,7 +593,7 @@ export function gradeLegs(
     const p = gradeMarket(l.market, game);
     if (l.market.kind === 'player' && !findPlayerKey(game, l.market.player)) return 'void';
     if (p.state === 'hit') return 'hit';
-    if (p.state === 'push') return 'void';
+    if (p.state === 'push') return 'push';
     if (p.state !== 'miss') return undefined;
     return 'miss';
   });
@@ -641,6 +657,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   const [lastError, setLastError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const eventIds = useRef(new Map<string, string | null>()); // gameKey -> eventId (null = not found)
+  const notFoundAt = useRef(new Map<string, number>());
   const betsRef = useRef(bets);
   betsRef.current = bets;
 
@@ -684,9 +701,12 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
             }
             const k = gameKey(ref, bet.date);
             let eventId = ref.eventId ?? eventIds.current.get(k);
-            if (eventId === undefined) {
+            const missedAt = notFoundAt.current.get(k) ?? 0;
+            if (eventId === undefined || (eventId === null && Date.now() - missedAt > 10 * 60_000)) {
+              // Not found yet: look again every 10 minutes (ESPN lists games late sometimes).
               eventId = await findEventId(ref, bet.date);
               eventIds.current.set(k, eventId);
+              if (eventId === null) notFoundAt.current.set(k, Date.now());
             }
             found.push(eventId ?? null);
             if (!eventId) {
@@ -743,7 +763,13 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
               ...(updated ?? latest),
               status: decision.status,
               settledBy: 'auto',
-              ...(decision.toWin ? { toWin: decision.toWin } : {}),
+              ...(decision.toWin
+                ? {
+                    toWin: decision.toWin,
+                    // Paid at the remaining legs' odds; keep the odds in step with the money.
+                    odds: decimalToAmerican(1 + decision.toWin / latest.stake) || latest.odds,
+                  }
+                : {}),
             };
           }
           if (updated) saveBet(updated);
@@ -835,9 +861,15 @@ export function useBetLive(bet: Bet) {
 export type BetPhase = 'upcoming' | 'live' | 'settle' | 'past';
 export function betPhase(bet: Bet, legGames?: (LiveGame | undefined)[]): BetPhase {
   if (bet.status !== 'pending') return 'past';
-  if (legGames?.some((g) => g?.state === 'in')) return 'live';
-  if (legGames?.length && legGames.every((g) => g?.state === 'post')) return 'settle';
-  if (legGames?.some((g) => g?.state === 'post')) return 'live';
+  const found = (legGames ?? []).filter(Boolean) as LiveGame[];
+  if (found.some((g) => g.state === 'in')) return 'live';
+  const daysOld = (Date.now() - new Date(`${bet.date}T12:00:00`).getTime()) / 86400000;
+  // Every game the app could find is over (any others were never found):
+  // it can't settle itself, so it needs your call.
+  if (found.length && found.every((g) => g.state === 'post')) return 'settle';
+  if (found.some((g) => g.state === 'post')) return 'live';
+  // No game found at all, well after the bet date: it isn't coming.
+  if (!found.length && daysOld > 7) return 'settle';
   return 'upcoming';
 }
 

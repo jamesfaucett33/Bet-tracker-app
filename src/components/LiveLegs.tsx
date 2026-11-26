@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { formatChance } from '../chance';
 import { isCovering, LegProgress, LiveGame, TeamScore } from '../live';
+import { dotCounts, dotForState, Dot } from './LegDots';
 import { colors, radius, space } from '../theme';
 import { Market } from '../types';
 
@@ -26,12 +27,13 @@ export function TeamLogo({ team, size = 20 }: { team: TeamScore; size?: number }
   return <Image source={{ uri: team.logo }} style={{ width: size, height: size }} />;
 }
 
+// Bars use the dot colors: green hit, orange pending, grey not started, red missed, amber push.
 const STATE_COLOR = {
   hit: colors.win,
   miss: colors.loss,
   push: colors.push,
-  live: colors.pending,
-  pre: colors.textFaint,
+  live: colors.toPlay,
+  pre: colors.textDim,
   unknown: colors.textFaint,
 } as const;
 
@@ -76,14 +78,11 @@ export function LiveLegs({ legs, final = false }: { legs: LegRow[]; final?: bool
         else if (teamMarket) fill = covering ? 1 : 0.08;
         else if (p.current !== null && p.target)
           fill = Math.min(1, Math.max(0, p.current / p.target));
-        const barColor =
-          p.state === 'live' && teamMarket ? (covering ? colors.win : colors.loss) : color;
+        const barColor = color;
         return (
           <View key={i} style={styles.leg}>
             <View style={styles.legTop}>
-              <Text style={styles.legIcon}>
-                {p.state === 'hit' ? (final ? '✅' : '✓') : p.state === 'miss' ? '❌' : '•'}
-              </Text>
+              <Dot kind={dotForState(p.state)} />
               <Text style={styles.legLabel} numberOfLines={1}>
                 {leg.label}
               </Text>
@@ -122,26 +121,19 @@ export function legsSummary(
   legs: LegRow[],
   gameState: LiveGame['state'] = 'in',
 ): { text: string; color: string } | null {
-  const graded = legs.filter((l) => l.progress.state !== 'unknown');
-  if (!graded.length) return null;
-  // A pushed leg is dropped from the ticket, so it counts as done.
-  const hit = graded.filter((l) => l.progress.state === 'hit' || l.progress.state === 'push').length;
-  const missed = graded.some((l) => l.progress.state === 'miss');
+  if (!legs.length) return null;
   const final = gameState === 'post';
-  if (missed) return { text: 'A leg missed', color: colors.loss };
-  if (hit === legs.length) {
-    // Nothing is a winner until the game is final and the book settles it.
+  const kinds = legs.map((l) => dotForState(l.progress.state));
+  const missed = kinds.includes('miss');
+  const done = kinds.every((k) => k === 'hit' || k === 'push');
+  if (missed) return { text: `Busted · ${dotCounts(kinds)}`, color: colors.loss };
+  if (done && kinds.every((k) => k === 'push'))
+    return { text: 'Final — every leg pushed: stake back', color: colors.push };
+  if (done)
     return final
-      ? {
-          text: `Final — all ${legs.length} legs hit. Mark it Won once it's paid.`,
-          color: colors.win,
-        }
-      : {
-          text: `All ${legs.length} legs hit so far — not final until the game ends`,
-          color: colors.push,
-        };
-  }
-  return { text: `${hit} of ${legs.length} legs hit so far`, color: colors.textDim };
+      ? { text: `Final — every leg hit: settling as Won`, color: colors.win }
+      : { text: `${dotCounts(kinds)} — not official until the game ends`, color: colors.win };
+  return { text: dotCounts(kinds), color: colors.text };
 }
 
 const styles = StyleSheet.create({
