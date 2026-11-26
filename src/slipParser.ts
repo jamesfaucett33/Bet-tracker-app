@@ -102,6 +102,8 @@ function fixWords(s: string): string {
     .replace(/\bpa[s5]{1,2}[a-z]{0,3}ng\b/gi, 'Passing')
     .replace(/\by[a-z]rds?\b/gi, 'Yards')
     .replace(/\brecep[a-z]{0,4}ns?\b/gi, 'Receptions')
+    // "hed Goals", "Fieid Goals", "eld Goals" -> "Field Goals"
+    .replace(/\b[a-z]{0,2}[il1]?e?[il1]?[a-z]?d\s+goals?\b/gi, 'Field Goals')
     .replace(/\bmo[a-z]{1,3}y\s*l[il1]n[e€]\b|\bmoneyline\b/gi, 'Money Line');
 }
 
