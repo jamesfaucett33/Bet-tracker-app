@@ -67,7 +67,11 @@ export interface ParlayLeg {
   market?: Market;
   /** The game this leg is on (multi-game parlays). */
   game?: GameRef;
+  /** How the leg finished, from the final stats (kept after the ticket is dead). */
+  result?: LegResult;
 }
+
+export type LegResult = 'hit' | 'miss' | 'void';
 
 export interface Bet {
   id: string;

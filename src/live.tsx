@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { betChance, legChance } from './chance';
 import { betGame, betMarkets, legGame } from './markets';
 import { useStore } from './store';
-import { Bet, GameRef, Market, PlayerStat } from './types';
+import { Bet, GameRef, LegResult, Market, PlayerStat } from './types';
 
 /**
  * Live game tracking from ESPN's public scoreboard/summary feeds (no key,
@@ -408,6 +408,35 @@ export function autoSettle(bet: Bet, legGames: (LiveGame | undefined)[]): Settle
   return { status: 'won' };
 }
 
+/**
+ * How each leg finished, for legs whose game is final. Used to keep a record
+ * of every leg after the ticket is decided (a busted parlay still shows which
+ * legs hit). 'void' = a player with no recorded stats.
+ */
+export function gradeLegs(
+  bet: Bet,
+  legGames: (LiveGame | undefined)[],
+): (LegResult | undefined)[] {
+  return betMarkets(bet).map((l, i) => {
+    const game = legGames[i];
+    if (!game || game.state !== 'post' || !l.market) return undefined;
+    const p = gradeMarket(l.market, game);
+    if (p.state === 'hit') return 'hit';
+    if (p.state !== 'miss') return undefined;
+    if (l.market.kind === 'player' && !game.players.has(norm(l.market.player))) return 'void';
+    return 'miss';
+  });
+}
+
+/** Settled tickets whose legs are still being checked for the record. */
+const LEG_CHECK_DAYS = 14;
+function needsLegCheck(b: Bet): boolean {
+  if (b.status === 'pending' || !b.legs?.length) return false;
+  if (b.legs.every((l) => l.result)) return false;
+  const age = (Date.now() - new Date(b.date + 'T12:00:00').getTime()) / 86400000;
+  return age <= LEG_CHECK_DAYS;
+}
+
 // ---------- which game each leg is on ----------
 
 /**
@@ -464,7 +493,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     () =>
       bets.filter(
         (b) =>
-          b.status === 'pending' &&
+          (b.status === 'pending' || needsLegCheck(b)) &&
           betLegRefs(b).some(Boolean) &&
           betMarkets(b).some((m) => m.market),
       ),
@@ -517,21 +546,37 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
             if (live.state === 'in') anyLive = true;
             legGames.push(live);
           }
+          const latest = betsRef.current.find((b) => b.id === bet.id);
+          if (!latest) continue;
+          // Record how each finished leg went, even on a dead ticket, so the
+          // ticket keeps a full leg-by-leg record.
+          const results = gradeLegs(latest, legGames);
+          if (latest.status !== 'pending') {
+            // Dead or cashed tickets stay off the Live tab; only their legs
+            // keep being checked until every game is final.
+            if (latest.legs?.length) {
+              const legs = latest.legs.map((l, i) =>
+                results[i] && l.result !== results[i] ? { ...l, result: results[i] } : l,
+              );
+              if (legs.some((l, i) => l !== latest.legs![i])) saveBet({ ...latest, legs });
+            }
+            continue;
+          }
           perLeg.set(bet.id, legGames);
           const top = legGames.find((g) => g?.state === 'in') ?? legGames.find(Boolean);
           if (top) headline.set(bet.id, top);
 
           // Remember matched games on the bet so later lookups are quick, and
           // settle it once the final stats decide it.
-          const latest = betsRef.current.find((b) => b.id === bet.id);
-          if (!latest || latest.status !== 'pending') continue;
           let updated: Bet | null = null;
           if (latest.legs?.length) {
-            const legs = latest.legs.map((l, i) =>
-              found[i] && refs[i] && !l.game?.eventId
-                ? { ...l, game: { ...refs[i]!, eventId: found[i]! } }
-                : l,
-            );
+            const legs = latest.legs.map((l, i) => {
+              let leg = l;
+              if (found[i] && refs[i] && !l.game?.eventId)
+                leg = { ...leg, game: { ...refs[i]!, eventId: found[i]! } };
+              if (results[i] && l.result !== results[i]) leg = { ...leg, result: results[i] };
+              return leg;
+            });
             if (legs.some((l, i) => l !== latest.legs![i])) updated = { ...latest, legs };
           } else if (found[0] && refs[0] && !latest.game?.eventId) {
             updated = { ...latest, game: { ...refs[0], eventId: found[0] } };

@@ -31,6 +31,15 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
   const summary = showLive ? legsSummary(liveLegs, overall) : null;
   const decision = autoSettle(bet, legGames);
   const review = decision && 'review' in decision ? decision.review : null;
+  // Leg-by-leg record once games finish (kept for dead tickets too).
+  const graded = bet.legs?.filter((l) => l.result) ?? [];
+  const legRecord =
+    bet.status !== 'pending' && graded.length
+      ? `${graded.filter((l) => l.result === 'hit').length} of ${bet.legs!.length} legs hit` +
+        (graded.length < bet.legs!.length
+          ? ` · ${bet.legs!.length - graded.length} still to play`
+          : '')
+      : null;
 
   return (
     <Pressable
@@ -87,13 +96,17 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
             </View>
           </>
         ) : bet.legs && bet.legs.length > 0 ? (
-          <Text style={styles.legs} numberOfLines={4}>
-            {bet.legs
-              .map(
-                (l) => `• ${l.pick || 'Leg'}${l.odds === null ? '' : ` (${formatOdds(l.odds)})`}`,
-              )
-              .join('\n')}
-          </Text>
+          <>
+            {legRecord ? <Text style={styles.legRecord}>{legRecord}</Text> : null}
+            <Text style={styles.legs} numberOfLines={bet.status === 'pending' ? 4 : 12}>
+              {bet.legs
+                .map(
+                  (l) =>
+                    `${l.result === 'hit' ? '✓' : l.result === 'miss' ? '✗' : l.result === 'void' ? '–' : '•'} ${l.pick || 'Leg'}${l.odds === null ? '' : ` (${formatOdds(l.odds)})`}`,
+                )
+                .join('\n')}
+            </Text>
+          </>
         ) : null}
 
         {review ? <Text style={styles.review}>{review}</Text> : null}
@@ -171,6 +184,7 @@ const styles = StyleSheet.create({
   meta: { color: colors.textDim, fontSize: 12, fontWeight: '600', flexShrink: 1 },
   status: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
   pick: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
+  legRecord: { color: colors.text, fontSize: 13, fontWeight: '700', marginTop: 4 },
   legs: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   detail: { color: colors.textDim, fontSize: 13, flexShrink: 1 },
   multi: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: space.sm },

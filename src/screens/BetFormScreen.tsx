@@ -177,12 +177,14 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
             const o = parseNumber(l.odds);
             // Keep a structured market (e.g. from a scan) while the leg text is unchanged.
             const orig = sourceLegs.find((x) => x.id === l.id);
-            const market = orig && orig.pick.trim() === l.pick.trim() ? orig.market : undefined;
+            const same = orig && orig.pick.trim() === l.pick.trim() ? orig : undefined;
             return {
               id: l.id,
               pick: l.pick.trim(),
               odds: isValidAmerican(o) ? o : null,
-              ...(market ? { market } : {}),
+              ...(same?.market ? { market: same.market } : {}),
+              ...(same?.game ? { game: same.game } : {}),
+              ...(same?.result ? { result: same.result } : {}),
             };
           })
       : [];
