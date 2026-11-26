@@ -31,7 +31,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Export web build
-        run: npx expo export -p web
+        run: npm run build:web
 
       - name: Prepare Pages output
         run: |

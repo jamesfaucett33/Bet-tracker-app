@@ -19,7 +19,9 @@ import {
   parlayOdds,
   potentialProfit,
 } from '../odds';
-import { decodeSlipQr, deriveTrackerUrl } from '../qr';
+import { canReadOnDevice, readTextOnDevice } from '../ocr';
+import { decodeSlipQr, deriveTrackerUrl, ticketDigits } from '../qr';
+import { parseSlipText } from '../slipParser';
 import { PickSource, pickSlipImage, readBetSlip, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
@@ -121,9 +123,22 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const toWin = valid ? potentialProfit(stakeNum, oddsNum) : 0;
   const implied = impliedProbability(oddsNum);
 
-  const save = () => {
+  const save = (allowDuplicate = false) => {
     setSubmitted(true);
     if (!valid) return;
+    // Same printed ticket logged twice (e.g. imported and then scanned)?
+    const ticket = ticketDigits({ notes });
+    const dupe =
+      !allowDuplicate && ticket && bets.find((b) => b.id !== bet?.id && ticketDigits(b) === ticket);
+    if (dupe) {
+      confirm(
+        'Already logged',
+        `You already have this ticket: "${dupe.pick}". Save it again anyway?`,
+        () => save(true),
+        'Save Again',
+      );
+      return;
+    }
     const keptLegs = multiLegType
       ? legs
           .filter((l) => l.pick.trim() || l.odds.trim())
@@ -204,7 +219,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   };
 
   const scan = async (source: PickSource) => {
-    if (!settings.anthropicApiKey.trim()) {
+    // With an AI key, Claude reads the slip; without one, the phone reads it
+    // itself (free, less accurate) so a photo always does something.
+    const useAI = !!settings.anthropicApiKey.trim();
+    if (!useAI && !canReadOnDevice()) {
       notify(
         'Set up scanning',
         'Add your Anthropic API key in Settings → Bet Slip Scanning, then try again.',
@@ -216,10 +234,18 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       if (!image) return;
       setScanning(true);
       setScanNote('');
-      const [found, qr] = await Promise.all([
-        readBetSlip(settings.anthropicApiKey, image),
-        decodeSlipQr(image),
-      ]);
+      const qr = await decodeSlipQr(image);
+      const found = useAI
+        ? await readBetSlip(settings.anthropicApiKey, image)
+        : [parseSlipText(await readTextOnDevice(image), qr)];
+      if (!useAI && found[0].stake === null && found[0].odds === null && !found[0].legs.length) {
+        notify(
+          "Couldn't read that slip",
+          'Try a straight-on photo in good light, fill it in by hand, or add an AI key in Settings for better reading.',
+        );
+        if (qr) setTrackerUrl(qr);
+        return;
+      }
       applyScan(found[0]);
       // The slip's QR (when readable) links to the sportsbook's ticket tracker;
       // otherwise build that link from the printed ticket number.
@@ -231,7 +257,9 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       setScanNote(
         found.length > 1
           ? `Found ${found.length} bets. Showing the first — check it, then save.`
-          : 'Slip read. Check the details below, then save.',
+          : useAI
+            ? 'Slip read. Check the details below, then save.'
+            : 'Slip read on your phone. Double-check every field — add an AI key in Settings for sharper reading.',
       );
     } catch (e) {
       notify(
@@ -276,7 +304,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           <Text style={styles.headerBtn}>Cancel</Text>
         </Pressable>
         <Text style={styles.headerTitle}>{isEdit ? 'Edit Bet' : 'New Bet'}</Text>
-        <Pressable onPress={save} hitSlop={12} accessibilityRole="button">
+        <Pressable onPress={() => save()} hitSlop={12} accessibilityRole="button">
           <Text style={[styles.headerBtn, { color: colors.accent, fontWeight: '800' }]}>Save</Text>
         </Pressable>
       </View>
@@ -287,7 +315,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
             {scanning ? (
               <View style={styles.scanning}>
                 <ActivityIndicator color={colors.accent} />
-                <Text style={styles.scanText}>Reading your bet slip…</Text>
+                <Text style={styles.scanText}>
+                  Reading your bet slip…
+                  {settings.anthropicApiKey ? '' : ' (the first scan takes a few extra seconds)'}
+                </Text>
               </View>
             ) : (
               <>
@@ -517,7 +548,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           style={{ minHeight: 80, textAlignVertical: 'top' }}
         />
 
-        <Button title={isEdit ? 'Save Changes' : 'Add Bet'} onPress={save} />
+        <Button title={isEdit ? 'Save Changes' : 'Add Bet'} onPress={() => save()} />
         {submitted && !valid ? (
           <Text style={[styles.err, { textAlign: 'center', marginTop: space.sm }]}>
             Fix the highlighted fields above.
