@@ -312,6 +312,10 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
           />
         </View>
 
+        <Text style={styles.invite}>
+          🎁 Invite a friend: you each get 25 free bet uploads. Profile → Invite friends.
+        </Text>
+
         {/* Free plan */}
         <View style={[styles.card, currentId === 'rookie' && styles.cardCurrent]}>
           <View style={styles.cardHead}>
@@ -480,5 +484,6 @@ const styles = StyleSheet.create({
   sheetPrice: { color: colors.money, fontSize: 30, fontWeight: '900', marginTop: 4 },
   sheetTerms: { color: colors.textDim, fontSize: 14, lineHeight: 20, marginTop: space.sm },
   betaIcon: { fontSize: 44, textAlign: 'center' },
+  invite: { color: colors.text, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   fine: { color: colors.textFaint, fontSize: 11, lineHeight: 16, marginTop: space.sm },
 });

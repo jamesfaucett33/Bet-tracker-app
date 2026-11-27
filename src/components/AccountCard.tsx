@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BETA_SCANS, findPlan } from '../plans';
 import { BetaSignupPitch } from './BetaBanner';
+import { pendingReferral, REFERRAL_BONUS } from '../referral';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
@@ -101,12 +102,13 @@ export function AccountCard() {
             ...(phoneDigits ? { phone: phoneDigits } : {}),
             marketing_email: optEmail,
             marketing_sms: !!phoneDigits && optSms,
+            ...(pendingReferral() ? { ref: pendingReferral()! } : {}),
           })
         : await sync.signIn(email, password);
     setBusy(false);
     if (err === 'CHECK_EMAIL')
       setMsg({
-        text: `🎉 Account created${BETA_SCANS ? ` — your ${BETA_SCANS} free beta bet uploads are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
+        text: `🎉 Account created${pendingReferral() ? ` — your ${REFERRAL_BONUS} bonus uploads unlock when you confirm your email` : BETA_SCANS ? ` — your ${BETA_SCANS} free beta bet uploads are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
         ok: true,
       });
     else if (err) setMsg({ text: err, ok: false });
@@ -203,7 +205,17 @@ export function AccountCard() {
           </>
         ) : (
           <>
-            <BetaSignupPitch />
+            {pendingReferral() && mode === 'signUp' ? (
+              <View style={styles.refBox}>
+                <Text style={styles.refTitle}>🎁 Your friend gave you {REFERRAL_BONUS} free bet uploads</Text>
+                <Text style={styles.body}>
+                  Create your account and confirm your email to claim them. Your friend gets{' '}
+                  {REFERRAL_BONUS} too.
+                </Text>
+              </View>
+            ) : (
+              <BetaSignupPitch />
+            )}
             {sync.signedOutNote ? (
               <Text style={[styles.body, { color: colors.push, fontWeight: '700' }]}>
                 {sync.signedOutNote}
@@ -312,6 +324,15 @@ export function AccountCard() {
 }
 
 const styles = StyleSheet.create({
+  refBox: {
+    borderWidth: 2,
+    borderColor: colors.brand,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: 6,
+    backgroundColor: colors.surface,
+  },
+  refTitle: { color: colors.text, fontSize: 17, fontWeight: '900' },
   planRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   planLink: { color: colors.accent, fontSize: 14, fontWeight: '700' },
   signedIn: { color: colors.accent, fontSize: 15, fontWeight: '800' },

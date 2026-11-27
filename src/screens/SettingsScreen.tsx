@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { AccountCard } from '../components/AccountCard';
 import { TripsView } from '../components/TripsView';
+import { InviteView } from '../components/InviteView';
 import { TeamPicker } from '../components/TeamPicker';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
 import { parseNumber } from '../format';
@@ -76,7 +77,7 @@ function ListEditor({
   );
 }
 
-type Page = 'menu' | 'account' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
+type Page = 'menu' | 'account' | 'invite' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
 
 export function SettingsScreen({
   onAddBet,
@@ -129,6 +130,7 @@ export function SettingsScreen({
   const PAGES: Record<Exclude<Page, 'menu'>, string> = {
     account: 'Account',
     trips: 'Trips',
+    invite: 'Invite Friends',
     team: 'Team Colors',
     bankroll: 'Bankroll & Units',
     lists: 'Sportsbooks & Sports',
@@ -146,6 +148,7 @@ export function SettingsScreen({
         <Text style={styles.pageTitle}>{PAGES[page]}</Text>
         {page === 'account' ? <AccountCard /> : null}
         {page === 'trips' ? <TripsView onEditBet={onEditBet} /> : null}
+        {page === 'invite' ? <InviteView onSignUp={() => setPage('account')} /> : null}
         {page === 'team' ? (
           <>
           <Card>
@@ -422,6 +425,12 @@ export function SettingsScreen({
           onPress={() => setPage('account')}
         />
         <MenuRow icon="⚡" label="Plans & bet uploads" onPress={openPlans} />
+        <MenuRow
+          icon="🎁"
+          label="Invite friends"
+          sub="You both get 25 free bet uploads"
+          onPress={() => setPage('invite')}
+        />
       </MenuGroup>
 
       <MenuGroup title="Personalize">

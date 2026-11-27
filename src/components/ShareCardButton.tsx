@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { fetchReferral, inviteText } from '../referral';
 import { canMakeCards, cardKind, CardKind, drawCard, shareCard } from '../shareCard';
 import { colors, radius, space } from '../theme';
 import { Bet } from '../types';
@@ -12,7 +13,9 @@ import { Button } from './ui';
  */
 export function ShareCardButton({ bet }: { bet: Bet }) {
   const kind = cardKind(bet);
-  const [card, setCard] = useState<{ blob: Blob; url: string; kind: CardKind } | null>(null);
+  const [card, setCard] = useState<{ blob: Blob; url: string; kind: CardKind; code: string | null } | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   if (!kind || !canMakeCards()) return null;
@@ -20,8 +23,9 @@ export function ShareCardButton({ bet }: { bet: Bet }) {
   const open = async () => {
     setBusy(true);
     try {
-      const blob = await drawCard(bet);
-      setCard({ blob, url: URL.createObjectURL(blob), kind });
+      const code = (await fetchReferral().catch(() => null))?.code ?? null;
+      const blob = await drawCard(bet, code);
+      setCard({ blob, url: URL.createObjectURL(blob), kind, code });
       setNote(null);
     } finally {
       setBusy(false);
@@ -61,12 +65,18 @@ export function ShareCardButton({ bet }: { bet: Bet }) {
               title="Share"
               onPress={async () => {
                 if (!card) return;
-                const r = await shareCard(card.blob, card.kind);
+                const r = await shareCard(card.blob, card.kind, inviteText(card.code));
                 if (r === 'saved') setNote('Saved to your downloads.');
                 if (r === 'shared') close();
               }}
               style={{ marginTop: space.md }}
             />
+            {card?.code ? (
+              <Text style={styles.note}>
+                🎁 Your invite code is on the card. Friends who join with it get 25 free bet uploads, and
+                so do you.
+              </Text>
+            ) : null}
             {note ? <Text style={styles.note}>{note}</Text> : null}
             <Button title="Close" variant="secondary" onPress={close} style={{ marginTop: space.sm }} />
           </View>

@@ -37,6 +37,8 @@ export interface SignUpProfile {
   phone?: string;
   marketing_email: boolean;
   marketing_sms: boolean;
+  /** Invite code from a friend's link (both get bonus uploads). */
+  ref?: string;
 }
 
 export function getCloudClient(): SupabaseClient | null {

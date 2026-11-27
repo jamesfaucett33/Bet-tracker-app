@@ -18,6 +18,8 @@ Things to add once the core app is fine-tuned.
 - [ ] Hand `APP_STORE_SUBMISSION.md` to Dad's Claude on the Mac.
 
 ## Plans & payments
+- [ ] Run `supabase/setup-referrals.sql` (invite codes + Give 25 / Get 25 rewards). Needs Confirm email ON to stop fake-account farming.
+- [ ] Point invite links at betkeyper.com once the domain is live (src/referral.ts appUrl).
 - [ ] **At launch:** set `BETA_SCANS` to 0 in `src/plans.ts` (beta gives every account 50 bet uploads a month), re-run the scan-function build script and redeploy.
 - [ ] Run `supabase/setup-plans.sql` and redeploy the `scan-slip` function (plan limits). Set your own account to `staff`.
 - [ ] Test a smaller, cheaper scan model on real tickets (target about 1¢ a scan).

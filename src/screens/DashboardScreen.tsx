@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BetaWelcome } from '../components/BetaBanner';
 import { TripCard } from '../components/TripCard';
+import { pendingReferral, REFERRAL_BONUS } from '../referral';
 import { activeTrip } from '../trips';
 import { dotCounts, dotForResult } from '../components/LegDots';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
@@ -77,11 +78,22 @@ export function DashboardScreen({
       <BetaWelcome />
       {sync.configured && !sync.email ? (
         <Pressable onPress={onOpenSettings} style={styles.backup} accessibilityRole="button">
-          <Text style={styles.backupTitle}>☁️ Back up your bets</Text>
-          <Text style={styles.backupText}>
-            Bets are only on this browser right now. Sign in (Profile) to save them to your account
-            and see them on every device.
-          </Text>
+          {pendingReferral() ? (
+            <>
+              <Text style={styles.backupTitle}>🎁 Your friend gave you {REFERRAL_BONUS} free bet uploads</Text>
+              <Text style={styles.backupText}>
+                Create your free account (Profile) to claim them and back up your bets. Tap here.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.backupTitle}>☁️ Back up your bets</Text>
+              <Text style={styles.backupText}>
+                Bets are only on this browser right now. Sign in (Profile) to save them to your
+                account and see them on every device.
+              </Text>
+            </>
+          )}
         </Pressable>
       ) : null}
 

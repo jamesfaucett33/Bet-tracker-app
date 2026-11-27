@@ -7,7 +7,11 @@ Project: `zielynjbewfhoerigbzm` (URL and publishable key are in `src/sync.tsx`).
 2. `scan_usage` — AI scans per account: run `setup-free-scans.sql` in the
    SQL editor.
 3. `subscriptions` + `scan_packs` — plans and scan packs: run
-   `setup-plans.sql` after that. Give yourself unlimited scans: Table Editor →
+   `setup-plans.sql` after that.
+4. `referral_codes` + `referrals` — "Give 25, get 25" invites: run
+   `setup-referrals.sql` last. Rewards are granted by a database trigger once
+   the friend confirms their email (turn on Confirm email, or rewards pay out
+   at sign-up). Give yourself unlimited scans: Table Editor →
    `subscriptions` → Insert row → your `user_id`, plan `staff`.
 
 ## Free AI scanning function (`scan-slip`)

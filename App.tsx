@@ -13,6 +13,9 @@ import {
 import { ScanBadge } from './src/components/ScanBadge';
 import { PlansScreen } from './src/screens/PlansScreen';
 import { closePlans, usePlansOpen } from './src/scanStatus';
+import { captureReferral } from './src/referral';
+
+captureReferral();
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddMode, BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';

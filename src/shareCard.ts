@@ -67,7 +67,7 @@ function shield(ctx: CanvasRenderingContext2D, x: number, y: number, size: numbe
 }
 
 /** Draws the card and returns it as a PNG blob. */
-export async function drawCard(bet: Bet): Promise<Blob> {
+export async function drawCard(bet: Bet, inviteCode?: string | null): Promise<Blob> {
   const kind = cardKind(bet) ?? 'win';
   const win = kind === 'win';
   const canvas = document.createElement('canvas');
@@ -169,9 +169,23 @@ export async function drawCard(bet: Bet): Promise<Blob> {
   ctx.font = `700 34px ${FONT}`;
   ctx.fillStyle = colors.textDim;
   ctx.fillText(foot, W / 2, H - 150);
-  ctx.font = `800 36px ${FONT}`;
+  const footText = inviteCode
+    ? `🎁 Join free with code ${inviteCode}: we both get 25 bet uploads`
+    : 'Every ticket. Every book. One place.';
+  let footSize = 36;
+  ctx.font = `800 ${footSize}px ${FONT}`;
+  while (footSize > 24 && ctx.measureText(footText).width > W - 140) {
+    footSize -= 2;
+    ctx.font = `800 ${footSize}px ${FONT}`;
+  }
   ctx.fillStyle = colors.brand;
-  ctx.fillText('Every ticket. Every book. One place.', W / 2, H - 90);
+  ctx.fillText(
+    inviteCode
+      ? `🎁 Join free with code ${inviteCode}: we both get 25 bet uploads`
+      : 'Every ticket. Every book. One place.',
+    W / 2,
+    H - 90,
+  );
 
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not draw the card'))), 'image/png'),
@@ -186,14 +200,19 @@ export function canMakeCards(): boolean {
  * Opens the phone's share sheet with the card (Messages, Instagram, ...), or
  * downloads it where sharing files isn't supported. Call from a tap.
  */
-export async function shareCard(blob: Blob, kind: CardKind): Promise<'shared' | 'saved' | 'cancelled'> {
+export async function shareCard(
+  blob: Blob,
+  kind: CardKind,
+  text?: string,
+): Promise<'shared' | 'saved' | 'cancelled'> {
   const file = new File([blob], kind === 'win' ? 'betkeyper-win.png' : 'betkeyper-bad-beat.png', {
     type: 'image/png',
   });
   const nav = globalThis.navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (nav?.canShare?.({ files: [file] })) {
     try {
-      await nav.share({ files: [file], text: kind === 'win' ? 'Cashed 💰 #BetKeyper' : 'Bad beat 💀 #BetKeyper' });
+      const lead = kind === 'win' ? 'Cashed 💰' : 'Bad beat 💀';
+      await nav.share({ files: [file], text: text ? `${lead} ${text}` : `${lead} #BetKeyper` });
       return 'shared';
     } catch {
       return 'cancelled';
