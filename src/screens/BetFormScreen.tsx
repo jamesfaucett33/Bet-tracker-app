@@ -1159,7 +1159,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: space.sm,
-    marginBottom: space.lg,
+    marginTop: space.lg,
+    marginBottom: space.md,
   },
   placedLabel: { color: colors.text, fontSize: 15, fontWeight: '800', marginRight: 2 },
   placedChip: {
