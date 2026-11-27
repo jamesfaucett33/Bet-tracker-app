@@ -85,7 +85,7 @@ export const PLANS: Plan[] = [
     perks: [
       { text: 'Everything in Starter' },
       { text: 'Team colors for NBA, MLB & NHL' },
-      { text: 'Shareable win & bad-beat cards', soon: true },
+      { text: 'Shareable win & bad-beat cards' },
       { text: 'Vegas trip view', soon: true },
     ],
   },

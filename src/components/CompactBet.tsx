@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { colors, profitColor, radius, space, statusColor } from '../theme';
 import { Bet } from '../types';
 import { BetCard } from './BetCard';
+import { ShareCardButton } from './ShareCardButton';
 import { DotKind, dotCounts, dotForResult, LegDots } from './LegDots';
 
 /**
@@ -37,6 +38,7 @@ export function CompactBet({
         >
           <Text style={styles.detailsBtnText}>Bet details ›</Text>
         </Pressable>
+        <ShareCardButton bet={bet} />
         <Text style={styles.lessText}>Tap the ticket to collapse ▴</Text>
       </View>
     );
