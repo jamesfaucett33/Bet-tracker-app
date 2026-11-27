@@ -256,7 +256,7 @@ function Main() {
         {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
-        {tab === 'settings' && <SettingsScreen onAddBet={startAdd} />}
+        {tab === 'settings' && <SettingsScreen onAddBet={startAdd} onEditBet={openBet} />}
       </View>
 
       {addMenu ? (
