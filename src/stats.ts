@@ -66,7 +66,7 @@ export function groupBy(bets: Bet[], keyFn: (b: Bet) => string): GroupRow[] {
     .sort((a, b) => b.summary.count - a.summary.count);
 }
 
-export type Period = 'all' | '7d' | '30d' | 'ytd';
+export type Period = 'today' | 'all' | '7d' | '30d' | 'ytd';
 
 export function filterByPeriod(bets: Bet[], period: Period): Bet[] {
   if (period === 'all') return bets;
@@ -75,7 +75,7 @@ export function filterByPeriod(bets: Bet[], period: Period): Bet[] {
   if (period === 'ytd') start = new Date(now.getFullYear(), 0, 1);
   else {
     start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    start.setDate(start.getDate() - (period === '7d' ? 6 : 29));
+    start.setDate(start.getDate() - (period === 'today' ? 0 : period === '7d' ? 6 : 29));
   }
   const m = `${start.getMonth() + 1}`.padStart(2, '0');
   const d = `${start.getDate()}`.padStart(2, '0');

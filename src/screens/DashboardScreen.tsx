@@ -18,7 +18,6 @@ import {
   settledDay,
   streaks,
   tally,
-  Tally,
   worstBeats,
 } from '../recap';
 import { filterByPeriod, groupBy, Period, summarize } from '../stats';
@@ -46,7 +45,22 @@ export function DashboardScreen({
   const sync = useSync();
   const { bets, settings } = useStore();
   const phaseOf = useBetPhases();
-  const [period, setPeriod] = useState<Period>('all');
+  const [period, setPeriodState] = useState<Period>(() => {
+    try {
+      const v = globalThis.localStorage?.getItem('betkeeper:period');
+      return v === 'today' || v === '7d' || v === '30d' || v === 'all' ? v : '7d';
+    } catch {
+      return '7d';
+    }
+  });
+  const setPeriod = (p: Period) => {
+    setPeriodState(p);
+    try {
+      globalThis.localStorage?.setItem('betkeeper:period', p);
+    } catch {
+      // private mode
+    }
+  };
   const [breakdown, setBreakdown] = useState<Breakdown>('sport');
   const money = (n: number, sign = false) => formatAmount(n, settings, { sign });
 
@@ -54,7 +68,6 @@ export function DashboardScreen({
   const todayStr = todayISO(); // recomputed after midnight, not stuck on yesterday
   const today = useMemo(() => tally(bets, todayStr), [bets, todayStr]);
   const week = useMemo(() => tally(bets, weekStart), [bets, weekStart]);
-  const allTime = useMemo(() => tally(bets), [bets]);
   const vibe = headline(week, today, (n) => money(n));
 
   // Money still riding.
@@ -74,6 +87,9 @@ export function DashboardScreen({
   const periodBets = useMemo(() => filterByPeriod(bets, period), [bets, period]);
   const periodSummary = useMemo(() => summarize(periodBets), [periodBets]);
   const periodSettled = periodSummary.wins + periodSummary.losses + periodSummary.pushes;
+  const wonTotal = periodBets.filter((b) => b.status === 'won').reduce((n, b) => n + betProfit(b), 0);
+  const lostTotal = periodBets.filter((b) => b.status === 'lost').reduce((n, b) => n + b.stake, 0);
+  const periodName = { today: 'today', '7d': 'last 7 days', '30d': 'last 30 days', ytd: 'this year', all: 'all time' }[period];
   const groups = useMemo(() => groupBy(periodBets, (b) => b[breakdown]), [periodBets, breakdown]);
 
   return (
@@ -110,11 +126,56 @@ export function DashboardScreen({
         <Text style={styles.vibeText}>{vibe.text}</Text>
       </View>
 
-      {/* Up / down: today, last 7 days, all time */}
+      {/* Won / lost / net for the chosen period */}
+      <View style={{ marginTop: space.md }}>
+        <Segmented<Period>
+          value={period}
+          onChange={setPeriod}
+          options={[
+            { value: 'today', label: 'Today' },
+            { value: '7d', label: '7 Days' },
+            { value: '30d', label: '30 Days' },
+            { value: 'all', label: 'All Time' },
+          ]}
+        />
+      </View>
       <View style={styles.row3}>
-        <PLTile label="Today" t={today} money={money} />
-        <PLTile label="7 days" t={week} money={money} />
-        <PLTile label="All time" t={allTime} money={money} big />
+        <View style={styles.moneyTile}>
+          <Text style={styles.moneyLabel}>WON</Text>
+          <Text style={[styles.moneyValue, { color: colors.win }]} numberOfLines={1} adjustsFontSizeToFit>
+            {money(wonTotal, true)}
+          </Text>
+          <Text style={styles.moneySub}>
+            {periodSummary.wins} win{periodSummary.wins === 1 ? '' : 's'}
+          </Text>
+        </View>
+        <View style={styles.moneyTile}>
+          <Text style={styles.moneyLabel}>LOST</Text>
+          <Text style={[styles.moneyValue, { color: colors.loss }]} numberOfLines={1} adjustsFontSizeToFit>
+            {money(-lostTotal, true)}
+          </Text>
+          <Text style={styles.moneySub}>
+            {periodSummary.losses} loss{periodSummary.losses === 1 ? '' : 'es'}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.moneyTile,
+            { borderColor: profitColor(periodSummary.profit), borderWidth: 2 },
+          ]}
+        >
+          <Text style={styles.moneyLabel}>NET</Text>
+          <Text
+            style={[styles.moneyValue, { color: profitColor(periodSummary.profit) }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {money(periodSummary.profit, true)}
+          </Text>
+          <Text style={styles.moneySub}>
+            {periodSummary.profit > 0 ? 'up' : periodSummary.profit < 0 ? 'down' : 'even'} {periodName}
+          </Text>
+        </View>
       </View>
 
       {/* On the table */}
@@ -256,18 +317,8 @@ export function DashboardScreen({
         <Empty text="No losses this week. Don’t jinx it. 🤫" />
       )}
 
-      <SectionTitle>Your numbers</SectionTitle>
-      <Segmented<Period>
-        value={period}
-        onChange={setPeriod}
-        options={[
-          { value: '7d', label: '7 Days' },
-          { value: '30d', label: '30 Days' },
-          { value: 'ytd', label: 'YTD' },
-          { value: 'all', label: 'All Time' },
-        ]}
-      />
-      <View style={[styles.grid, { marginTop: space.md }]}>
+      <SectionTitle>{`Your numbers · ${periodName}`}</SectionTitle>
+      <View style={styles.grid}>
         <FunStat
           label="Profit"
           value={money(periodSummary.profit, true)}
@@ -329,34 +380,6 @@ export function DashboardScreen({
 /** "1W · 3L" (plus pushes): clearer than "1-3". */
 function record(w: number, l: number, p: number): string {
   return `${w}W · ${l}L${p ? ` · ${p}P` : ''}`;
-}
-
-function PLTile({
-  label,
-  t,
-  money,
-  big,
-}: {
-  label: string;
-  t: Tally;
-  money: (n: number, sign?: boolean) => string;
-  big?: boolean;
-}) {
-  return (
-    <View style={[styles.plTile, big && { borderColor: colors.accent }]}>
-      <Text style={styles.plLabel}>{label}</Text>
-      <Text
-        style={[styles.plValue, { color: t.count ? profitColor(t.profit) : colors.textFaint }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
-        {money(t.count ? t.profit : 0, !!t.count)}
-      </Text>
-      <Text style={styles.plSub}>
-        {t.count ? record(t.wins, t.losses, t.pushes) : 'no results'}
-      </Text>
-    </View>
-  );
 }
 
 function FunStat({
@@ -459,6 +482,20 @@ const styles = StyleSheet.create({
   vibeEmoji: { fontSize: 30 },
   vibeText: { flex: 1, color: colors.text, fontSize: 16, fontWeight: '700', lineHeight: 22 },
   row3: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  moneyTile: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.sm,
+    alignItems: 'center',
+  },
+  moneyLabel: { color: colors.textDim, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  moneyValue: { fontSize: 20, fontWeight: '900', marginTop: 4 },
+  moneySub: { color: colors.textFaint, fontSize: 11, fontWeight: '600', marginTop: 2, textAlign: 'center' },
   plTile: {
     flex: 1,
     backgroundColor: colors.surface,
