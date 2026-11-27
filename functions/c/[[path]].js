@@ -29,8 +29,8 @@ export async function onRequest({ params, request }) {
   const desc =
     meta.description ||
     (ref
-      ? `Keep track of all your bets in one place for free. Join with code ${ref} and we both get 25 free bet uploads.`
-      : 'Keep track of all your bets in one place for free with BetKeyper.');
+      ? `Every ticket. Every book. One place. Join BetKeyper free with code ${ref} and get 25 free bet uploads.`
+      : 'Every ticket. Every book. One place. Track your bets free on BetKeyper.');
   const image = `${base}.png`;
 
   const html = `<!doctype html>
@@ -59,7 +59,7 @@ export async function onRequest({ params, request }) {
 </style>
 </head><body><main>
 <img src="${esc(image)}" alt="${esc(title)}">
-<a class="btn" href="${esc(app)}">${ref ? 'Join free: get 25 bet uploads' : 'Open BetKeyper'}</a>
+<a class="btn" href="${esc(app)}">${ref ? 'Join free and get 25 bet uploads' : 'Try BetKeyper free'}</a>
 <p>${esc(desc)}</p>
 </main>
 <script>setTimeout(function(){location.replace(${JSON.stringify(app)})},1800)</script>

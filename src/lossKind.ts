@@ -40,9 +40,9 @@ const JOKES: Record<LossKind, string[]> = {
 };
 
 export const LOSS_TITLE: Record<LossKind, { title: string; emoji: string; share: string }> = {
-  badBeat: { title: 'BAD BEAT', emoji: '😩', share: 'Check out this bad beat 😩' },
-  badBet: { title: 'BAD BET', emoji: '🤡', share: 'Check out this bad bet 🤡' },
-  busted: { title: 'BUSTED', emoji: '💀', share: 'Took an L on this one 💀' },
+  badBeat: { title: 'BAD BEAT', emoji: '😩', share: 'One leg away. Brutal bad beat. 😩' },
+  badBet: { title: 'BAD BET', emoji: '🤡', share: 'Not one leg hit. Bad bet. 🤡' },
+  busted: { title: 'BUSTED', emoji: '💀', share: 'Took an L on this one. 💀' },
 };
 
 /** A joke for this ticket, the same every time (card, pop-up and share match). */

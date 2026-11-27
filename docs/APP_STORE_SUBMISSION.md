@@ -89,11 +89,11 @@ In App Store Connect → the app → **TestFlight**:
 App Store Connect → the app → **App Store** tab. Ready-to-paste text:
 
 - **Name** (30): `BetKeyper: Sports Bet Tracker`
-- **Subtitle** (30): `Scan tickets from every book`
+- **Subtitle** (30): `Every ticket. Every book.`
 - **Category:** Primary **Sports**; Secondary **Utilities** or **Lifestyle**
 - **Keywords** (100, commas, no spaces, don't repeat words from the name):
   `parlay,sportsbook,slip,scanner,vegas,casino,odds,nfl,nba,props,sgp,live,scores,bankroll,record,wager`
-- **Promotional text:** `What happens in Vegas… gets tracked. Scan every ticket from every sportsbook and keep your real record in one place.`
+- **Promotional text:** `Every ticket. Every book. One place. Track every bet you place, free: scan any slip, sweat it live and see your real record.`
 - **Description:**
   ```
   Every ticket. Every book. One place.

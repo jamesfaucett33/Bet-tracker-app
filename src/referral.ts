@@ -76,23 +76,22 @@ export function inviteText(
   kind?: 'win' | 'beat' | 'push' | 'open' | 'live',
   loss?: LossKind,
 ): string {
+  // House style: a short line about the bet, then the slogan and the offer.
   const lead =
     kind === 'win'
-      ? 'Check out this bet I just won! 💰'
+      ? 'Cashed this one. 💰'
       : kind === 'beat'
         ? LOSS_TITLE[loss ?? 'busted'].share
         : kind === 'live'
-          ? "Sweating this one live 🔥 Check out my bet!"
+          ? 'Sweating this one live. 🔥'
           : kind === 'open'
-            ? "Check out the bet I'm riding 🎟️"
+            ? 'Locked in. 🎟️'
             : kind === 'push'
-              ? 'Check out my bet 🤝'
-              : 'Try BetKeyper free! 🎟️';
-  const pitch = kind
-    ? 'Keep track of all your bets in one place for free with BetKeyper.'
-    : 'Keep all your bets in one spot, from every sportsbook.';
+              ? 'Pushed this one. 🤝'
+              : 'I track all my bets on BetKeyper.';
+  const pitch = 'Every ticket. Every book. One place. Track yours free on BetKeyper.';
   return code
-    ? `${lead} ${pitch} Sign up with my link and we both get ${REFERRAL_BONUS} free bet uploads: ${inviteLink(code)}`
+    ? `${lead} ${pitch} Join with my link and we both get ${REFERRAL_BONUS} free bet uploads: ${inviteLink(code)}`
     : `${lead} ${pitch} ${appUrl()}`;
 }
 

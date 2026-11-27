@@ -263,7 +263,7 @@ export async function shareCard(
     try {
       await nav.share({
         files: [file],
-        text: text ?? 'Check out my bet on BetKeyper',
+        text: text ?? 'Every ticket. Every book. One place. Track yours free on BetKeyper.',
       });
       return 'shared';
     } catch {
