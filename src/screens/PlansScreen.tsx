@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, notify, Segmented } from '../components/ui';
+import { Button, Segmented } from '../components/ui';
 import { ScanStatus } from '../cloudScan';
 import { formatDate } from '../format';
 import {
@@ -15,17 +15,77 @@ import {
   yearlySavings,
 } from '../plans';
 import { closePlans, useScanStatus } from '../scanStatus';
-import { useSync } from '../sync';
+import { getCloudClient, useSync } from '../sync';
 import { colors, radius, space } from '../theme';
 
 // Most popular first, then bigger plans, then the cheapest.
 const PAID = ['pro', 'allpro', 'mvp', 'starter'].map((id) => findPlan(id));
 const BEST_SAVING = Math.max(...PAID.map(yearlySavings));
 
-function comingSoon(what: string) {
-  notify(
-    'Coming with the App Store launch',
-    `${what} opens when BetKeyper launches in the App Store. Until then, enjoy your free scans.`,
+interface Purchase {
+  key: string; // plan id or 'pack'
+  title: string; // "Pro (yearly)"
+  price: string; // "$24.99/yr"
+  terms: string;
+  billing?: Billing;
+}
+
+/** Beta: remember which plan a tester tried to buy (shows real demand). */
+async function logInterest(p: Purchase) {
+  try {
+    const sb = getCloudClient();
+    const { data } = (await sb?.auth.getSession()) ?? { data: null };
+    if (!sb || !data?.session) return;
+    await sb.from('upgrade_interest').insert({ plan: p.key, billing: p.billing ?? null });
+  } catch {
+    // table not set up yet; ignore
+  }
+}
+
+/**
+ * Pretend checkout for the beta: confirm, "connecting", then a friendly
+ * "not available in beta" message. Swap for real in-app purchase at launch.
+ */
+function Checkout({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
+  const [stage, setStage] = useState<'confirm' | 'working' | 'beta'>('confirm');
+  const buy = () => {
+    setStage('working');
+    logInterest(purchase);
+    setTimeout(() => setStage('beta'), 1600);
+  };
+  return (
+    <View style={styles.overlay}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={stage === 'working' ? undefined : onClose} />
+      <View style={styles.sheet}>
+        {stage === 'confirm' ? (
+          <>
+            <Text style={styles.sheetLabel}>CONFIRM PURCHASE</Text>
+            <Text style={styles.sheetTitle}>{purchase.title}</Text>
+            <Text style={styles.sheetPrice}>{purchase.price}</Text>
+            <Text style={styles.sheetTerms}>{purchase.terms}</Text>
+            <Button title="Subscribe" onPress={buy} style={{ marginTop: space.lg }} />
+            <Button title="Cancel" variant="secondary" onPress={onClose} style={{ marginTop: space.sm }} />
+          </>
+        ) : stage === 'working' ? (
+          <View style={{ alignItems: 'center', paddingVertical: space.xl, gap: space.md }}>
+            <ActivityIndicator color={colors.brand} size="large" />
+            <Text style={styles.sheetTerms}>Connecting to the App Store…</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.betaIcon}>🚧</Text>
+            <Text style={[styles.sheetTitle, { textAlign: 'center' }]}>
+              Upgrades aren't available in beta testing mode
+            </Text>
+            <Text style={[styles.sheetTerms, { textAlign: 'center' }]}>
+              You weren't charged. Paid plans turn on when BetKeyper launches in the App Store. Thanks
+              for testing, and we noted you're interested in {purchase.title.replace(/ \(.*\)$/, '')}!
+            </Text>
+            <Button title="Got it" onPress={onClose} style={{ marginTop: space.lg }} />
+          </>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -34,9 +94,9 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
   if (!sync.email) {
     return (
       <View style={styles.status}>
-        <Text style={styles.statusTitle}>🎁 {FIRST_MONTH_SCANS} free AI scans your first month</Text>
+        <Text style={styles.statusTitle}>🎁 {FIRST_MONTH_SCANS} free slip scans your first month</Text>
         <Text style={styles.statusText}>
-          Create a free account to start scanning tickets with AI and back up your bets.
+          Create a free account: snap a bet slip and we fill in every leg for you. Your bets are backed up too.
         </Text>
         <Button title="Sign up free" onPress={onSignIn} style={{ marginTop: space.md }} />
       </View>
@@ -61,11 +121,11 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
         <Text style={styles.planPill}>{name}</Text>
       </View>
       {staff ? (
-        <Text style={styles.statusTitle}>Unlimited AI scans</Text>
+        <Text style={styles.statusTitle}>Unlimited slip scans</Text>
       ) : (
         <>
           <Text style={[styles.statusTitle, low && { color: colors.toPlay }]}>
-            {monthlyLeft} of {status.limit} AI scans left
+            {monthlyLeft} of {status.limit} slip scans left
           </Text>
           <View style={styles.bar}>
             <View
@@ -91,11 +151,13 @@ function PlanCard({
   billing,
   current,
   rank,
+  onBuy,
 }: {
   plan: Plan;
   billing: Billing;
   current: boolean;
   rank: number; // index vs the current plan: higher = upgrade
+  onBuy: (p: Purchase) => void;
 }) {
   const yearly = billing === 'yearly';
   const featured = plan.id === 'pro';
@@ -131,7 +193,7 @@ function PlanCard({
       <View style={styles.scanRow}>
         <Text style={styles.scanBig}>{plan.scans.toLocaleString()}</Text>
         <Text style={styles.scanText}>
-          AI scans a month{'\n'}
+          slip scans a month{'\n'}
           <Text style={styles.scanSub}>about {perScan < 0.95 ? perScan.toFixed(1) : Math.round(perScan)}¢ a scan</Text>
         </Text>
       </View>
@@ -146,7 +208,17 @@ function PlanCard({
         title={current ? 'Current plan' : rank > 0 ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`}
         variant={featured && !current ? 'primary' : 'secondary'}
         disabled={current}
-        onPress={() => comingSoon(`${plan.name} ${yearly ? '(yearly)' : '(monthly)'}`)}
+        onPress={() =>
+          onBuy({
+            key: plan.id,
+            billing,
+            title: `${plan.name} (${billing})`,
+            price: `${usd(price)}${yearly ? '/yr' : '/mo'}`,
+            terms: `${plan.scans.toLocaleString()} slip scans a month. ${
+              yearly ? 'Billed yearly' : 'Billed monthly'
+            }, renews automatically. Cancel anytime in your App Store settings.`,
+          })
+        }
         style={{ marginTop: space.md }}
       />
     </View>
@@ -157,6 +229,7 @@ function PlanCard({
 export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
   const status = useScanStatus();
   const [billing, setBilling] = useState<Billing>('yearly');
+  const [purchase, setPurchase] = useState<Purchase | null>(null);
   const currentId = status?.plan ?? 'rookie';
   const currentIdx = PLANS.findIndex((p) => p.id === currentId);
   const rookie = PLANS[0];
@@ -181,8 +254,9 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
         />
 
         <Text style={styles.pitch}>
-          Snap a ticket, we read every leg. Manual entry and screenshot reading are always free. Plans
-          add more AI scans.
+          <Text style={{ color: colors.text, fontWeight: '800' }}>Unlimited bet tracking on every plan.</Text>{' '}
+          A slip scan is a photo of a bet slip that we read for you — every leg filled in. Plans add
+          more slip scans.
         </Text>
 
         <Segmented<Billing>
@@ -201,21 +275,29 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
             billing={billing}
             current={p.id === currentId}
             rank={PLANS.indexOf(p) - currentIdx}
+            onBuy={setPurchase}
           />
         ))}
 
         {/* Scan pack */}
         <View style={styles.pack}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.packTitle}>⚡ Scan pack</Text>
+            <Text style={styles.packTitle}>⚡ Slip scan pack</Text>
             <Text style={styles.packText}>
-              {SCAN_PACK.scans} extra AI scans · one-time · never expire. Great for a big weekend.
+              {SCAN_PACK.scans} extra slip scans · one-time · never expire. Great for a big weekend.
             </Text>
           </View>
           <Button
             title={usd(SCAN_PACK.price)}
             variant="secondary"
-            onPress={() => comingSoon('Scan packs')}
+            onPress={() =>
+              setPurchase({
+                key: 'pack',
+                title: 'Slip scan pack',
+                price: `${usd(SCAN_PACK.price)} one-time`,
+                terms: `${SCAN_PACK.scans} extra slip scans that never expire. Charged once.`,
+              })
+            }
             style={{ paddingHorizontal: space.lg }}
           />
         </View>
@@ -238,12 +320,14 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
         </View>
 
         <Text style={styles.fine}>
-          AI scans reset every month and don't roll over; scan-pack scans never expire. Screenshots
-          your phone can read on its own never use a scan. Subscriptions renew automatically and can
+          Slip scans reset every month and don't roll over; scan-pack scans never expire. Entering
+          bets by hand is always unlimited, and clear screenshots your phone reads on its own don't
+          use a slip scan. Subscriptions renew automatically and can
           be cancelled anytime in your App Store settings. BetKeyper tracks bets you've placed
           elsewhere; it does not take wagers. 21+.
         </Text>
       </ScrollView>
+      {purchase ? <Checkout purchase={purchase} onClose={() => setPurchase(null)} /> : null}
     </SafeAreaView>
   );
 }
@@ -349,5 +433,28 @@ const styles = StyleSheet.create({
   },
   packTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   packText: { color: colors.textDim, fontSize: 13, marginTop: 2, lineHeight: 18 },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    padding: space.xl,
+    paddingBottom: 40,
+  },
+  sheetLabel: { color: colors.sky, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  sheetTitle: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: space.sm },
+  sheetPrice: { color: colors.money, fontSize: 30, fontWeight: '900', marginTop: 4 },
+  sheetTerms: { color: colors.textDim, fontSize: 14, lineHeight: 20, marginTop: space.sm },
+  betaIcon: { fontSize: 44, textAlign: 'center' },
   fine: { color: colors.textFaint, fontSize: 11, lineHeight: 16, marginTop: space.sm },
 });

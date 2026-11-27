@@ -20,7 +20,7 @@ Things to add once the core app is fine-tuned.
 ## Plans & payments
 - [ ] Run `supabase/setup-plans.sql` and redeploy the `scan-slip` function (plan limits). Set your own account to `staff`.
 - [ ] Test a smaller, cheaper scan model on real tickets (target about 1¢ a scan).
-- [ ] Hook up payments: RevenueCat + Apple in-app purchase (+ Google Play, Stripe for web). Upgrade buttons currently say "coming with the App Store launch".
+- [ ] Hook up payments: RevenueCat + Apple in-app purchase (+ Google Play, Stripe for web). Upgrade buttons currently run a pretend checkout ending in "not available in beta testing mode"; testers' picks are saved in `upgrade_interest`.
 - [ ] Build the "soon" perks sold on Pro: all-league team colors, share cards, trip view.
 
 ## Features

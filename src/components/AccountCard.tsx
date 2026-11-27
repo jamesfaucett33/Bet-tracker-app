@@ -79,7 +79,7 @@ export function AccountCard() {
             {scan ? (
               <Pressable onPress={openPlans} accessibilityRole="button" style={styles.planRow}>
                 <Text style={styles.body}>
-                  ⚡ {scan.plan === 'staff' ? 'Staff · unlimited AI scans' : `${findPlan(scan.plan).name} plan · ${scan.left} AI scan${scan.left === 1 ? '' : 's'} left`}
+                  ⚡ {scan.plan === 'staff' ? 'Staff · unlimited slip scans' : `${findPlan(scan.plan).name} plan · ${scan.left} slip scan${scan.left === 1 ? '' : 's'} left`}
                 </Text>
                 <Text style={styles.planLink}>See plans ›</Text>
               </Pressable>

@@ -29,7 +29,7 @@ export const FIRST_MONTH_DAYS = 30;
 export const SCAN_PACK = { scans: 50, price: 0.99 };
 
 const BASE_PERKS = [
-  { text: 'Unlimited manual entry + free screenshot reading' },
+  { text: 'Unlimited bet tracking (type it in anytime)' },
   { text: 'Live tracking & auto-grading for every leg' },
   { text: 'Cloud backup on every device' },
 ];
@@ -43,7 +43,7 @@ export const PLANS: Plan[] = [
     monthly: 0,
     yearly: 0,
     perks: [
-      { text: `${FIRST_MONTH_SCANS} AI scans your first month, then 5 a month` },
+      { text: `${FIRST_MONTH_SCANS} slip scans your first month, then 5 a month` },
       ...BASE_PERKS,
       { text: 'NFL team colors' },
     ],

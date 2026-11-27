@@ -367,12 +367,12 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         found.length > 1
           ? `Found ${found.length} bets. Showing the first — check it, then save.`
           : res.freeScreenshot
-            ? '📱 Screenshot read on your phone — free, no AI scan used. Check the details, then save.'
+            ? '📱 Screenshot read on your phone — free, no slip scan used. Check the details, then save.'
             : res.usedAI
             ? 'Slip read with AI. Check the details below, then save.'
             : res.limitReached
-              ? 'Out of AI scans this month — read on your phone instead. Double-check every field.'
-              : 'Slip read on your phone. Double-check every field — sign in (Settings) for AI scanning.',
+              ? 'Out of slip scans this month — read on your phone instead. Double-check every field.'
+              : 'Slip read on your phone. Double-check every field — sign in (Settings) for slip scans.',
       );
     } catch (e) {
       notify(
@@ -650,10 +650,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                 {credit && !settings.anthropicApiKey ? (
                   <Text style={styles.creditLine}>
                     {credit.plan === 'staff'
-                      ? '✨ AI scanning · unlimited'
+                      ? '✨ Slip scans · unlimited'
                       : credit.left <= 0
-                        ? 'Out of AI scans this month. Scans now read on your phone.'
-                        : `✨ AI scanning · ${credit.left} scan${credit.left === 1 ? '' : 's'} left`}
+                        ? 'Out of slip scans this month. Photos now read on your phone.'
+                        : `✨ ${credit.left} slip scan${credit.left === 1 ? '' : 's'} left`}
                   </Text>
                 ) : null}
                 {scanNote ? <Text style={styles.scanNote}>✓ {scanNote}</Text> : null}
@@ -673,10 +673,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         {showCap && !isEdit ? (
           <View style={{ marginBottom: space.lg }}>
             <View style={styles.capBox}>
-              <Text style={styles.capTitle}>You're out of AI scans this month</Text>
+              <Text style={styles.capTitle}>You're out of slip scans this month</Text>
               <Text style={styles.capText}>
                 {
-                  'Scans now read on your phone instead — double-check each field. Upgrade or grab a scan pack to keep scanning with AI.'
+                  'Scans now read on your phone instead — double-check each field. Upgrade or grab a scan pack for more slip scans.'
                 }
               </Text>
               <Button title="See plans" onPress={openPlans} style={{ marginTop: space.md }} />

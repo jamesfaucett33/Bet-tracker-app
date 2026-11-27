@@ -103,7 +103,7 @@ export async function scanInCloud(image: string): Promise<ScannedBet[]> {
         // not JSON
       }
     }
-    if (body.error === 'limit') throw new ScanError("You've used this month's AI scans.", 'limit');
+    if (body.error === 'limit') throw new ScanError("You've used this month's slip scans.", 'limit');
     if (body.error === 'auth') throw new ScanError('Sign in to scan with AI.', 'auth');
     throw new ScanError(body.message || 'AI scanning is unavailable right now.', 'unavailable');
   }
