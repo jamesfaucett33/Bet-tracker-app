@@ -31,6 +31,14 @@ export const SUPABASE_KEY = 'sb_publishable_0QBt8O7HJwK4IaMurrxX3w_t9ISCUhE';
 export const cloudConfigured = () => !!SUPABASE_URL && !!SUPABASE_KEY;
 
 let client: SupabaseClient | null = null;
+/** Extra details collected when someone creates an account. */
+export interface SignUpProfile {
+  full_name: string;
+  phone?: string;
+  marketing_email: boolean;
+  marketing_sms: boolean;
+}
+
 export function getCloudClient(): SupabaseClient | null {
   return getClient();
 }
@@ -67,7 +75,7 @@ interface SyncCtx {
   error: string | null;
   count: number;
   signIn: (email: string, password: string) => Promise<string | null>;
-  signUp: (email: string, password: string) => Promise<string | null>;
+  signUp: (email: string, password: string, profile?: SignUpProfile) => Promise<string | null>;
   signOut: () => Promise<void>;
   /** Set when this device was signed out because the password changed elsewhere. */
   signedOutNote: string | null;
@@ -260,7 +268,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     return err ? friendlyAuthError(err.message) : null;
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, profile?: SignUpProfile) => {
     const sb = getClient();
     if (!sb) return 'Cloud sync is not set up yet.';
     const redirect =
@@ -270,7 +278,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const { data, error: err } = await sb.auth.signUp({
       email: email.trim(),
       password,
-      options: { emailRedirectTo: redirect },
+      // Name, phone and marketing choices are saved on the account
+      // (Authentication -> Users -> user metadata).
+      options: {
+        emailRedirectTo: redirect,
+        data: profile ? { ...profile, consent_at: new Date().toISOString() } : undefined,
+      },
     });
     if (err) return friendlyAuthError(err.message);
     if (!data.session) return 'CHECK_EMAIL'; // email confirmation is required before signing in

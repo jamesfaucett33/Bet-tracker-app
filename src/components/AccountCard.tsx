@@ -15,12 +15,49 @@ function ago(ms: number | null): string {
   return `${Math.round(s / 60)} min ago`;
 }
 
+function Check({
+  on,
+  onPress,
+  label,
+  fine,
+  disabled,
+}: {
+  on: boolean;
+  onPress: () => void;
+  label: string;
+  fine?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on, disabled }}
+      style={[styles.check, disabled && { opacity: 0.5 }]}
+    >
+      <View style={[styles.box, on && styles.boxOn]}>
+        {on ? <Text style={styles.tick}>✓</Text> : null}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.checkLabel}>{label}</Text>
+        {fine ? <Text style={styles.fine}>{fine}</Text> : null}
+      </View>
+    </Pressable>
+  );
+}
+
 /** Sign in / create account for cloud sync, or show sync status. */
 export function AccountCard() {
   const sync = useSync();
   const scan = useScanStatus();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'signUp' | 'signIn'>('signUp');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [optEmail, setOptEmail] = useState(true);
+  const [optSms, setOptSms] = useState(false);
   // Change password (signed in)
   const [changing, setChanging] = useState(false);
   const [newPw, setNewPw] = useState('');
@@ -41,14 +78,31 @@ export function AccountCard() {
 
   if (!sync.configured) return null;
 
+  const phoneDigits = phone.replace(/\D/g, '');
   const run = async (fn: 'signIn' | 'signUp') => {
+    if (fn === 'signUp' && fullName.trim().split(/\s+/).length < 2) {
+      setMsg({ text: 'Enter your full name (first and last).', ok: false });
+      return;
+    }
     if (!email.trim() || password.length < 6) {
       setMsg({ text: 'Enter your email and a password (6+ characters).', ok: false });
       return;
     }
+    if (fn === 'signUp' && phone.trim() && (phoneDigits.length < 10 || phoneDigits.length > 11)) {
+      setMsg({ text: 'Check your phone number (10 digits), or leave it blank.', ok: false });
+      return;
+    }
     setBusy(true);
     setMsg(null);
-    const err = await sync[fn](email, password);
+    const err =
+      fn === 'signUp'
+        ? await sync.signUp(email, password, {
+            full_name: fullName.trim().replace(/\s+/g, ' '),
+            ...(phoneDigits ? { phone: phoneDigits } : {}),
+            marketing_email: optEmail,
+            marketing_sms: !!phoneDigits && optSms,
+          })
+        : await sync.signIn(email, password);
     setBusy(false);
     if (err === 'CHECK_EMAIL')
       setMsg({
@@ -160,6 +214,18 @@ export function AccountCard() {
               Sign in so your bets are saved online and show up everywhere — Home Screen app,
               Safari, Chrome or a new phone.
             </Text>
+            {mode === 'signUp' ? (
+              <TextInput
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Full name"
+                placeholderTextColor={colors.textFaint}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                style={styles.input}
+              />
+            ) : null}
             <TextInput
               value={email}
               onChangeText={setEmail}
@@ -171,31 +237,66 @@ export function AccountCard() {
               autoComplete="email"
               style={styles.input}
             />
+            {mode === 'signUp' ? (
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Mobile number (optional)"
+                placeholderTextColor={colors.textFaint}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                style={styles.input}
+              />
+            ) : null}
             <TextInput
               value={password}
               onChangeText={setPassword}
-              placeholder="Password (6+ characters)"
+              placeholder={mode === 'signUp' ? 'Create a password (6+ characters)' : 'Password'}
               placeholderTextColor={colors.textFaint}
               secureTextEntry
               autoCapitalize="none"
-              autoComplete="password"
+              autoComplete={mode === 'signUp' ? 'new-password' : 'password'}
               style={styles.input}
             />
-            <View style={styles.row}>
-              <Button
-                title={busy ? '…' : 'Sign In'}
-                onPress={() => run('signIn')}
-                disabled={busy}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="Create Account"
-                variant="secondary"
-                onPress={() => run('signUp')}
-                disabled={busy}
-                style={{ flex: 1 }}
-              />
-            </View>
+            {mode === 'signUp' ? (
+              <View style={{ gap: space.sm }}>
+                <Check
+                  on={optEmail}
+                  onPress={() => setOptEmail((v) => !v)}
+                  label="Email me tips, offers and BetKeyper news"
+                />
+                <Check
+                  on={!!phoneDigits && optSms}
+                  disabled={!phoneDigits}
+                  onPress={() => setOptSms((v) => !v)}
+                  label={
+                    phoneDigits
+                      ? 'Text me offers and updates'
+                      : 'Text me offers and updates (add a mobile number)'
+                  }
+                  fine="Message frequency varies. Msg & data rates may apply. Reply STOP to cancel anytime. Not required to sign up."
+                />
+              </View>
+            ) : null}
+            <Button
+              title={busy ? '…' : mode === 'signUp' ? 'Create Free Account' : 'Sign In'}
+              onPress={() => run(mode)}
+              disabled={busy}
+            />
+            <Text style={styles.switchText}>
+              {mode === 'signUp' ? 'Already have an account? ' : 'New to BetKeyper? '}
+              <Text
+                style={styles.switchLink}
+                onPress={() => {
+                  setMode(mode === 'signUp' ? 'signIn' : 'signUp');
+                  setMsg(null);
+                }}
+                accessibilityRole="button"
+              >
+                {mode === 'signUp' ? 'Sign in' : 'Create an account'}
+              </Text>
+            </Text>
             {msg ? (
               <Text style={[styles.body, { color: msg.ok ? colors.accent : colors.loss }]}>
                 {msg.text}
@@ -218,6 +319,22 @@ const styles = StyleSheet.create({
   body: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
   fine: { color: colors.textFaint, fontSize: 12, lineHeight: 17 },
   row: { flexDirection: 'row', gap: space.sm },
+  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  boxOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tick: { color: colors.bg, fontSize: 14, fontWeight: '900', lineHeight: 16 },
+  checkLabel: { color: colors.text, fontSize: 14, lineHeight: 20 },
+  switchText: { color: colors.textDim, fontSize: 14, textAlign: 'center' },
+  switchLink: { color: colors.accent, fontWeight: '800' },
   input: {
     backgroundColor: colors.bg,
     borderWidth: 1,
