@@ -22,7 +22,7 @@ const WISHES = [
   'May the over be over and the under be under. 📈',
   'All the luck in the world on this one. 🌟',
   'Nothing to do now but cheer. Go team! 📣',
-  'Cash it and go Hawks! 💚💙',
+  'Bet anywhere. Keep it here. Now go cash it. 🔑💰',
   'Good vibes only on this ticket. 😎',
   'Let’s get this bread. 🍞',
   'Luck is on the way. Enjoy the games! 🎉',

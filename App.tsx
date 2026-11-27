@@ -34,7 +34,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 ];
 
 const TITLES: Record<Tab, string> = {
-  dashboard: 'Bet Tracker',
+  dashboard: 'BetKeeper',
   upcoming: 'Upcoming',
   live: 'Live',
   bets: 'Past Tickets',

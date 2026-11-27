@@ -395,11 +395,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.push,
+    borderColor: colors.goldLight,
     padding: space.md,
     marginBottom: space.md,
   },
-  backupTitle: { color: colors.push, fontSize: 15, fontWeight: '800' },
+  backupTitle: { color: colors.goldLight, fontSize: 15, fontWeight: '800' },
   backupText: { color: colors.textDim, fontSize: 13, marginTop: 4, lineHeight: 18 },
   vibe: {
     flexDirection: 'row',

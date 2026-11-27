@@ -1,20 +1,24 @@
-// Seahawks palette: College Navy, Action Green, Wolf Gray.
+// BetKeeper palette: Vegas black and gold, with casino-felt green for hits
+// and chip red for misses.
 export const colors = {
-  bg: '#001229',
-  surface: '#002244', // College Navy
-  surfaceAlt: '#0D3157',
-  border: '#1D4470',
-  text: '#F2F5F8',
-  textDim: '#A5ACAF', // Wolf Gray
-  textFaint: '#6E7F94',
-  accent: '#69BE28', // Action Green
-  accentDim: '#3F7A14',
-  win: '#69BE28',
-  loss: '#FF5A5F',
-  push: '#F5B942',
-  pending: '#4FB3FF',
-  /** A leg still to play / in play (orange dots). */
-  toPlay: '#FF9F1C',
+  bg: '#0B0B0D', // onyx
+  surface: '#17171B', // charcoal cards
+  surfaceAlt: '#24242A',
+  border: '#33323A',
+  text: '#F5F2EA',
+  textDim: '#B8B1A2',
+  textFaint: '#7C766A',
+  accent: '#D4AF37', // Vegas gold (brand, buttons, "to win")
+  accentDim: '#8C7424',
+  gold: '#D4AF37',
+  goldLight: '#F2C14E',
+  champagne: '#E9D8A6',
+  win: '#2EBD6B', // felt green
+  loss: '#E5484D', // chip red
+  push: '#8AB4F8', // a push is neutral: cool blue, never confused with gold
+  pending: '#E9D8A6', // open tickets: champagne
+  /** A leg in play (orange dots). */
+  toPlay: '#FF7A1A',
 };
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 };

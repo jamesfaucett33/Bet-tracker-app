@@ -92,7 +92,7 @@ export function SettingsScreen() {
       URL.revokeObjectURL(url);
       return;
     }
-    await Share.share({ message: json, title: 'Bet Tracker backup' });
+    await Share.share({ message: json, title: 'BetKeeper backup' });
   };
 
   const doImport = () => {
@@ -304,7 +304,7 @@ export function SettingsScreen() {
       />
 
       <Text style={styles.footer}>
-        Bet Tracker v1.0 · For personal record-keeping only. Please gamble responsibly. If you or
+        BetKeeper v1.0 · Bet anywhere. Keep it here. · For personal record-keeping only. Please gamble responsibly. If you or
         someone you know has a gambling problem, call 1-800-GAMBLER.
       </Text>
     </ScrollView>
