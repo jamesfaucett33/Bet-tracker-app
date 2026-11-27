@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BetaWelcome } from '../components/BetaBanner';
 import { TripCard } from '../components/TripCard';
+import { TicketListSheet } from '../components/TicketListSheet';
 import { pendingReferral, REFERRAL_BONUS } from '../referral';
 import { activeTrip } from '../trips';
 import { dotCounts, dotForResult } from '../components/LegDots';
@@ -62,6 +63,7 @@ export function DashboardScreen({
     }
   };
   const [breakdown, setBreakdown] = useState<Breakdown>('sport');
+  const [listOf, setListOf] = useState<'won' | 'lost' | 'net' | null>(null);
   const money = (n: number, sign = false) => formatAmount(n, settings, { sign });
 
   const weekStart = daysAgoISO(6);
@@ -146,31 +148,45 @@ export function DashboardScreen({
         />
       </View>
       <View style={styles.row3}>
-        <View style={styles.moneyTile}>
-          <Text style={styles.moneyLabel}>WON</Text>
+        <Pressable
+          style={({ pressed }) => [styles.moneyTile, pressed && styles.tilePressed]}
+          onPress={() => setListOf('won')}
+          accessibilityRole="button"
+          accessibilityLabel="See winning tickets"
+        >
+          <Text style={styles.moneyLabel}>WON ›</Text>
           <Text style={[styles.moneyValue, boxSize(boxMoney(wonTotal)), { color: colors.win }]} numberOfLines={1}>
             {boxMoney(wonTotal)}
           </Text>
           <Text style={styles.moneySub}>
             {periodSummary.wins} win{periodSummary.wins === 1 ? '' : 's'}
           </Text>
-        </View>
-        <View style={styles.moneyTile}>
-          <Text style={styles.moneyLabel}>LOST</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.moneyTile, pressed && styles.tilePressed]}
+          onPress={() => setListOf('lost')}
+          accessibilityRole="button"
+          accessibilityLabel="See losing tickets"
+        >
+          <Text style={styles.moneyLabel}>LOST ›</Text>
           <Text style={[styles.moneyValue, boxSize(boxMoney(-lostTotal)), { color: colors.loss }]} numberOfLines={1}>
             {boxMoney(-lostTotal)}
           </Text>
           <Text style={styles.moneySub}>
             {periodSummary.losses} loss{periodSummary.losses === 1 ? '' : 'es'}
           </Text>
-        </View>
-        <View
-          style={[
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [
             styles.moneyTile,
             { borderColor: profitColor(periodSummary.profit), borderWidth: 2 },
+            pressed && styles.tilePressed,
           ]}
+          onPress={() => setListOf('net')}
+          accessibilityRole="button"
+          accessibilityLabel="See all settled tickets"
         >
-          <Text style={styles.moneyLabel}>NET</Text>
+          <Text style={styles.moneyLabel}>NET ›</Text>
           <Text
             style={[
               styles.moneyValue,
@@ -184,7 +200,7 @@ export function DashboardScreen({
           <Text style={styles.moneySub}>
             {periodSummary.profit > 0 ? 'up' : periodSummary.profit < 0 ? 'down' : 'even'} {periodName}
           </Text>
-        </View>
+        </Pressable>
       </View>
 
       {/* On the table */}
@@ -382,6 +398,24 @@ export function DashboardScreen({
           ))
         )}
       </Card>
+      <TicketListSheet
+        title={listOf === 'won' ? '💰 Wins' : listOf === 'lost' ? '💀 Losses' : '📊 All settled tickets'}
+        subtitle={`${periodName[0].toUpperCase()}${periodName.slice(1)} · tap a ticket to see its legs`}
+        bets={
+          listOf
+            ? periodBets
+                .filter((b) =>
+                  listOf === 'won' ? b.status === 'won' : listOf === 'lost' ? b.status === 'lost' : b.status !== 'pending',
+                )
+                .sort((x, y) => (y.settledAt ?? y.createdAt) - (x.settledAt ?? x.createdAt))
+            : null
+        }
+        onClose={() => setListOf(null)}
+        onEditBet={(b) => {
+          setListOf(null);
+          onEditBet(b);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -502,6 +536,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     alignItems: 'center',
   },
+  tilePressed: { opacity: 0.75, transform: [{ scale: 0.97 }] },
   moneyLabel: { color: colors.textDim, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
   moneyValue: { fontSize: 20, fontWeight: '900', marginTop: 4 },
   moneySub: { color: colors.textFaint, fontSize: 11, fontWeight: '600', marginTop: 2, textAlign: 'center' },
