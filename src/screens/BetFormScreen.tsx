@@ -15,7 +15,7 @@ import { formatAmount, isValidISODate, parseNumber, todayISO, uid } from '../for
 import {
   formatOdds,
   americanToDecimal,
-  impliedProbability,
+  decimalToAmerican,
   isValidAmerican,
   parlayOdds,
   betToWin,
@@ -31,7 +31,7 @@ import { readSlip, SlipRead } from '../readSlip';
 import { PickedImage, PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
 import { colors, radius, space, statusColor } from '../theme';
-import { Bet, BET_TYPES, BetStatus, BetType, GameRef, Market, ParlayLeg } from '../types';
+import { Bet, BetStatus, BetType, GameRef, Market, ParlayLeg } from '../types';
 
 interface LegDraft {
   id: string;
@@ -94,7 +94,7 @@ export function BetFormScreen({
   const [sport, setSport] = useState(bet?.sport ?? settings.sports[0] ?? 'Other');
   const [betType, setBetType] = useState<BetType>(bet?.betType ?? 'Spread');
   const [pick, setPick] = useState(bet?.pick ?? '');
-  const [odds, setOdds] = useState(bet ? formatOdds(bet.odds) : '-110');
+  const [odds, setOdds] = useState(bet ? formatOdds(bet.odds) : '');
   const [stakeMode, setStakeMode] = useState<'$' | 'u'>('$');
   const [stake, setStake] = useState(bet ? String(bet.stake) : '');
   // Exact "to win" printed on the ticket (optional; overrides the odds math).
@@ -109,8 +109,8 @@ export function BetFormScreen({
       odds: l.odds === null ? '' : formatOdds(l.odds),
       voided: l.voided,
     })) ?? [
-      { id: uid(), pick: '', odds: '-110' },
-      { id: uid(), pick: '', odds: '-110' },
+      { id: uid(), pick: '', odds: '' },
+      { id: uid(), pick: '', odds: '' },
     ],
   );
   // Parlays: either compute total odds from each leg's odds, or type the total
@@ -120,8 +120,10 @@ export function BetFormScreen({
       ? !!bet.legs?.length &&
           bet.legs.every((l) => l.odds !== null) &&
           parlayOdds(bet.legs.map((l) => l.odds as number)) === bet.odds
-      : true,
+      : false, // new parlays: total odds / to-win straight from the ticket
   );
+  const [moreOpen, setMoreOpen] = useState(isEdit);
+  const [otherBook, setOtherBook] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [extraScans, setExtraScans] = useState<ScannedBet[]>([]);
@@ -159,9 +161,22 @@ export function BetFormScreen({
     .filter((l) => l.pick.trim() || l.odds.trim())
     .map((l) => parseNumber(l.odds));
   const computedParlay = multiLeg ? parlayOdds(legOdds) : NaN;
-  const oddsNum = multiLeg ? computedParlay : parseNumber(odds);
   const stakeInput = parseNumber(stake);
   const stakeNum = stakeMode === 'u' ? stakeInput * settings.unitSize : stakeInput;
+  const printedRaw = parseNumber(toWinInput);
+  const printedToWin =
+    Number.isFinite(printedRaw) && printedRaw > 0 ? Math.round(printedRaw * 100) / 100 : null;
+  // Odds left blank: work them out from the wager and to-win on the ticket.
+  const typedOdds = parseNumber(odds);
+  const derivedOdds =
+    printedToWin !== null && Number.isFinite(stakeNum) && stakeNum > 0
+      ? Math.round(decimalToAmerican(1 + printedToWin / stakeNum))
+      : NaN;
+  const oddsNum = multiLeg
+    ? computedParlay
+    : isValidAmerican(typedOdds)
+      ? typedOdds
+      : derivedOdds;
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
@@ -169,16 +184,17 @@ export function BetFormScreen({
     if (!isValidAmerican(oddsNum))
       e.odds = multiLeg
         ? 'Every leg needs valid odds (e.g. -110 or +150)'
-        : 'American odds, e.g. -110 or +150';
-    if (!Number.isFinite(stakeNum) || stakeNum <= 0) e.stake = 'Enter an amount greater than 0';
-    if (!multiLegType && !pick.trim()) e.pick = 'Describe your pick';
+        : odds.trim()
+          ? 'Odds look like -110 or +150'
+          : 'Enter the "to win" from your ticket (or the odds)';
+    if (!Number.isFinite(stakeNum) || stakeNum <= 0) e.stake = 'Enter how much you bet';
+    if (!multiLegType && !pick.trim()) e.pick = 'What did you bet on?';
+    if (multiLegType && legs.filter((l) => l.pick.trim()).length < 2)
+      e.legs = 'Add at least 2 legs';
     return e;
-  }, [date, oddsNum, stakeNum, pick, multiLeg, multiLegType]);
+  }, [date, oddsNum, stakeNum, pick, multiLeg, multiLegType, odds, legs]);
 
   const valid = Object.keys(errors).length === 0;
-  const printedRaw = parseNumber(toWinInput);
-  const printedToWin =
-    Number.isFinite(printedRaw) && printedRaw > 0 ? Math.round(printedRaw * 100) / 100 : null;
   // Parlay priced from its legs: pay it like the book does, from the exact leg
   // odds multiplied together (not from the rounded total, which loses cents).
   const exactLegsToWin =
@@ -187,7 +203,6 @@ export function BetFormScreen({
         100
       : null;
   const toWin = valid ? (printedToWin ?? exactLegsToWin ?? potentialProfit(stakeNum, oddsNum)) : 0;
-  const implied = impliedProbability(oddsNum);
 
   const ticketLine = (b: Bet) =>
     `${b.pick} · ${formatAmount(b.stake, settings)} to win ${formatAmount(betToWin(b), settings)}`;
@@ -725,27 +740,65 @@ export function BetFormScreen({
           </Pressable>
         ) : (
           <>
-        <Text style={styles.label}>Sport</Text>
-        <ChipRow options={sportOptions} value={sport} onChange={setSport} />
+        {/* 1. Sportsbook */}
+        <Text style={styles.step}>Sportsbook</Text>
+        <ChipRow
+          options={[...bookOptions, 'Other']}
+          value={otherBook ? 'Other' : book}
+          onChange={(v) => {
+            if (v === 'Other') {
+              setOtherBook(true);
+              setBook('');
+            } else {
+              setOtherBook(false);
+              setBook(v);
+            }
+          }}
+        />
+        {otherBook ? (
+          <TextInput
+            value={book}
+            onChangeText={setBook}
+            placeholder="Which sportsbook?"
+            placeholderTextColor={colors.textFaint}
+            autoFocus
+            style={[styles.legInput, { marginTop: space.sm }]}
+          />
+        ) : null}
 
-        <Text style={[styles.label, { marginTop: space.lg }]}>Bet Type</Text>
-        <ChipRow options={BET_TYPES} value={betType} onChange={(v) => setBetType(v as BetType)} />
+        {/* 2. Single or parlay */}
+        <Text style={[styles.step, { marginTop: space.lg }]}>Bet type</Text>
+        <Segmented<'single' | 'parlay'>
+          value={multiLegType ? 'parlay' : 'single'}
+          onChange={(k) => setBetType(k === 'parlay' ? 'Parlay' : 'Spread')}
+          options={[
+            { value: 'single', label: 'Single bet' },
+            { value: 'parlay', label: 'Parlay' },
+          ]}
+        />
+        <View style={{ marginTop: space.sm }}>
+          <ChipRow
+            options={multiLegType ? MULTI_LEG : ['Spread', 'Moneyline', 'Total', 'Prop', 'Future', 'Other']}
+            value={betType}
+            onChange={(v) => setBetType(v as BetType)}
+          />
+        </View>
 
+        {/* 3. The bet */}
         <View style={{ height: space.lg }} />
-
+        {multiLegType ? null : (
+          <Field
+            label="What did you bet on?"
+            value={pick}
+            onChangeText={setPick}
+            placeholder="e.g. Chiefs -3.5 vs Bills"
+            error={showErr('pick')}
+          />
+        )}
         {showLegs ? (
           <View style={styles.legsBox}>
-            <View style={styles.legsHeader}>
-              <Text style={styles.legsTitle}>Legs</Text>
-              <Pressable onPress={() => setOddsFromLegs((v) => !v)} accessibilityRole="button">
-                <Text style={styles.link}>
-                  {oddsFromLegs ? 'Enter total odds instead' : 'Calculate odds from legs'}
-                </Text>
-              </Pressable>
-            </View>
-            {!oddsFromLegs ? (
-              <Text style={styles.legHint}>Leg odds are optional when you enter the total.</Text>
-            ) : null}
+            <Text style={styles.legsTitle}>Your legs</Text>
+            <Text style={styles.legHint}>One line per leg, the way it's written on your ticket.</Text>
             <>
               {legs.map((leg, i) => (
                 <View key={leg.id} style={styles.legRow}>
@@ -754,10 +807,11 @@ export function BetFormScreen({
                     onChangeText={(t) =>
                       setLegs((ls) => ls.map((l) => (l.id === leg.id ? { ...l, pick: t } : l)))
                     }
-                    placeholder={`Leg ${i + 1} (e.g. Chiefs ML)`}
+                    placeholder={i === 0 ? 'Leg 1  e.g. Chiefs ML' : i === 1 ? 'Leg 2  e.g. Kelce 50+ rec yds' : `Leg ${i + 1}`}
                     placeholderTextColor={colors.textFaint}
                     style={[styles.legInput, { flex: 1, minWidth: 0 }]}
                   />
+                  {oddsFromLegs || leg.odds.trim() ? (
                   <TextInput
                     value={leg.odds}
                     onChangeText={(t) =>
@@ -774,6 +828,7 @@ export function BetFormScreen({
                         !isValidAmerican(parseNumber(leg.odds)) && { borderColor: colors.loss },
                     ]}
                   />
+                  ) : null}
                   {isEdit && leg.pick.trim() ? (
                     <Pressable
                       onPress={() =>
@@ -790,7 +845,7 @@ export function BetFormScreen({
                       </Text>
                     </Pressable>
                   ) : null}
-                  {legs.length > (oddsFromLegs ? 2 : 1) ? (
+                  {legs.length > 2 ? (
                     <Pressable
                       onPress={() => setLegs((ls) => ls.filter((l) => l.id !== leg.id))}
                       hitSlop={8}
@@ -802,7 +857,7 @@ export function BetFormScreen({
                 </View>
               ))}
               <Pressable
-                onPress={() => setLegs((ls) => [...ls, { id: uid(), pick: '', odds: '-110' }])}
+                onPress={() => setLegs((ls) => [...ls, { id: uid(), pick: '', odds: '' }])}
                 style={styles.addLeg}
                 accessibilityRole="button"
               >
@@ -819,133 +874,155 @@ export function BetFormScreen({
               {oddsFromLegs && showErr('odds') ? (
                 <Text style={styles.err}>{errors.odds}</Text>
               ) : null}
+              {showErr('legs') ? <Text style={styles.err}>{errors.legs}</Text> : null}
             </>
           </View>
         ) : null}
 
-        <Field
-          label={multiLegType ? 'Description (optional)' : 'Pick'}
-          value={pick}
-          onChangeText={setPick}
-          placeholder={multiLegType ? 'e.g. Sunday NFL parlay' : 'e.g. Chiefs -3.5 vs Bills'}
-          error={showErr('pick')}
-        />
 
-        <View style={styles.row}>
-          {!multiLeg ? (
+        {/* 4. Money, straight from the ticket */}
+        <View style={styles.ticketBox}>
+          <Text style={styles.ticketTitle}>From your ticket</Text>
+          <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Field
-                label={multiLegType ? 'Total Odds' : 'Odds'}
-                value={odds}
-                onChangeText={setOdds}
-                placeholder="-110"
-                keyboardType="numbers-and-punctuation"
-                error={showErr('odds')}
+                label={stakeMode === 'u' ? 'Wager (units)' : 'Wager $'}
+                value={stake}
+                onChangeText={setStake}
+                placeholder={stakeMode === '$' ? '25.00' : '1'}
+                keyboardType="decimal-pad"
+                error={showErr('stake')}
                 hint={
-                  Number.isFinite(implied) ? `Implied ${(implied * 100).toFixed(1)}%` : undefined
+                  stakeMode === 'u' && Number.isFinite(stakeNum)
+                    ? `= $${stakeNum.toFixed(2)}`
+                    : undefined
                 }
               />
             </View>
-          ) : null}
-          <View style={{ flex: 1 }}>
+            <View style={{ flex: 1 }}>
+              <Field
+                label="To win $"
+                value={toWinInput}
+                onChangeText={setToWinInput}
+                placeholder={
+                  isValidAmerican(typedOdds) && Number.isFinite(stakeNum) && stakeNum > 0
+                    ? potentialProfit(stakeNum, typedOdds).toFixed(2)
+                    : '22.73'
+                }
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+          {!multiLeg ? (
             <Field
-              label="Stake"
-              labelRight={
-                <View style={styles.miniToggle}>
-                  {(['$', 'u'] as const).map((m) => (
-                    <Pressable
-                      key={m}
-                      onPress={() => {
-                        if (m === stakeMode) return;
-                        const n = parseNumber(stake);
-                        if (Number.isFinite(n) && settings.unitSize > 0) {
-                          const conv = m === 'u' ? n / settings.unitSize : n * settings.unitSize;
-                          setStake(String(Math.round(conv * 100) / 100));
-                        }
-                        setStakeMode(m);
-                      }}
-                      style={[styles.miniBtn, stakeMode === m && styles.miniBtnOn]}
-                    >
-                      <Text style={[styles.miniText, stakeMode === m && { color: colors.text }]}>
-                        {m === '$' ? '$' : 'Units'}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              }
-              value={stake}
-              onChangeText={setStake}
-              placeholder={stakeMode === '$' ? '25.00' : '1'}
-              keyboardType="decimal-pad"
-              error={showErr('stake')}
+              label={multiLegType ? 'Total odds (optional)' : 'Odds (optional)'}
+              value={odds}
+              onChangeText={setOdds}
+              placeholder={isValidAmerican(derivedOdds) ? formatOdds(derivedOdds) : '-110'}
+              keyboardType="numbers-and-punctuation"
+              error={showErr('odds')}
               hint={
-                stakeMode === 'u' && Number.isFinite(stakeNum)
-                  ? `= $${stakeNum.toFixed(2)} (1u = $${settings.unitSize})`
-                  : undefined
+                !odds.trim() && isValidAmerican(derivedOdds)
+                  ? `We worked it out: ${formatOdds(derivedOdds)}`
+                  : 'Skip it if you entered "To win"'
               }
             />
-          </View>
-        </View>
-
-        <View style={styles.toWinBox}>
-          <Text style={styles.toWinLabel}>
-            {printedToWin !== null ? 'To win (from ticket)' : 'To win'}
-          </Text>
-          <Text style={styles.toWinValue}>{formatAmount(toWin, settings)}</Text>
-          <Text style={styles.toWinLabel}>
-            Payout {formatAmount(valid ? toWin + stakeNum : 0, settings)}
+          ) : null}
+          <Text style={styles.payLine}>
+            {valid
+              ? `Pays ${formatAmount(toWin + stakeNum, settings)} total if it hits`
+              : 'Enter your wager and "to win" from the ticket'}
           </Text>
         </View>
 
-        <Field
-          label="To win as printed on ticket (optional)"
-          value={toWinInput}
-          onChangeText={setToWinInput}
-          placeholder={valid ? potentialProfit(stakeNum, oddsNum).toFixed(2) : '84.55'}
-          keyboardType="decimal-pad"
-          hint="Books price parlays from exact leg odds, so their amount can differ by a few cents. Enter it to match your ticket."
-        />
+        {/* 5. Sport (for live tracking) */}
+        <Text style={styles.step}>Sport</Text>
+        <ChipRow options={sportOptions} value={sport} onChange={setSport} />
 
-        <Text style={styles.label}>Sportsbook</Text>
-        <ChipRow options={bookOptions} value={book} onChange={setBook} />
-        <TextInput
-          value={book}
-          onChangeText={setBook}
-          placeholder="Or type a sportsbook"
-          placeholderTextColor={colors.textFaint}
-          style={[styles.legInput, { marginTop: space.sm, marginBottom: space.lg }]}
-        />
-
-        <Field
-          label="Date"
-          value={date}
-          onChangeText={setDate}
-          placeholder="YYYY-MM-DD"
-          error={showErr('date')}
-          autoCapitalize="none"
-        />
-
-        <Text style={styles.label}>Result</Text>
-        <Segmented<BetStatus>
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: 'pending', label: 'Pending' },
-            { value: 'won', label: 'Won' },
-            { value: 'lost', label: 'Lost' },
-            { value: 'push', label: 'Push' },
-          ]}
-        />
-        <View style={[styles.statusBar, { backgroundColor: statusColor[status] }]} />
-
-        <Field
-          label="Notes"
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Reasoning, line movement, etc."
-          multiline
-          style={{ minHeight: 80, textAlignVertical: 'top' }}
-        />
+        {/* More options */}
+        <Pressable
+          onPress={() => setMoreOpen((v) => !v)}
+          style={styles.moreBtn}
+          accessibilityRole="button"
+        >
+          <Text style={styles.moreText}>
+            {moreOpen ? 'Hide options ▲' : 'More options: date, result, notes ▼'}
+          </Text>
+        </Pressable>
+        {moreOpen ? (
+          <>
+            {multiLegType ? (
+              <>
+                <Field
+                  label="Name this parlay (optional)"
+                  value={pick}
+                  onChangeText={setPick}
+                  placeholder="e.g. Sunday NFL parlay"
+                />
+                <Pressable
+                  onPress={() => setOddsFromLegs((v) => !v)}
+                  style={{ marginBottom: space.lg }}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.link}>
+                    {oddsFromLegs
+                      ? 'Use the total odds from my ticket instead'
+                      : "Enter each leg's odds instead"}
+                  </Text>
+                </Pressable>
+              </>
+            ) : null}
+            <Field
+              label="Date placed"
+              value={date}
+              onChangeText={setDate}
+              placeholder="YYYY-MM-DD"
+              error={showErr('date')}
+              autoCapitalize="none"
+            />
+            <Text style={styles.label}>Result</Text>
+            <Segmented<BetStatus>
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: 'pending', label: 'Open' },
+                { value: 'won', label: 'Won' },
+                { value: 'lost', label: 'Lost' },
+                { value: 'push', label: 'Push' },
+              ]}
+            />
+            <View style={[styles.statusBar, { backgroundColor: statusColor[status] }]} />
+            {settings.unitSize > 0 ? (
+              <Pressable
+                onPress={() => {
+                  const m = stakeMode === '$' ? 'u' : '$';
+                  const n = parseNumber(stake);
+                  if (Number.isFinite(n)) {
+                    const conv = m === 'u' ? n / settings.unitSize : n * settings.unitSize;
+                    setStake(String(Math.round(conv * 100) / 100));
+                  }
+                  setStakeMode(m);
+                }}
+                style={{ marginBottom: space.lg }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.link}>
+                  {stakeMode === '$'
+                    ? `Enter wager in units instead (1u = $${settings.unitSize})`
+                    : 'Enter wager in dollars instead'}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Field
+              label="Notes"
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Anything you want to remember"
+              multiline
+              style={{ minHeight: 80, textAlignVertical: 'top' }}
+            />
+          </>
+        ) : null}
 
         <Button title={isEdit ? 'Save Changes' : 'Add Bet'} onPress={() => save()} />
         {submitted && !valid ? (
@@ -1000,6 +1077,20 @@ const styles = StyleSheet.create({
   },
   scanTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   scanBoxBig: { paddingVertical: space.xl },
+  step: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: space.sm },
+  ticketBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.brand,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    paddingBottom: space.md,
+    marginBottom: space.lg,
+  },
+  ticketTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: space.md },
+  payLine: { color: colors.money, fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  moreBtn: { paddingVertical: space.lg, alignItems: 'center' },
+  moreText: { color: colors.accent, fontSize: 15, fontWeight: '700' },
   modeLink: {
     paddingVertical: 12,
     paddingHorizontal: space.md,
