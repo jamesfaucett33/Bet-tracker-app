@@ -17,6 +17,8 @@ export interface Plan {
   scans: number; // AI scans per month (Rookie: after the first month)
   monthly: number; // USD per month, billed monthly
   yearly: number; // USD per year, billed yearly
+  /** Advertised yearly discount (%); the price saves at least this much. */
+  yearlyOff?: number;
   badge?: string;
   perks: { text: string; soon?: boolean }[];
 }
@@ -66,7 +68,8 @@ export const PLANS: Plan[] = [
     tagline: 'Less than a dollar a month',
     scans: 25,
     monthly: 0.99,
-    yearly: 9.99,
+    yearly: 9.99, // 15.9% off
+    yearlyOff: 15,
     badge: 'Best start',
     perks: [{ text: 'Everything in Rookie' }, { text: 'Perfect for the weekend bettor' }],
   },
@@ -76,7 +79,8 @@ export const PLANS: Plan[] = [
     tagline: 'Upload every ticket, every week',
     scans: 100,
     monthly: 2.99,
-    yearly: 29.99,
+    yearly: 27.99, // 22% off
+    yearlyOff: 20,
     badge: 'Most popular',
     perks: [
       { text: 'Everything in Starter' },
@@ -91,7 +95,8 @@ export const PLANS: Plan[] = [
     tagline: 'For serious volume',
     scans: 400,
     monthly: 5.99,
-    yearly: 49.99,
+    yearly: 52.99, // 26% off
+    yearlyOff: 25,
     perks: [
       { text: 'Everything in Pro' },
       { text: 'Early access to new features' },
@@ -103,7 +108,8 @@ export const PLANS: Plan[] = [
     tagline: 'High roller. Every book, every day.',
     scans: 750,
     monthly: 9.99,
-    yearly: 77.99,
+    yearly: 82.99, // 31% off
+    yearlyOff: 30,
     badge: 'Most uploads',
     perks: [
       { text: 'Everything in All-Pro' },
@@ -119,6 +125,7 @@ export function findPlan(id: string | null | undefined): Plan {
 /** Percent saved by paying yearly instead of 12 months. */
 export function yearlySavings(p: Plan): number {
   if (!p.monthly) return 0;
+  if (p.yearlyOff) return p.yearlyOff;
   return Math.round((1 - p.yearly / (p.monthly * 12)) * 100);
 }
 
