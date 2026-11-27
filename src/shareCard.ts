@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { formatDate } from './format';
+import { LOSS_TITLE, lossJoke, lossKind } from './lossKind';
 import { betProfit, betToWin, formatOdds } from './odds';
 import { colors } from './theme';
 import { Bet } from './types';
@@ -113,8 +114,8 @@ export async function drawCard(
     return st === 'hit' || st === 'miss' || st === 'push' ? st : undefined;
   };
   const legs = (bet.legs ?? []).map((l, i) => ({ ...l, result: l.result ?? now(i) }));
-  const missed = legs.filter((l) => l.result === 'miss').length;
   const hits = legs.filter((l) => l.result === 'hit').length;
+  const loss = lossKind({ ...bet, legs: bet.legs ? legs : undefined });
   const [headline, emoji] =
     kind === 'win'
       ? ['CASHED!', '💰']
@@ -124,9 +125,7 @@ export async function drawCard(
           ? ['LOCKED IN', '🎟️']
           : kind === 'push'
             ? ['PUSH', '🤝']
-            : missed === 1 && hits > 0
-              ? ['ONE LEG AWAY', '😩']
-              : ['BAD BEAT', '💀'];
+            : [LOSS_TITLE[loss].title, LOSS_TITLE[loss].emoji];
   ctx.textAlign = 'center';
   ctx.fillStyle = hot;
   let size = 120;
@@ -138,8 +137,21 @@ export async function drawCard(
   ctx.fillText(`${headline} ${emoji}`, W / 2, 300);
 
   // Big number
-  const amount = win ? betProfit(bet) : kind === 'push' ? bet.stake : betToWin(bet);
-  const big = win ? `+${money(amount)}` : open ? `to win ${money(amount)}` : money(amount);
+  // Bad beat: show what it would have paid. Other losses: what it cost.
+  const amount = win
+    ? betProfit(bet)
+    : kind === 'push'
+      ? bet.stake
+      : kind === 'beat' && loss !== 'badBeat'
+        ? bet.stake
+        : betToWin(bet);
+  const big = win
+    ? `+${money(amount)}`
+    : open
+      ? `to win ${money(amount)}`
+      : kind === 'beat' && loss !== 'badBeat'
+        ? `-${money(amount)}`
+        : money(amount);
   let bigSize = 170;
   ctx.font = `900 ${bigSize}px ${FONT}`;
   while (bigSize > 80 && ctx.measureText(big).width > W - 180) {
@@ -147,21 +159,26 @@ export async function drawCard(
     ctx.font = `900 ${bigSize}px ${FONT}`;
   }
   ctx.fillStyle = win || open ? colors.money : '#FFFFFF';
-  ctx.fillText(big, W / 2, 470);
+  ctx.fillText(big, W / 2, kind === 'beat' ? 445 : 470);
   ctx.font = `700 40px ${FONT}`;
   ctx.fillStyle = colors.textDim;
-  ctx.fillText(
-    win || open
-      ? `on a ${money(bet.stake)} bet${legs.length ? ` · ${hits} of ${legs.length} legs hit so far` : ''}`.replace(
-          / · 0 of \d+ legs hit so far/,
-          '',
-        )
+  const sub = win
+    ? `on a ${money(bet.stake)} bet`
+    : open
+      ? `on a ${money(bet.stake)} bet${legs.length && hits ? ` · ${hits} of ${legs.length} legs hit so far` : ''}`
       : kind === 'push'
         ? 'stake back, on to the next one'
-        : `would have paid on a ${money(bet.stake)} bet`,
-    W / 2,
-    575,
-  );
+        : loss === 'badBeat'
+          ? `would have paid on a ${money(bet.stake)} bet`
+          : legs.length > 1
+            ? `${hits} of ${legs.length} legs hit`
+            : `on ${money(bet.stake)}`;
+  ctx.fillText(fit(ctx, sub, W - 160), W / 2, kind === 'beat' ? 550 : 575);
+  if (kind === 'beat') {
+    ctx.font = `italic 800 40px ${FONT}`;
+    ctx.fillStyle = hot;
+    ctx.fillText(fit(ctx, `"${lossJoke(loss, bet)}"`, W - 160), W / 2, 608);
+  }
 
   // Ticket box
   const top = 650;

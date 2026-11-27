@@ -4,6 +4,7 @@ import { ShareCardButton } from './components/ShareCardButton';
 import { formatAmount } from './format';
 import { useBetLive } from './live';
 import { notifyPrefs } from './notify';
+import { LOSS_TITLE, lossJoke, lossKind } from './lossKind';
 import { betProfit, betToWin } from './odds';
 import { useStore } from './store';
 import { colors, radius, space } from './theme';
@@ -206,10 +207,11 @@ function MomentModal() {
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.backdrop}>
         <Animated.View style={[styles.card, { borderColor: cash ? colors.money : colors.loss, transform: [{ scale }] }]}>
-          <Text style={styles.bigEmoji}>{cash ? '💰' : '💀'}</Text>
+          <Text style={styles.bigEmoji}>{cash ? '💰' : LOSS_TITLE[lossKind(bet)].emoji}</Text>
           <Text style={[styles.title, { color: cash ? colors.money : colors.loss }]}>
-            {cash ? 'CASHED!' : 'BUSTED'}
+            {cash ? 'CASHED!' : LOSS_TITLE[lossKind(bet)].title}
           </Text>
+          {!cash ? <Text style={styles.joke}>"{lossJoke(lossKind(bet), bet)}"</Text> : null}
           <Text style={styles.amount}>
             {cash
               ? `+${formatAmount(betProfit(bet), settings)}`
@@ -281,6 +283,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 44, fontWeight: '900', textAlign: 'center', letterSpacing: 1 },
   amount: { color: colors.text, fontSize: 40, fontWeight: '900', textAlign: 'center', marginTop: 4 },
   pick: { color: colors.textDim, fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: space.sm },
+  joke: { color: colors.text, fontSize: 16, fontWeight: '800', fontStyle: 'italic', textAlign: 'center', marginTop: 4 },
   leg: { color: colors.loss, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 6 },
   done: { paddingVertical: 14, alignItems: 'center', marginTop: space.sm },
   doneText: { color: colors.text, fontSize: 16, fontWeight: '800' },

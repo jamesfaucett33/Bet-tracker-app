@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { LOSS_TITLE, LossKind } from './lossKind';
 import { getCloudClient } from './sync';
 
 /**
@@ -64,12 +65,13 @@ export function inviteLink(code: string | null): string {
 export function inviteText(
   code: string | null,
   kind?: 'win' | 'beat' | 'push' | 'open' | 'live',
+  loss?: LossKind,
 ): string {
   const lead =
     kind === 'win'
       ? 'Check out this bet I just won! 💰'
       : kind === 'beat'
-        ? 'Check out this bad beat 💀'
+        ? LOSS_TITLE[loss ?? 'busted'].share
         : kind === 'live'
           ? "Sweating this one live 🔥 Check out my bet!"
           : kind === 'open'

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBetLive } from '../live';
+import { lossKind } from '../lossKind';
 import { fetchReferral, inviteText } from '../referral';
 import { canMakeCards, cardKind, CardKind, drawCard, shareCard } from '../shareCard';
 import { colors, radius, space } from '../theme';
@@ -70,7 +71,11 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
               {kind === 'win'
                 ? '💰 Share this win'
                 : kind === 'beat'
-                  ? '💀 Share this bad beat'
+                  ? {
+                      badBeat: '😩 Share this bad beat',
+                      badBet: '🤡 Share this bad bet',
+                      busted: '💀 Share this L',
+                    }[lossKind(bet, liveLegs.map((l) => l.progress.state))]
                   : kind === 'live'
                     ? '🔥 Share this sweat'
                     : '📤 Share this bet'}
@@ -88,7 +93,7 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
               title="Share"
               onPress={async () => {
                 if (!card) return;
-                const r = await shareCard(card.blob, card.kind, inviteText(card.code, card.kind));
+                const r = await shareCard(card.blob, card.kind, inviteText(card.code, card.kind, card.kind === 'beat' ? lossKind(bet) : undefined));
                 if (r === 'saved') setNote('Saved to your downloads.');
                 if (r === 'shared') close();
               }}
