@@ -149,7 +149,17 @@ export interface Bet {
   decidedBy?: string;
 }
 
+/** A betting trip (e.g. Vegas): every bet placed between start and end. */
+export interface Trip {
+  id: string;
+  name: string;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+}
+
 export interface Settings {
+  /** Betting trips (newest first). */
+  trips?: Trip[];
   startingBankroll: number;
   unitSize: number;
   showUnits: boolean;

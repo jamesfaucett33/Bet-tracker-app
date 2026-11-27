@@ -12,11 +12,13 @@ import {
   View,
 } from 'react-native';
 import { AccountCard } from '../components/AccountCard';
+import { TripsView } from '../components/TripsView';
 import { TeamPicker } from '../components/TeamPicker';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
 import { parseNumber } from '../format';
 import { cleanKey, testKey } from '../scan';
 import { useStore } from '../store';
+import { Bet } from '../types';
 import { findPlan } from '../plans';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
@@ -74,9 +76,15 @@ function ListEditor({
   );
 }
 
-type Page = 'menu' | 'account' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
+type Page = 'menu' | 'account' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
 
-export function SettingsScreen({ onAddBet }: { onAddBet: (mode: 'scan' | 'manual') => void }) {
+export function SettingsScreen({
+  onAddBet,
+  onEditBet,
+}: {
+  onAddBet: (mode: 'scan' | 'manual') => void;
+  onEditBet: (b: Bet) => void;
+}) {
   const sync = useSync();
   const scan = useScanStatus();
   const [page, setPage] = useState<Page>('menu');
@@ -120,6 +128,7 @@ export function SettingsScreen({ onAddBet }: { onAddBet: (mode: 'scan' | 'manual
 
   const PAGES: Record<Exclude<Page, 'menu'>, string> = {
     account: 'Account',
+    trips: 'Trips',
     team: 'Team Colors',
     bankroll: 'Bankroll & Units',
     lists: 'Sportsbooks & Sports',
@@ -136,6 +145,7 @@ export function SettingsScreen({ onAddBet }: { onAddBet: (mode: 'scan' | 'manual
         </Pressable>
         <Text style={styles.pageTitle}>{PAGES[page]}</Text>
         {page === 'account' ? <AccountCard /> : null}
+        {page === 'trips' ? <TripsView onEditBet={onEditBet} /> : null}
         {page === 'team' ? (
           <>
           <Card>
@@ -397,6 +407,12 @@ export function SettingsScreen({ onAddBet }: { onAddBet: (mode: 'scan' | 'manual
       <MenuGroup title="Bets">
         <MenuRow icon="✍️" label="Enter a bet manually" sub="Type in any bet, any book" onPress={() => onAddBet('manual')} />
         <MenuRow icon="📷" label="Upload a bet slip" sub="Photo or screenshot, we fill in every leg" onPress={() => onAddBet('scan')} />
+        <MenuRow
+          icon="🎰"
+          label="Trips"
+          sub={(settings.trips ?? []).length ? `${(settings.trips ?? []).length} trip${(settings.trips ?? []).length === 1 ? '' : 's'}` : 'Vegas weekend? Track it as a trip'}
+          onPress={() => setPage('trips')}
+        />
       </MenuGroup>
 
       <MenuGroup title="Account">

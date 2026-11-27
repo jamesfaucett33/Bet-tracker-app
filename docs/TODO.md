@@ -22,17 +22,16 @@ Things to add once the core app is fine-tuned.
 - [ ] Run `supabase/setup-plans.sql` and redeploy the `scan-slip` function (plan limits). Set your own account to `staff`.
 - [ ] Test a smaller, cheaper scan model on real tickets (target about 1¢ a scan).
 - [ ] Hook up payments: RevenueCat + Apple in-app purchase (+ Google Play, Stripe for web). Upgrade buttons currently run a pretend checkout ending in "not available in beta testing mode"; testers' picks are saved in `upgrade_interest`.
-- [ ] Build the "soon" perks sold on Pro: all-league team colors, share cards, trip view.
+- [x] Built the Pro perks: NBA/MLB/NHL team colors, share cards, trip view.
+- [ ] Turn on Pro-only gating at launch (all-league team colors already lock when the beta ends).
+- [ ] Sync trips and team choice to the account (they're saved on the device for now).
 
 ## Features
 - [ ] **Free AI scanning** for signed-in users: Anthropic API key, saved as a Supabase secret, deploy the scan function.
-- [ ] **Team colors for NBA, MLB, NHL** (NFL is done).
 - [ ] Save the chosen team to the account, so it follows you to other devices.
 
 ## Marketing
-- [ ] Shareable **win / bad-beat cards** for social media.
 - [ ] **BetKeyper landing page** on betkeyper.com.
-- [ ] **Vegas trip view** (group a trip's tickets together).
 
 ## Cleanup
 - [ ] Remove old test accounts from Supabase.

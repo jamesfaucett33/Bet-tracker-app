@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BetaWelcome } from '../components/BetaBanner';
+import { TripCard } from '../components/TripCard';
+import { activeTrip } from '../trips';
 import { dotCounts, dotForResult } from '../components/LegDots';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
 import { formatAmount, formatDate, formatPct, todayISO } from '../format';
@@ -82,6 +84,11 @@ export function DashboardScreen({
           </Text>
         </Pressable>
       ) : null}
+
+      {(() => {
+        const trip = activeTrip(settings.trips);
+        return trip ? <TripCard trip={trip} onEditBet={onEditBet} /> : null;
+      })()}
 
       <View style={styles.vibe}>
         <Text style={styles.vibeEmoji}>{vibe.emoji}</Text>
