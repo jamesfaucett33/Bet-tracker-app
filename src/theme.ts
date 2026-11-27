@@ -1,4 +1,4 @@
-// BetKeeper palette: bright and fun. Deep navy with electric green and sky blue.
+// BetKeeper palette: bright and fun. Deep navy with neon lime green and sky blue.
 export const colors = {
   bg: '#061733', // deep navy
   surface: '#0D2650', // card blue
@@ -7,11 +7,11 @@ export const colors = {
   text: '#F4F8FF',
   textDim: '#A9BCD9',
   textFaint: '#7189AE',
-  accent: '#3DE36B', // electric green (brand, buttons, "to win")
-  accentDim: '#22A048',
-  brand: '#3DE36B', // electric green
+  accent: '#7BEA2B', // neon lime, Color Rush style (brand, buttons, "to win")
+  accentDim: '#4E9E14',
+  brand: '#7BEA2B', // neon lime
   sky: '#3CC4FF', // sky blue highlights
-  win: '#3DE36B',
+  win: '#7BEA2B',
   loss: '#FF5468',
   push: '#B794FF', // a push is neutral: purple, never confused with anything else
   pending: '#3CC4FF', // open tickets: sky blue
