@@ -260,7 +260,7 @@ function Main() {
             onOpenTab={setTab}
           />
         )}
-        {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} />}
+        {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} onOpenLive={() => setTab('live')} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
         {tab === 'settings' && <SettingsScreen onAddBet={startAdd} onEditBet={openBet} />}

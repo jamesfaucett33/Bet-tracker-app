@@ -207,9 +207,14 @@ export function DashboardScreen({
       {/* On the table */}
       <SectionTitle>On the table</SectionTitle>
       <Card style={{ padding: 0 }}>
-        <View style={styles.tableTop}>
+        <Pressable
+          style={({ pressed }) => [styles.tableTop, pressed && { opacity: 0.8 }]}
+          onPress={() => onOpenTab?.(live.length ? 'live' : 'upcoming')}
+          accessibilityRole="button"
+          accessibilityLabel="See your open tickets"
+        >
           <View style={{ flex: 1 }}>
-            <Text style={styles.tableLabel}>Riding right now</Text>
+            <Text style={styles.tableLabel}>Riding right now ›</Text>
             <Text style={styles.tableValue}>{money(sum(open, (b) => b.stake))}</Text>
             <Text style={styles.tableSub}>
               {open.length} open ticket{open.length === 1 ? '' : 's'}
@@ -222,16 +227,26 @@ export function DashboardScreen({
             </Text>
             <Text style={styles.tableSub}>if everything cashes 🙏</Text>
           </View>
-        </View>
+        </Pressable>
         <View style={styles.tableSplit}>
-          <Pressable style={styles.tableCell} onPress={() => onOpenTab?.('live')} accessibilityRole="button">
-            <Text style={styles.cellLabel}>🔴 Live · {live.length}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.tableCell, pressed && styles.cellPressed]}
+            onPress={() => onOpenTab?.('live')}
+            accessibilityRole="button"
+            accessibilityLabel="Open Live"
+          >
+            <Text style={styles.cellLabel}>🔴 Live · {live.length} ›</Text>
             <Text style={styles.cellValue}>{money(sum(live, (b) => b.stake))}</Text>
             <Text style={styles.cellSub}>to win {money(sum(live, betToWin))}</Text>
           </Pressable>
           <View style={styles.vDivider} />
-          <Pressable style={styles.tableCell} onPress={() => onOpenTab?.('upcoming')} accessibilityRole="button">
-            <Text style={styles.cellLabel}>◷ Upcoming · {upcoming.length}</Text>
+          <Pressable
+            style={({ pressed }) => [styles.tableCell, pressed && styles.cellPressed]}
+            onPress={() => onOpenTab?.('upcoming')}
+            accessibilityRole="button"
+            accessibilityLabel="Open Upcoming"
+          >
+            <Text style={styles.cellLabel}>◷ Upcoming · {upcoming.length} ›</Text>
             <Text style={styles.cellValue}>{money(sum(upcoming, (b) => b.stake))}</Text>
             <Text style={styles.cellSub}>to win {money(sum(upcoming, betToWin))}</Text>
           </Pressable>
@@ -578,6 +593,7 @@ const styles = StyleSheet.create({
   plValue: { fontSize: 21, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
   plSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
   tableTop: { flexDirection: 'row', padding: space.lg, gap: space.md },
+  cellPressed: { backgroundColor: colors.surfaceAlt },
   tableLabel: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
   tableValue: { color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 2 },
   tableSub: { color: colors.textFaint, fontSize: 12, marginTop: 2 },

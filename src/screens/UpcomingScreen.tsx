@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CompactBet } from '../components/CompactBet';
 import { formatAmount } from '../format';
 import { useBetPhases, useLive } from '../live';
@@ -9,7 +9,13 @@ import { colors, radius, space } from '../theme';
 import { Bet } from '../types';
 
 /** Open tickets where no game has started yet. */
-export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
+export function UpcomingScreen({
+  onEditBet,
+  onOpenLive,
+}: {
+  onEditBet: (bet: Bet) => void;
+  onOpenLive?: () => void;
+}) {
   const { bets, settings } = useStore();
   const phaseOf = useBetPhases();
   const { games, legGames } = useLive();
@@ -41,8 +47,8 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
     return Math.abs(n) >= 10000 ? t.replace(/\.\d\d$/, '') : t;
   };
   const rows = [
-    { label: '🔴 Live', list: inProgress },
-    { label: '◷ Upcoming', list: upcoming },
+    { label: '🔴 Live', list: inProgress, live: true },
+    { label: '◷ Upcoming', list: upcoming, live: false },
   ];
   const open = [...inProgress, ...upcoming];
   const totalStake = sum(open, (b) => b.stake);
@@ -63,14 +69,20 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
               <Text style={[styles.tHead, styles.tMoney]}>Could win</Text>
             </View>
             {rows.map((r) => (
-              <View key={r.label} style={styles.tRow}>
-                <Text style={[styles.tCell, styles.tName]}>{r.label}</Text>
+              <Pressable
+                key={r.label}
+                style={({ pressed }) => [styles.tRow, pressed && r.live && { opacity: 0.7 }]}
+                onPress={r.live ? onOpenLive : undefined}
+                disabled={!r.live}
+                accessibilityRole={r.live ? 'button' : undefined}
+              >
+                <Text style={[styles.tCell, styles.tName]}>{r.live ? `${r.label} ›` : r.label}</Text>
                 <Text style={[styles.tCell, styles.tNum]}>{r.list.length}</Text>
                 <Text style={[styles.tCell, styles.tMoney]}>{money(sum(r.list, (b) => b.stake))}</Text>
                 <Text style={[styles.tCell, styles.tMoney, { color: colors.money }]}>
                   {money(sum(r.list, betToWin))}
                 </Text>
-              </View>
+              </Pressable>
             ))}
             <View style={[styles.tRow, styles.tTotal]}>
               <Text style={[styles.tCell, styles.tName, styles.bold]}>Total open</Text>
