@@ -5,6 +5,7 @@ import { Button, Segmented } from '../components/ui';
 import { ScanStatus } from '../cloudScan';
 import { formatDate } from '../format';
 import {
+  BETA_SCANS,
   Billing,
   findPlan,
   FIRST_MONTH_SCANS,
@@ -94,7 +95,11 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
   if (!sync.email) {
     return (
       <View style={styles.status}>
-        <Text style={styles.statusTitle}>🎁 {FIRST_MONTH_SCANS} free slip scans your first month</Text>
+        <Text style={styles.statusTitle}>
+          {BETA_SCANS
+            ? `🎉 Beta bonus: ${BETA_SCANS} free slip scans a month`
+            : `🎁 ${FIRST_MONTH_SCANS} free slip scans your first month`}
+        </Text>
         <Text style={styles.statusText}>
           Create a free account: snap a bet slip and we fill in every leg for you. Your bets are backed up too.
         </Text>
@@ -136,7 +141,7 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
             />
           </View>
           <Text style={styles.statusText}>
-            {status.firstMonth ? 'First-month bonus · ' : ''}
+            {BETA_SCANS ? '🎉 Beta tester bonus · ' : status.firstMonth ? 'First-month bonus · ' : ''}
             Resets {formatDate(new Date(status.resetsAt).toISOString().slice(0, 10))}
             {status.packLeft ? ` · +${status.packLeft} scan-pack scans` : ''}
           </Text>
@@ -311,6 +316,12 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
             </View>
             <Text style={styles.price}>Free</Text>
           </View>
+          {BETA_SCANS ? (
+            <Text style={styles.perk}>
+              <Text style={{ color: colors.brand }}>🎉 </Text>
+              <Text style={{ fontWeight: '800' }}>Beta testers: {BETA_SCANS} slip scans a month</Text>
+            </Text>
+          ) : null}
           {rookie.perks.map((p) => (
             <Text key={p.text} style={styles.perk}>
               <Text style={{ color: colors.money }}>✓ </Text>

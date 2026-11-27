@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { findPlan } from '../plans';
+import { BETA_SCANS, findPlan, FIRST_MONTH_SCANS } from '../plans';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useStore } from '../store';
 import { useSync } from '../sync';
@@ -21,7 +21,7 @@ export function ScanBadge() {
     top = 'Own AI key';
     cta = 'Plans';
   } else if (!sync.email) {
-    top = '25 free scans';
+    top = `${Math.max(BETA_SCANS, FIRST_MONTH_SCANS)} free scans`;
     cta = 'Get them';
   } else if (!status) {
     top = '… scans';

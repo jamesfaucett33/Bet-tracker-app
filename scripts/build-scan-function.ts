@@ -5,10 +5,10 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { FIRST_MONTH_DAYS, FIRST_MONTH_SCANS, PLANS, scanWindow } from '../src/plans';
+import { FIRST_MONTH_DAYS, FIRST_MONTH_SCANS, PLANS, scansFor, scanWindow } from '../src/plans';
 import { SCAN_MODEL, SCHEMA, SYSTEM_PROMPT } from '../src/scanSpec';
 
-const PLAN_SCANS: Record<string, number> = Object.fromEntries(PLANS.map((p) => [p.id, p.scans]));
+const PLAN_SCANS: Record<string, number> = Object.fromEntries(PLANS.map((p) => [p.id, scansFor(p.id)]));
 PLAN_SCANS.staff = 100000;
 
 const out = path.join(__dirname, '..', 'supabase', 'functions', 'scan-slip', 'index.ts');

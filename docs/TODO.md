@@ -18,6 +18,7 @@ Things to add once the core app is fine-tuned.
 - [ ] Hand `APP_STORE_SUBMISSION.md` to Dad's Claude on the Mac.
 
 ## Plans & payments
+- [ ] **At launch:** set `BETA_SCANS` to 0 in `src/plans.ts` (beta gives every account 50 slip scans a month), re-run the scan-function build script and redeploy.
 - [ ] Run `supabase/setup-plans.sql` and redeploy the `scan-slip` function (plan limits). Set your own account to `staff`.
 - [ ] Test a smaller, cheaper scan model on real tickets (target about 1¢ a scan).
 - [ ] Hook up payments: RevenueCat + Apple in-app purchase (+ Google Play, Stripe for web). Upgrade buttons currently run a pretend checkout ending in "not available in beta testing mode"; testers' picks are saved in `upgrade_interest`.

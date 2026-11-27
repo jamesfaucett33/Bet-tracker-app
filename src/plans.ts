@@ -25,6 +25,18 @@ export interface Plan {
 export const FIRST_MONTH_SCANS = 25;
 export const FIRST_MONTH_DAYS = 30;
 
+/**
+ * Beta testing bonus: every account gets at least this many slip scans a
+ * month while the beta runs. Set to 0 at launch to go back to normal plans.
+ */
+export const BETA_SCANS = 50;
+
+/** Slip scans a month for a plan, including the beta bonus. */
+export function scansFor(id: PlanId): number {
+  const p = findPlan(id);
+  return Math.max(p.scans, BETA_SCANS);
+}
+
 /** One-time scan pack: extra scans that never expire. */
 export const SCAN_PACK = { scans: 50, price: 0.99 };
 

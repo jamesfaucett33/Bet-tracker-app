@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BetaWelcome } from '../components/BetaBanner';
 import { dotCounts, dotForResult } from '../components/LegDots';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
 import { formatAmount, formatDate, formatPct, todayISO } from '../format';
@@ -71,6 +72,7 @@ export function DashboardScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <BetaWelcome />
       {sync.configured && !sync.email ? (
         <Pressable onPress={onOpenSettings} style={styles.backup} accessibilityRole="button">
           <Text style={styles.backupTitle}>☁️ Back up your bets</Text>

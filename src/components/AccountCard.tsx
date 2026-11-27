@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { findPlan } from '../plans';
+import { BETA_SCANS, findPlan } from '../plans';
+import { BetaSignupPitch } from './BetaBanner';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
@@ -51,7 +52,7 @@ export function AccountCard() {
     setBusy(false);
     if (err === 'CHECK_EMAIL')
       setMsg({
-        text: `Account created. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
+        text: `🎉 Account created${BETA_SCANS ? ` — your ${BETA_SCANS} free beta slip scans are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
         ok: true,
       });
     else if (err) setMsg({ text: err, ok: false });
@@ -149,6 +150,7 @@ export function AccountCard() {
           </>
         ) : (
           <>
+            <BetaSignupPitch />
             {sync.signedOutNote ? (
               <Text style={[styles.body, { color: colors.push, fontWeight: '700' }]}>
                 {sync.signedOutNote}

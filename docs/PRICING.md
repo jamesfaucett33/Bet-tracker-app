@@ -4,6 +4,10 @@ Plans live in `src/plans.ts` (the app and the scan server both read them).
 Only **AI scans** count. Manual entry and screenshots the phone reads by
 itself (about 20% of scans) are free and unlimited on every plan.
 
+## Beta
+While `BETA_SCANS` (src/plans.ts) is 50, every account gets at least 50 slip
+scans a month, so beta testers cost up to 50¢ a month each. Set it to 0 at launch.
+
 ## Plans
 
 | Plan | Monthly | Yearly | Yearly per month | AI scans / month |

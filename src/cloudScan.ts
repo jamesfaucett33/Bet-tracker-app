@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { todayISO } from './format';
-import { FIRST_MONTH_DAYS, FIRST_MONTH_SCANS, findPlan, PlanId, scanWindow } from './plans';
+import { FIRST_MONTH_DAYS, FIRST_MONTH_SCANS, findPlan, PlanId, scansFor, scanWindow } from './plans';
 import { parseScanAnswer, ScanError, ScannedBet } from './scan';
 import { getCloudClient } from './sync';
 
@@ -45,7 +45,7 @@ export async function fetchScanStatus(): Promise<ScanStatus | null> {
   const active = sub && (!sub.renews_at || Date.parse(sub.renews_at) > Date.now());
   const staff = active && sub.plan === 'staff';
   const plan = staff ? 'staff' : active ? findPlan(sub.plan).id : 'rookie';
-  const planScans = staff ? STAFF_SCANS : findPlan(plan).scans;
+  const planScans = staff ? STAFF_SCANS : scansFor(findPlan(plan).id);
   const win = scanWindow(
     planScans,
     Date.parse(user.created_at),
