@@ -11,6 +11,11 @@
 - **Extras:** team colors for all 124 NFL / NBA / MLB / NHL teams; Trips (Vegas weekend totals).
 - **Sign-up:** full name, email, optional mobile, email / text opt-ins.
 
+## Latest changes
+- An account is required: signed-out visitors see a welcome screen (sign up / sign in) before anything else.
+- Show / Hide on password fields; the + button is on every tab, including Profile.
+- Bet details opens the ticket view (legs, stats, Share) with an Edit bet button.
+
 ## Tomorrow, on the computer
 Hand Claude on the computer **`docs/COMPUTER_TASKS.md`** (emailed). It covers, in order:
 1. Domain: buy betkeyper.com + .app, Cloudflare account, Cloudflare Pages hosting.

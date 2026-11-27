@@ -48,6 +48,25 @@ function Check({
   );
 }
 
+/** A password box with a Show / Hide button. */
+function PasswordInput(props: React.ComponentProps<typeof TextInput>) {
+  const [show, setShow] = useState(false);
+  return (
+    <View style={{ justifyContent: 'center' }}>
+      <TextInput {...props} secureTextEntry={!show} style={[props.style, { paddingRight: 70 }]} />
+      <Pressable
+        onPress={() => setShow((v) => !v)}
+        style={styles.showBtn}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={show ? 'Hide password' : 'Show password'}
+      >
+        <Text style={styles.showText}>{show ? '🙈 Hide' : '👁 Show'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /** Sign in / create account for cloud sync, or show sync status. */
 export function AccountCard() {
   const sync = useSync();
@@ -158,21 +177,19 @@ export function AccountCard() {
             </View>
             {changing ? (
               <>
-                <TextInput
+                <PasswordInput
                   value={newPw}
                   onChangeText={setNewPw}
                   placeholder="New password (6+ characters)"
                   placeholderTextColor={colors.textFaint}
-                  secureTextEntry
                   autoComplete="new-password"
                   style={styles.input}
                 />
-                <TextInput
+                <PasswordInput
                   value={newPw2}
                   onChangeText={setNewPw2}
                   placeholder="New password again"
                   placeholderTextColor={colors.textFaint}
-                  secureTextEntry
                   autoComplete="new-password"
                   style={styles.input}
                 />
@@ -262,12 +279,11 @@ export function AccountCard() {
                 style={styles.input}
               />
             ) : null}
-            <TextInput
+            <PasswordInput
               value={password}
               onChangeText={setPassword}
               placeholder={mode === 'signUp' ? 'Create a password (6+ characters)' : 'Password'}
               placeholderTextColor={colors.textFaint}
-              secureTextEntry
               autoCapitalize="none"
               autoComplete={mode === 'signUp' ? 'new-password' : 'password'}
               style={styles.input}
@@ -326,6 +342,8 @@ export function AccountCard() {
 }
 
 const styles = StyleSheet.create({
+  showBtn: { position: 'absolute', right: 10, paddingHorizontal: 8, paddingVertical: 6 },
+  showText: { color: colors.accent, fontSize: 13, fontWeight: '800' },
   refBox: {
     borderWidth: 2,
     borderColor: colors.brand,

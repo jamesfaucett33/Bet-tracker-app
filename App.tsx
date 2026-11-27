@@ -19,6 +19,7 @@ captureReferral();
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddMode, BetFormScreen } from './src/screens/BetFormScreen';
 import { TicketScreen } from './src/screens/TicketScreen';
+import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
 import { UpcomingScreen } from './src/screens/UpcomingScreen';
 import { CheerHost } from './src/cheer';
@@ -28,7 +29,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { LiveProvider, useLive } from './src/live';
 import { StoreProvider, useStore } from './src/store';
-import { SyncProvider } from './src/sync';
+import { SyncProvider, useSync } from './src/sync';
 import { colors, space } from './src/theme';
 import { Bet } from './src/types';
 
@@ -201,6 +202,7 @@ function ModalSafe({ children }: { children: React.ReactNode }) {
 
 function Main() {
   const { loaded } = useStore();
+  const sync = useSync();
   const link = useLinkImport();
   const { games } = useLive();
   const anyLive = [...games.values()].some((g) => g.state === 'in');
@@ -232,7 +234,7 @@ function Main() {
     setEditing(null);
   };
 
-  if (!loaded) {
+  if (!loaded || (sync.configured && !sync.authReady)) {
     return (
       <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator color={colors.accent} />
@@ -240,7 +242,18 @@ function Main() {
     );
   }
 
-  const openBet = (b: Bet) => {
+  // An account is required to use BetKeyper: sign up or sign in first.
+  if (sync.configured && !sync.email) {
+    return (
+      <View style={[styles.root, WEB && webTop, WEB && webBottom]}>
+        <WelcomeScreen />
+      </View>
+    );
+  }
+
+  // Bet details: the ticket view (legs, stats, Share) with an Edit bet button.
+  const openBet = (b: Bet) => setViewing(b.id);
+  const editBet = (b: Bet) => {
     setAddMode(undefined);
     setEditing(b);
   };
@@ -320,20 +333,19 @@ function Main() {
         </>
       ) : null}
 
-      {tab !== 'settings' ? (
-        <Pressable
-          onPress={() => setAddMenu((v) => !v)}
-          style={({ pressed }) => [
-            styles.fab,
-            WEB ? webFab : { bottom: 72 + insets.bottom },
-            pressed && { transform: [{ scale: 0.95 }] },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Add bet"
-        >
-          <Text style={[styles.fabText, addMenu && { transform: [{ rotate: '45deg' }] }]}>+</Text>
-        </Pressable>
-      ) : null}
+      {/* + : scan or enter a bet, on every tab */}
+      <Pressable
+        onPress={() => setAddMenu((v) => !v)}
+        style={({ pressed }) => [
+          styles.fab,
+          WEB ? webFab : { bottom: 72 + insets.bottom },
+          pressed && { transform: [{ scale: 0.95 }] },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Add bet"
+      >
+        <Text style={[styles.fabText, addMenu && { transform: [{ rotate: '45deg' }] }]}>+</Text>
+      </Pressable>
 
       <View style={[styles.tabBar, WEB ? webBottom : { paddingBottom: Math.max(insets.bottom, 8) }]}>
         {TABS.map((t) => {
@@ -403,7 +415,7 @@ function Main() {
                 onClose={() => setViewing(null)}
                 onEdit={(b) => {
                   setViewing(null);
-                  openBet(b);
+                  editBet(b);
                 }}
               />
             ) : null}

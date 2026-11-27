@@ -74,6 +74,8 @@ interface SyncCtx {
   email: string | null;
   /** Full name given at sign-up (null for older accounts). */
   name: string | null;
+  /** Sign-in state is known (session loaded). */
+  authReady: boolean;
   state: SyncState;
   lastSync: number | null;
   error: string | null;
@@ -111,12 +113,20 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const [signedOutNote, setSignedOutNote] = useState<string | null>(null);
 
   const userId = session?.user?.id ?? null;
+  // True once we know whether someone is signed in (avoids a flash of the welcome screen).
+  const [authReady, setAuthReady] = useState(false);
 
   // ---- auth ----
   useEffect(() => {
     const sb = getClient();
-    if (!sb) return;
-    sb.auth.getSession().then(({ data }) => setSession(data.session));
+    if (!sb) {
+      setAuthReady(true);
+      return;
+    }
+    sb.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session))
+      .finally(() => setAuthReady(true));
     const { data } = sb.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);
@@ -317,6 +327,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       configured: cloudConfigured(),
       email: session?.user?.email ?? null,
       name: (session?.user?.user_metadata?.full_name as string | undefined) || null,
+      authReady,
       state,
       lastSync,
       error,
@@ -330,7 +341,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         runSync();
       },
     }),
-    [session, state, lastSync, error, count, signIn, signUp, changePassword, signOut, runSync, signedOutNote],
+    [session, authReady, state, lastSync, error, count, signIn, signUp, changePassword, signOut, runSync, signedOutNote],
   );
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }

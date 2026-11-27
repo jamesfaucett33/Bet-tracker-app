@@ -25,7 +25,7 @@ export function TicketScreen({
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={styles.header}>
-        <Text style={styles.title}>Ticket</Text>
+        <Text style={styles.title}>Bet details</Text>
         <Pressable
           onPress={onClose}
           hitSlop={16}
@@ -41,7 +41,7 @@ export function TicketScreen({
           <BetCard bet={bet} onPress={() => {}} />
           <ShareCardButton bet={bet} />
           <Button
-            title="Edit ticket"
+            title="✏️ Edit bet"
             variant="secondary"
             onPress={() => onEdit(bet)}
             style={{ marginTop: space.md }}
