@@ -89,6 +89,12 @@ export function DashboardScreen({
   const periodSettled = periodSummary.wins + periodSummary.losses + periodSummary.pushes;
   const wonTotal = periodBets.filter((b) => b.status === 'won').reduce((n, b) => n + betProfit(b), 0);
   const lostTotal = periodBets.filter((b) => b.status === 'lost').reduce((n, b) => n + b.stake, 0);
+  // Box text: drop cents past $1,000 and shrink long amounts so they fit.
+  const boxMoney = (n: number) => {
+    const t = money(n, true);
+    return Math.abs(n) >= 1000 ? t.replace(/\.\d\d$/, '') : t;
+  };
+  const boxSize = (t: string) => ({ fontSize: t.length > 10 ? 14 : t.length > 8 ? 16 : t.length > 7 ? 18 : 20 });
   const periodName = { today: 'today', '7d': 'last 7 days', '30d': 'last 30 days', ytd: 'this year', all: 'all time' }[period];
   const groups = useMemo(() => groupBy(periodBets, (b) => b[breakdown]), [periodBets, breakdown]);
 
@@ -142,8 +148,8 @@ export function DashboardScreen({
       <View style={styles.row3}>
         <View style={styles.moneyTile}>
           <Text style={styles.moneyLabel}>WON</Text>
-          <Text style={[styles.moneyValue, { color: colors.win }]} numberOfLines={1} adjustsFontSizeToFit>
-            {money(wonTotal, true)}
+          <Text style={[styles.moneyValue, boxSize(boxMoney(wonTotal)), { color: colors.win }]} numberOfLines={1}>
+            {boxMoney(wonTotal)}
           </Text>
           <Text style={styles.moneySub}>
             {periodSummary.wins} win{periodSummary.wins === 1 ? '' : 's'}
@@ -151,8 +157,8 @@ export function DashboardScreen({
         </View>
         <View style={styles.moneyTile}>
           <Text style={styles.moneyLabel}>LOST</Text>
-          <Text style={[styles.moneyValue, { color: colors.loss }]} numberOfLines={1} adjustsFontSizeToFit>
-            {money(-lostTotal, true)}
+          <Text style={[styles.moneyValue, boxSize(boxMoney(-lostTotal)), { color: colors.loss }]} numberOfLines={1}>
+            {boxMoney(-lostTotal)}
           </Text>
           <Text style={styles.moneySub}>
             {periodSummary.losses} loss{periodSummary.losses === 1 ? '' : 'es'}
@@ -166,11 +172,14 @@ export function DashboardScreen({
         >
           <Text style={styles.moneyLabel}>NET</Text>
           <Text
-            style={[styles.moneyValue, { color: profitColor(periodSummary.profit) }]}
+            style={[
+              styles.moneyValue,
+              boxSize(boxMoney(periodSummary.profit)),
+              { color: profitColor(periodSummary.profit) },
+            ]}
             numberOfLines={1}
-            adjustsFontSizeToFit
           >
-            {money(periodSummary.profit, true)}
+            {boxMoney(periodSummary.profit)}
           </Text>
           <Text style={styles.moneySub}>
             {periodSummary.profit > 0 ? 'up' : periodSummary.profit < 0 ? 'down' : 'even'} {periodName}
