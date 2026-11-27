@@ -506,9 +506,10 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         <View style={styles.header}>
           <Pressable
             onPress={() => setBatch(null)}
-            hitSlop={12}
+            hitSlop={16}
             accessibilityRole="button"
             disabled={reading}
+            style={styles.headerPill}
           >
             <Text style={styles.headerBtn}>Back</Text>
           </Pressable>
@@ -608,12 +609,17 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
-        <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button">
+        <Pressable onPress={onClose} hitSlop={16} accessibilityRole="button" style={styles.headerPill}>
           <Text style={styles.headerBtn}>Cancel</Text>
         </Pressable>
         <Text style={styles.headerTitle}>{isEdit ? 'Edit Bet' : 'New Bet'}</Text>
-        <Pressable onPress={() => save()} hitSlop={12} accessibilityRole="button">
-          <Text style={[styles.headerBtn, { color: colors.accent, fontWeight: '800' }]}>Save</Text>
+        <Pressable
+          onPress={() => save()}
+          hitSlop={16}
+          accessibilityRole="button"
+          style={[styles.headerPill, { backgroundColor: colors.accent }]}
+        >
+          <Text style={[styles.headerBtn, { color: colors.bg, fontWeight: '900' }]}>Save</Text>
         </Pressable>
       </View>
 
@@ -936,7 +942,15 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
-  headerBtn: { color: colors.textDim, fontSize: 16 },
+  headerBtn: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  headerPill: {
+    minHeight: 40,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: { padding: space.lg, paddingBottom: 60 },
   scanBox: {
     backgroundColor: colors.surface,

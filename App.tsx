@@ -156,6 +156,43 @@ function ImportBanner({ link }: { link: ReturnType<typeof useLinkImport> }) {
   );
 }
 
+// On the web (home-screen app) read the notch / home-bar space from CSS
+// directly; it's reliable everywhere, including inside pop-ups.
+const WEB = Platform.OS === 'web';
+const css = (v: string) => v as unknown as number;
+const webTop = { paddingTop: css('env(safe-area-inset-top, 0px)') };
+const webBottom = { paddingBottom: css('max(env(safe-area-inset-bottom, 0px), 8px)') };
+const webFab = { bottom: css('calc(72px + env(safe-area-inset-bottom, 0px))') };
+
+/**
+ * Full-screen pop-up content kept clear of the iPhone notch / status bar and
+ * home bar. On the web (home-screen app) the safe-area values come straight
+ * from the browser, which is reliable inside pop-ups.
+ */
+function ModalSafe({ children }: { children: React.ReactNode }) {
+  if (Platform.OS === 'web') {
+    return (
+      <View
+        style={[
+          styles.root,
+          {
+            // CSS safe-area values; RN-web passes these through to the page.
+            paddingTop: css('max(env(safe-area-inset-top, 0px), 8px)'),
+            paddingBottom: css('env(safe-area-inset-bottom, 0px)'),
+          },
+        ]}
+      >
+        {children}
+      </View>
+    );
+  }
+  return (
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+      {children}
+    </SafeAreaView>
+  );
+}
+
 function Main() {
   const { loaded } = useStore();
   const link = useLinkImport();
@@ -179,7 +216,7 @@ function Main() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={styles.header}>
+      <SafeAreaView edges={WEB ? [] : ['top']} style={[styles.header, WEB && webTop]}>
         <View style={styles.brandRow}>
           <Image source={require('./assets/badge.png')} style={styles.badge} />
           <View style={{ flex: 1 }}>
@@ -216,7 +253,7 @@ function Main() {
           onPress={() => setEditing(null)}
           style={({ pressed }) => [
             styles.fab,
-            { bottom: 72 + insets.bottom },
+            WEB ? webFab : { bottom: 72 + insets.bottom },
             pressed && { transform: [{ scale: 0.95 }] },
           ]}
           accessibilityRole="button"
@@ -226,7 +263,7 @@ function Main() {
         </Pressable>
       ) : null}
 
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <View style={[styles.tabBar, WEB ? webBottom : { paddingBottom: Math.max(insets.bottom, 8) }]}>
         {TABS.map((t) => {
           const active = t.key === tab;
           return (
@@ -262,7 +299,7 @@ function Main() {
         onRequestClose={() => setEditing(undefined)}
       >
         <SafeAreaProvider>
-          <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+          <ModalSafe>
             {editing !== undefined ? (
               <BetFormScreen
                 key={editing?.id ?? 'new'}
@@ -270,7 +307,7 @@ function Main() {
                 onClose={() => setEditing(undefined)}
               />
             ) : null}
-          </SafeAreaView>
+          </ModalSafe>
         </SafeAreaProvider>
       </Modal>
 
@@ -281,6 +318,7 @@ function Main() {
         onRequestClose={closePlans}
       >
         <SafeAreaProvider>
+          <ModalSafe>
           {plansOpen ? (
             <PlansScreen
               onSignIn={() => {
@@ -289,6 +327,7 @@ function Main() {
               }}
             />
           ) : null}
+          </ModalSafe>
         </SafeAreaProvider>
       </Modal>
     </View>

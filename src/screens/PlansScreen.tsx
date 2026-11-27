@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Segmented } from '../components/ui';
 import { ScanStatus } from '../cloudScan';
 import { formatDate } from '../format';
@@ -240,12 +239,18 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
   const rookie = PLANS[0];
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+    <View style={styles.root}>
       <View style={styles.header}>
         <Text style={styles.title}>
           Bet<Text style={{ color: colors.brand }}>Keyper</Text> Plans
         </Text>
-        <Pressable onPress={closePlans} accessibilityRole="button" accessibilityLabel="Close" hitSlop={12}>
+        <Pressable
+          onPress={closePlans}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={16}
+          style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
+        >
           <Text style={styles.close}>✕</Text>
         </Pressable>
       </View>
@@ -339,7 +344,7 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
         </Text>
       </ScrollView>
       {purchase ? <Checkout purchase={purchase} onClose={() => setPurchase(null)} /> : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -354,7 +359,15 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.brand + '55',
   },
   title: { flex: 1, color: colors.text, fontSize: 22, fontWeight: '900' },
-  close: { color: colors.textDim, fontSize: 22, fontWeight: '700', padding: 4 },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  close: { color: colors.text, fontSize: 18, fontWeight: '800' },
   container: { padding: space.lg, paddingBottom: 60, gap: space.md },
   status: {
     backgroundColor: colors.surface,
