@@ -300,6 +300,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       },
     });
     if (err) return friendlyAuthError(err.message);
+    // With email confirmation on, an existing email comes back as a user with no identities.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
+      return 'ALREADY_REGISTERED';
     if (!data.session) return 'CHECK_EMAIL'; // email confirmation is required before signing in
     return null;
   }, []);
@@ -357,8 +360,7 @@ function friendlyAuthError(msg: string): string {
   if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.';
   if (/email not confirmed/i.test(msg))
     return 'Confirm your email first — tap the link in the email we sent, then sign in.';
-  if (/already registered/i.test(msg))
-    return 'That email already has an account — sign in instead.';
+  if (/already registered/i.test(msg)) return 'ALREADY_REGISTERED';
   if (/password/i.test(msg) && /6/.test(msg)) return 'Use a password with at least 6 characters.';
   return msg;
 }

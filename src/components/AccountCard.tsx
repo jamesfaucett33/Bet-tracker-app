@@ -6,7 +6,7 @@ import { clearReferral, pendingReferral, REFERRAL_BONUS } from '../referral';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
-import { Button, Card } from './ui';
+import { Button, Card, Segmented } from './ui';
 
 function ago(ms: number | null): string {
   if (!ms) return 'not yet';
@@ -127,6 +127,13 @@ export function AccountCard() {
     setBusy(false);
     const hadRef = fn === 'signUp' && !!pendingReferral();
     if (fn === 'signUp' && (err === 'CHECK_EMAIL' || !err)) clearReferral();
+    if (err === 'ALREADY_REGISTERED') {
+      // Existing account: switch to Sign in and keep the email.
+      setMode('signIn');
+      setPassword('');
+      setMsg({ text: 'That email already has an account. Enter your password to sign in.', ok: true });
+      return;
+    }
     if (err === 'CHECK_EMAIL')
       setMsg({
         text: `🎉 Account created${hadRef ? ` — your ${REFERRAL_BONUS} bonus uploads unlock when you confirm your email` : BETA_SCANS ? ` — your ${BETA_SCANS} free beta bet uploads are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
@@ -224,6 +231,17 @@ export function AccountCard() {
           </>
         ) : (
           <>
+            <Segmented<'signUp' | 'signIn'>
+              value={mode}
+              onChange={(m) => {
+                setMode(m);
+                setMsg(null);
+              }}
+              options={[
+                { value: 'signUp', label: 'Create account' },
+                { value: 'signIn', label: 'Sign in' },
+              ]}
+            />
             {pendingReferral() && mode === 'signUp' ? (
               <View style={styles.refBox}>
                 <Text style={styles.refTitle}>🎁 Your friend gave you {REFERRAL_BONUS} free bet uploads</Text>
@@ -232,9 +250,9 @@ export function AccountCard() {
                   {REFERRAL_BONUS} too.
                 </Text>
               </View>
-            ) : (
+            ) : mode === 'signUp' ? (
               <BetaSignupPitch />
-            )}
+            ) : null}
             {sync.signedOutNote ? (
               <Text style={[styles.body, { color: colors.push, fontWeight: '700' }]}>
                 {sync.signedOutNote}
