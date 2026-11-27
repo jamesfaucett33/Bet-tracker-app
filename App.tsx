@@ -14,7 +14,7 @@ import { ScanBadge } from './src/components/ScanBadge';
 import { PlansScreen } from './src/screens/PlansScreen';
 import { closePlans, usePlansOpen } from './src/scanStatus';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BetFormScreen } from './src/screens/BetFormScreen';
+import { AddMode, BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
 import { UpcomingScreen } from './src/screens/UpcomingScreen';
 import { CheerHost } from './src/cheer';
@@ -163,6 +163,7 @@ const css = (v: string) => v as unknown as number;
 const webTop = { paddingTop: css('env(safe-area-inset-top, 0px)') };
 const webBottom = { paddingBottom: css('max(env(safe-area-inset-bottom, 0px), 8px)') };
 const webFab = { bottom: css('calc(72px + env(safe-area-inset-bottom, 0px))') };
+const webMenu = { bottom: css('calc(142px + env(safe-area-inset-bottom, 0px))') };
 
 /**
  * Full-screen pop-up content kept clear of the iPhone notch / status bar and
@@ -203,6 +204,13 @@ function Main() {
   // undefined = closed, null = new bet, Bet = editing
   const [editing, setEditing] = useState<Bet | null | undefined>(undefined);
   const plansOpen = usePlansOpen();
+  const [addMenu, setAddMenu] = useState(false);
+  const [addMode, setAddMode] = useState<AddMode | undefined>(undefined);
+  const startAdd = (mode: AddMode) => {
+    setAddMenu(false);
+    setAddMode(mode);
+    setEditing(null);
+  };
 
   if (!loaded) {
     return (
@@ -212,7 +220,10 @@ function Main() {
     );
   }
 
-  const openBet = (b: Bet) => setEditing(b);
+  const openBet = (b: Bet) => {
+    setAddMode(undefined);
+    setEditing(b);
+  };
 
   return (
     <View style={styles.root}>
@@ -245,12 +256,47 @@ function Main() {
         {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
-        {tab === 'settings' && <SettingsScreen onAddBet={() => setEditing(null)} />}
+        {tab === 'settings' && <SettingsScreen onAddBet={startAdd} />}
       </View>
+
+      {addMenu ? (
+        <>
+          <Pressable
+            style={styles.menuBackdrop}
+            onPress={() => setAddMenu(false)}
+            accessibilityLabel="Close menu"
+          />
+          <View style={[styles.addMenu, WEB ? webMenu : { bottom: 142 + insets.bottom }]}>
+            <Pressable
+              onPress={() => startAdd('scan')}
+              style={({ pressed }) => [styles.addItem, pressed && styles.addItemPressed]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.addIcon}>📷</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addTitle}>Scan photo(s)</Text>
+                <Text style={styles.addSub}>Bet slip photos or screenshots</Text>
+              </View>
+            </Pressable>
+            <View style={styles.addDivider} />
+            <Pressable
+              onPress={() => startAdd('manual')}
+              style={({ pressed }) => [styles.addItem, pressed && styles.addItemPressed]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.addIcon}>✍️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addTitle}>Enter bet manually</Text>
+                <Text style={styles.addSub}>Type in any bet slip</Text>
+              </View>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
 
       {tab !== 'settings' ? (
         <Pressable
-          onPress={() => setEditing(null)}
+          onPress={() => setAddMenu((v) => !v)}
           style={({ pressed }) => [
             styles.fab,
             WEB ? webFab : { bottom: 72 + insets.bottom },
@@ -259,7 +305,7 @@ function Main() {
           accessibilityRole="button"
           accessibilityLabel="Add bet"
         >
-          <Text style={styles.fabText}>+</Text>
+          <Text style={[styles.fabText, addMenu && { transform: [{ rotate: '45deg' }] }]}>+</Text>
         </Pressable>
       ) : null}
 
@@ -269,7 +315,10 @@ function Main() {
           return (
             <Pressable
               key={t.key}
-              onPress={() => setTab(t.key)}
+              onPress={() => {
+                setAddMenu(false);
+                setTab(t.key);
+              }}
               style={styles.tab}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
@@ -304,6 +353,7 @@ function Main() {
               <BetFormScreen
                 key={editing?.id ?? 'new'}
                 bet={editing ?? undefined}
+                mode={addMode}
                 onClose={() => setEditing(undefined)}
               />
             ) : null}
@@ -408,4 +458,33 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabText: { color: colors.bg, fontSize: 34, fontWeight: '600', marginTop: -3 },
+  menuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  addMenu: {
+    position: 'absolute',
+    right: space.lg,
+    width: 270,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.brand,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  addItem: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
+  addItemPressed: { backgroundColor: colors.surfaceAlt },
+  addIcon: { fontSize: 24 },
+  addTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  addSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  addDivider: { height: 1, backgroundColor: colors.border },
 });

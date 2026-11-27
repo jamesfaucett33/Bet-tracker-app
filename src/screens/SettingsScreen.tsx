@@ -76,7 +76,7 @@ function ListEditor({
 
 type Page = 'menu' | 'account' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
 
-export function SettingsScreen({ onAddBet }: { onAddBet: () => void }) {
+export function SettingsScreen({ onAddBet }: { onAddBet: (mode: 'scan' | 'manual') => void }) {
   const sync = useSync();
   const scan = useScanStatus();
   const [page, setPage] = useState<Page>('menu');
@@ -395,8 +395,8 @@ export function SettingsScreen({ onAddBet }: { onAddBet: () => void }) {
       ) : null}
 
       <MenuGroup title="Bets">
-        <MenuRow icon="✍️" label="Enter a bet manually" sub="Type in any bet, any book" onPress={onAddBet} />
-        <MenuRow icon="📷" label="Upload a bet slip" sub="Photo or screenshot, we fill in every leg" onPress={onAddBet} />
+        <MenuRow icon="✍️" label="Enter a bet manually" sub="Type in any bet, any book" onPress={() => onAddBet('manual')} />
+        <MenuRow icon="📷" label="Upload a bet slip" sub="Photo or screenshot, we fill in every leg" onPress={() => onAddBet('scan')} />
       </MenuGroup>
 
       <MenuGroup title="Account">

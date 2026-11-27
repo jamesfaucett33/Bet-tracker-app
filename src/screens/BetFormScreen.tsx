@@ -73,10 +73,22 @@ function scannedToBet(sb: ScannedBet): Bet | null {
   };
 }
 
-export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void }) {
+export type AddMode = 'scan' | 'manual';
+
+export function BetFormScreen({
+  bet,
+  onClose,
+  mode,
+}: {
+  bet?: Bet;
+  onClose: () => void;
+  /** New bets: 'scan' opens on the photo step, 'manual' on the form. */
+  mode?: AddMode;
+}) {
   const { settings, saveBet, deleteBet, bets } = useStore();
   const lastSaved = useRef<Bet | null>(null);
   const isEdit = !!bet;
+  const [formMode, setFormMode] = useState<AddMode | undefined>(bet ? undefined : mode);
 
   const [date, setDate] = useState(bet?.date ?? todayISO());
   const [sport, setSport] = useState(bet?.sport ?? settings.sports[0] ?? 'Other');
@@ -612,20 +624,31 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         <Pressable onPress={onClose} hitSlop={16} accessibilityRole="button" style={styles.headerPill}>
           <Text style={styles.headerBtn}>Cancel</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>{isEdit ? 'Edit Bet' : 'New Bet'}</Text>
-        <Pressable
-          onPress={() => save()}
-          hitSlop={16}
-          accessibilityRole="button"
-          style={[styles.headerPill, { backgroundColor: colors.accent }]}
-        >
-          <Text style={[styles.headerBtn, { color: colors.bg, fontWeight: '900' }]}>Save</Text>
-        </Pressable>
+        <Text style={styles.headerTitle}>
+          {isEdit ? 'Edit Bet' : formMode === 'scan' ? 'Scan Bet Slip' : 'New Bet'}
+        </Text>
+        {formMode === 'scan' && !scanNote ? (
+          <View style={{ width: 70 }} />
+        ) : (
+          <Pressable
+            onPress={() => save()}
+            hitSlop={16}
+            accessibilityRole="button"
+            style={[styles.headerPill, { backgroundColor: colors.accent }]}
+          >
+            <Text style={[styles.headerBtn, { color: colors.bg, fontWeight: '900' }]}>Save</Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        {!isEdit ? (
-          <View style={styles.scanBox}>
+        {!isEdit && formMode === 'manual' ? (
+          <Pressable onPress={() => setFormMode('scan')} style={styles.modeLink} accessibilityRole="button">
+            <Text style={styles.modeLinkText}>📷 Have a photo or screenshot? Scan it instead ›</Text>
+          </Pressable>
+        ) : null}
+        {!isEdit && formMode !== 'manual' ? (
+          <View style={[styles.scanBox, formMode === 'scan' && styles.scanBoxBig]}>
             {scanning ? (
               <View style={styles.scanning}>
                 <ActivityIndicator color={colors.accent} />
@@ -636,7 +659,9 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
               </View>
             ) : (
               <>
-                <Text style={styles.scanTitle}>📷 Scan a bet slip</Text>
+                <Text style={styles.scanTitle}>
+                  {formMode === 'scan' ? '📷 Scan photo(s)' : '📷 Scan a bet slip'}
+                </Text>
                 <Text style={styles.scanText}>
                   Snap a paper ticket, or choose one or more photos and screenshots at once.
                 </Text>
@@ -690,6 +715,16 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
           </View>
         ) : null}
 
+        {formMode === 'scan' && !scanNote ? (
+          <Pressable
+            onPress={() => setFormMode('manual')}
+            style={styles.modeLink}
+            accessibilityRole="button"
+          >
+            <Text style={styles.modeLinkText}>✍️ Rather type it in? Enter the bet manually ›</Text>
+          </Pressable>
+        ) : (
+          <>
         <Text style={styles.label}>Sport</Text>
         <ChipRow options={sportOptions} value={sport} onChange={setSport} />
 
@@ -926,6 +961,8 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
             style={{ marginTop: space.md }}
           />
         ) : null}
+          </>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -962,6 +999,17 @@ const styles = StyleSheet.create({
     marginBottom: space.lg,
   },
   scanTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  scanBoxBig: { paddingVertical: space.xl },
+  modeLink: {
+    paddingVertical: 12,
+    paddingHorizontal: space.md,
+    marginBottom: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modeLinkText: { color: colors.accent, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   scanText: { color: colors.textDim, fontSize: 13, marginTop: 4 },
   scanBtns: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
   capBox: {
