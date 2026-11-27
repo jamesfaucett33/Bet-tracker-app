@@ -8,10 +8,15 @@
  * Colors only: no team logos (those are trademarked).
  */
 
+export type League = 'NFL' | 'NBA' | 'MLB' | 'NHL';
+export const LEAGUES: League[] = ['NFL', 'NBA', 'MLB', 'NHL'];
+
 export interface TeamColors {
-  id: string; // "SEA"
+  /** Saved choice: "SEA" for NFL (kept from before), "NBA:BOS" for other leagues. */
+  id: string;
+  abbr: string; // "SEA"
   name: string; // "Seattle Seahawks"
-  league: 'NFL';
+  league: League;
   primary: string; // hex without '#'
   alternate: string;
 }
@@ -49,7 +54,128 @@ export const NFL_TEAMS: TeamColors[] = [
   ['TB', 'Tampa Bay Buccaneers', 'bd1c36', '3e3a35'],
   ['TEN', 'Tennessee Titans', '4495d2', '001532'],
   ['WSH', 'Washington Commanders', '5a1414', 'ffb612'],
-].map(([id, name, primary, alternate]) => ({ id, name, league: 'NFL' as const, primary, alternate }));
+].map(([id, name, primary, alternate]) => ({ id, abbr: id, name, league: 'NFL' as const, primary, alternate }));
+
+function teamList(league: League, rows: string[][]): TeamColors[] {
+  return rows.map(([abbr, name, primary, alternate]) => ({
+    id: `${league}:${abbr}`,
+    abbr,
+    name,
+    league,
+    primary,
+    alternate,
+  }));
+}
+
+// Official colors from ESPN.
+export const NBA_TEAMS: TeamColors[] = teamList('NBA', [
+  ['ATL', 'Atlanta Hawks', 'c8102e', 'fdb927'],
+  ['BOS', 'Boston Celtics', '008348', 'ffffff'],
+  ['BKN', 'Brooklyn Nets', '000000', 'ffffff'],
+  ['CHA', 'Charlotte Hornets', '008ca8', '1d1060'],
+  ['CHI', 'Chicago Bulls', 'ce1141', '000000'],
+  ['CLE', 'Cleveland Cavaliers', '860038', 'bc945c'],
+  ['DAL', 'Dallas Mavericks', '0064b1', 'bbc4ca'],
+  ['DEN', 'Denver Nuggets', '0e2240', 'fec524'],
+  ['DET', 'Detroit Pistons', '1d428a', 'c8102e'],
+  ['GS', 'Golden State Warriors', 'fdb927', '1d428a'],
+  ['HOU', 'Houston Rockets', 'ce0e2d', '000000'],
+  ['IND', 'Indiana Pacers', '0c2340', 'ffd520'],
+  ['LAC', 'LA Clippers', '12173f', 'c8102e'],
+  ['LAL', 'Los Angeles Lakers', '552583', 'fdb927'],
+  ['MEM', 'Memphis Grizzlies', '5d76a9', '12173f'],
+  ['MIA', 'Miami Heat', '98002e', '000000'],
+  ['MIL', 'Milwaukee Bucks', '00471b', 'eee1c6'],
+  ['MIN', 'Minnesota Timberwolves', '266092', '79bc43'],
+  ['NO', 'New Orleans Pelicans', '0a2240', 'b4975a'],
+  ['NY', 'New York Knicks', '1d428a', 'f58426'],
+  ['OKC', 'Oklahoma City Thunder', '007ac1', 'ef3b24'],
+  ['ORL', 'Orlando Magic', '0150b5', '9ca0a3'],
+  ['PHI', 'Philadelphia 76ers', '1d428a', 'e01234'],
+  ['PHX', 'Phoenix Suns', '29127a', 'e56020'],
+  ['POR', 'Portland Trail Blazers', 'e03a3e', '000000'],
+  ['SAC', 'Sacramento Kings', '5a2d81', '6a7a82'],
+  ['SA', 'San Antonio Spurs', '000000', 'c4ced4'],
+  ['TOR', 'Toronto Raptors', 'd91244', '000000'],
+  ['UTAH', 'Utah Jazz', '4e008e', '79a3dc'],
+  ['WSH', 'Washington Wizards', 'e31837', '002b5c'],
+]);
+
+export const MLB_TEAMS: TeamColors[] = teamList('MLB', [
+  ['ARI', 'Arizona Diamondbacks', 'aa182c', '000000'],
+  ['ATH', 'Athletics', '003831', 'efb21e'],
+  ['ATL', 'Atlanta Braves', '0c2340', 'ba0c2f'],
+  ['BAL', 'Baltimore Orioles', 'df4601', '000000'],
+  ['BOS', 'Boston Red Sox', '0d2b56', 'bd3039'],
+  ['CHC', 'Chicago Cubs', '0e3386', 'cc3433'],
+  ['CHW', 'Chicago White Sox', '000000', 'c4ced4'],
+  ['CIN', 'Cincinnati Reds', 'c6011f', 'ffffff'],
+  ['CLE', 'Cleveland Guardians', '002b5c', 'e31937'],
+  ['COL', 'Colorado Rockies', '33006f', '000000'],
+  ['DET', 'Detroit Tigers', '0a2240', 'ff4713'],
+  ['HOU', 'Houston Astros', '002d62', 'eb6e1f'],
+  ['KC', 'Kansas City Royals', '004687', '7ab2dd'],
+  ['LAA', 'Los Angeles Angels', 'ba0021', 'c4ced4'],
+  ['LAD', 'Los Angeles Dodgers', '005a9c', 'ffffff'],
+  ['MIA', 'Miami Marlins', '00a3e0', '000000'],
+  ['MIL', 'Milwaukee Brewers', '13294b', 'ffc72c'],
+  ['MIN', 'Minnesota Twins', '031f40', 'e20e32'],
+  ['NYM', 'New York Mets', '002d72', 'ff5910'],
+  ['NYY', 'New York Yankees', '132448', 'c4ced4'],
+  ['PHI', 'Philadelphia Phillies', 'e81828', '003278'],
+  ['PIT', 'Pittsburgh Pirates', '000000', 'fdb827'],
+  ['SD', 'San Diego Padres', '2f241d', 'ffc425'],
+  ['SF', 'San Francisco Giants', '000000', 'fd5a1e'],
+  ['SEA', 'Seattle Mariners', '005c5c', '0c2c56'],
+  ['STL', 'St. Louis Cardinals', 'be0a14', '001541'],
+  ['TB', 'Tampa Bay Rays', '092c5c', '8fbce6'],
+  ['TEX', 'Texas Rangers', '003278', 'c0111f'],
+  ['TOR', 'Toronto Blue Jays', '134a8e', '6cace5'],
+  ['WSH', 'Washington Nationals', 'ab0003', '11225b'],
+]);
+
+export const NHL_TEAMS: TeamColors[] = teamList('NHL', [
+  ['ANA', 'Anaheim Ducks', 'fc4c02', '000000'],
+  ['BOS', 'Boston Bruins', '231f20', 'fdb71a'],
+  ['BUF', 'Buffalo Sabres', '00468b', 'fdb71a'],
+  ['CGY', 'Calgary Flames', 'dd1a32', '000000'],
+  ['CAR', 'Carolina Hurricanes', 'e30426', '000000'],
+  ['CHI', 'Chicago Blackhawks', 'e31937', '000000'],
+  ['COL', 'Colorado Avalanche', '860038', '005ea3'],
+  ['CBJ', 'Columbus Blue Jackets', '002d62', 'e31937'],
+  ['DAL', 'Dallas Stars', '20864c', '000000'],
+  ['DET', 'Detroit Red Wings', 'e30526', 'ffffff'],
+  ['EDM', 'Edmonton Oilers', '00205b', 'ff4c00'],
+  ['FLA', 'Florida Panthers', 'e51937', '002d62'],
+  ['LA', 'Los Angeles Kings', '121212', 'a2aaad'],
+  ['MIN', 'Minnesota Wild', '124734', 'ae122a'],
+  ['MTL', 'Montreal Canadiens', 'c41230', '013a81'],
+  ['NSH', 'Nashville Predators', 'fdba31', '002d62'],
+  ['NJ', 'New Jersey Devils', 'e30b2b', '000000'],
+  ['NYI', 'New York Islanders', '00529b', 'f47d31'],
+  ['NYR', 'New York Rangers', '0056ae', 'e51937'],
+  ['OTT', 'Ottawa Senators', 'dd1a32', 'b79257'],
+  ['PHI', 'Philadelphia Flyers', 'fe5823', '000000'],
+  ['PIT', 'Pittsburgh Penguins', '000000', 'fdb71a'],
+  ['SJ', 'San Jose Sharks', '00788a', '070707'],
+  ['SEA', 'Seattle Kraken', '000d33', 'a3dce4'],
+  ['STL', 'St. Louis Blues', '0070b9', 'fdb71a'],
+  ['TB', 'Tampa Bay Lightning', '003e7e', 'ffffff'],
+  ['TOR', 'Toronto Maple Leafs', '003e7e', 'ffffff'],
+  ['UTAH', 'Utah Mammoth', '000000', '7ab2e1'],
+  ['VAN', 'Vancouver Canucks', '003e7e', '008752'],
+  ['VGK', 'Vegas Golden Knights', '344043', 'b4975a'],
+  ['WSH', 'Washington Capitals', 'd71830', '0b1f41'],
+  ['WPG', 'Winnipeg Jets', '002d62', 'c41230'],
+]);
+
+export const TEAMS_BY_LEAGUE: Record<League, TeamColors[]> = {
+  NFL: NFL_TEAMS,
+  NBA: NBA_TEAMS,
+  MLB: MLB_TEAMS,
+  NHL: NHL_TEAMS,
+};
+const ALL_TEAMS = LEAGUES.flatMap((l) => TEAMS_BY_LEAGUE[l]);
 
 // ---------- color math ----------
 
@@ -173,5 +299,5 @@ export function teamPalette(t: TeamColors) {
 }
 
 export function findTeam(id: string | null | undefined): TeamColors | undefined {
-  return id ? NFL_TEAMS.find((t) => t.id === id) : undefined;
+  return id ? ALL_TEAMS.find((t) => t.id === id) : undefined;
 }

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { NFL_TEAMS, findTeam, teamPalette } from '../teamThemes';
+import { Segmented } from './ui';
+import { BETA_SCANS } from '../plans';
+import { openPlans, useScanStatus } from '../scanStatus';
+import { findTeam, League, LEAGUES, TEAMS_BY_LEAGUE, teamPalette } from '../teamThemes';
 import { activeTeamId, colors, radius, setTeamTheme, space } from '../theme';
 
 const DEFAULT = { id: null, label: 'BetKeyper', bg: '#061733', accent: '#7BEA2B', second: '#3CC4FF' };
@@ -12,6 +15,7 @@ function Swatch({
   second,
   selected,
   onPress,
+  locked,
 }: {
   label: string;
   bg: string;
@@ -19,6 +23,7 @@ function Swatch({
   second: string;
   selected: boolean;
   onPress: () => void;
+  locked?: boolean;
 }) {
   return (
     <Pressable
@@ -32,16 +37,25 @@ function Swatch({
         <View style={[styles.bar, { backgroundColor: second }]} />
       </View>
       <Text style={[styles.swatchLabel, { color: accent }]} numberOfLines={1}>
+        {locked ? '🔒 ' : ''}
         {label}
       </Text>
     </Pressable>
   );
 }
 
-/** Settings card: pick a favorite NFL team and the app takes on its colors. */
+/**
+ * Pick a favorite team (NFL, NBA, MLB or NHL) and the app takes on its
+ * colors. NFL is free; other leagues come with Pro and up (free in the beta).
+ */
 export function TeamPicker() {
   const [open, setOpen] = useState(false);
   const current = findTeam(activeTeamId);
+  const [league, setLeague] = useState<League>(current?.league ?? 'NFL');
+  const scan = useScanStatus();
+  const allLeagues =
+    BETA_SCANS > 0 || ['pro', 'allpro', 'mvp', 'staff'].includes(scan?.plan ?? '');
+  const locked = league !== 'NFL' && !allLeagues;
 
   return (
     <View style={{ gap: space.md }}>
@@ -49,37 +63,54 @@ export function TeamPicker() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headLabel}>{current ? current.name : 'BetKeyper (default)'}</Text>
           <Text style={styles.headHint}>
-            Pick your favorite NFL team and the app takes on its colors.
+            Pick your favorite team (NFL, NBA, MLB or NHL) and the app takes on its colors.
           </Text>
         </View>
         <Text style={styles.change}>{open ? 'Close' : 'Change'}</Text>
       </Pressable>
 
       {open && (
-        <View style={styles.grid}>
-          <Swatch
-            label={DEFAULT.label}
-            bg={DEFAULT.bg}
-            accent={DEFAULT.accent}
-            second={DEFAULT.second}
-            selected={!current}
-            onPress={() => current && setTeamTheme(null)}
+        <>
+          <Segmented<League>
+            value={league}
+            onChange={setLeague}
+            options={LEAGUES.map((l) => ({ value: l, label: l }))}
           />
-          {NFL_TEAMS.map((t) => {
-            const p = teamPalette(t);
-            return (
+          {locked ? (
+            <Text style={styles.lockNote} onPress={openPlans}>
+              🔒 {league} colors come with Pro. See plans ›
+            </Text>
+          ) : null}
+          <View style={styles.grid}>
+            {league === 'NFL' ? (
               <Swatch
-                key={t.id}
-                label={t.id}
-                bg={p.bg}
-                accent={p.accent}
-                second={p.sky}
-                selected={current?.id === t.id}
-                onPress={() => current?.id !== t.id && setTeamTheme(t.id)}
+                label={DEFAULT.label}
+                bg={DEFAULT.bg}
+                accent={DEFAULT.accent}
+                second={DEFAULT.second}
+                selected={!current}
+                onPress={() => current && setTeamTheme(null)}
               />
-            );
-          })}
-        </View>
+            ) : null}
+            {TEAMS_BY_LEAGUE[league].map((t) => {
+              const p = teamPalette(t);
+              return (
+                <Swatch
+                  key={t.id}
+                  label={t.abbr}
+                  bg={p.bg}
+                  accent={p.accent}
+                  second={p.sky}
+                  selected={current?.id === t.id}
+                  locked={locked}
+                  onPress={() =>
+                    locked ? openPlans() : current?.id !== t.id && setTeamTheme(t.id)
+                  }
+                />
+              );
+            })}
+          </View>
+        </>
       )}
     </View>
   );
@@ -91,6 +122,7 @@ const styles = StyleSheet.create({
   headHint: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
   change: { color: colors.accent, fontSize: 14, fontWeight: '700', paddingVertical: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  lockNote: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   swatch: {
     width: 72,
     height: 64,

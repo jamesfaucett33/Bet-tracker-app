@@ -84,7 +84,7 @@ export const PLANS: Plan[] = [
     badge: 'Most popular',
     perks: [
       { text: 'Everything in Starter' },
-      { text: 'Team colors for every league', soon: true },
+      { text: 'Team colors for NBA, MLB & NHL' },
       { text: 'Shareable win & bad-beat cards', soon: true },
       { text: 'Vegas trip view', soon: true },
     ],
