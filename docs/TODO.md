@@ -38,7 +38,10 @@ Things to add once the core app is fine-tuned.
 - [ ] **Free AI scanning** for signed-in users: Anthropic API key, saved as a Supabase secret, deploy the scan function.
 - [ ] Save the chosen team to the account, so it follows you to other devices.
 
-## Marketing
+## Marketing (owner: the marketing-manager agent, plan in docs/marketing/PLAN.md)
+- [ ] **Facebook / Instagram and TikTok ads**: creative pack + copy sets before launch; small test campaigns at launch.
+- [ ] **Launch ads** on Reddit, Facebook / Instagram, TikTok and Apple Search Ads (and more once those work).
+- [ ] Check each platform's gambling-related ad rules and approvals before spending.
 - [ ] **BetKeyper landing page** on betkeyper.com.
 
 ## Cleanup
