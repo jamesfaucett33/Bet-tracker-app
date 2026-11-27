@@ -77,7 +77,7 @@ export function DashboardScreen({
         <Pressable onPress={onOpenSettings} style={styles.backup} accessibilityRole="button">
           <Text style={styles.backupTitle}>☁️ Back up your bets</Text>
           <Text style={styles.backupText}>
-            Bets are only on this browser right now. Sign in (Settings) to save them to your account
+            Bets are only on this browser right now. Sign in (Profile) to save them to your account
             and see them on every device.
           </Text>
         </Pressable>

@@ -97,8 +97,8 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
       <View style={styles.status}>
         <Text style={styles.statusTitle}>
           {BETA_SCANS
-            ? `🎉 Beta bonus: ${BETA_SCANS} free slip scans a month`
-            : `🎁 ${FIRST_MONTH_SCANS} free slip scans your first month`}
+            ? `🎉 Beta bonus: ${BETA_SCANS} free bet uploads a month`
+            : `🎁 ${FIRST_MONTH_SCANS} free bet uploads your first month`}
         </Text>
         <Text style={styles.statusText}>
           Create a free account: snap a bet slip and we fill in every leg for you. Your bets are backed up too.
@@ -126,11 +126,11 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
         <Text style={styles.planPill}>{name}</Text>
       </View>
       {staff ? (
-        <Text style={styles.statusTitle}>Unlimited slip scans</Text>
+        <Text style={styles.statusTitle}>Unlimited bet uploads</Text>
       ) : (
         <>
           <Text style={[styles.statusTitle, low && { color: colors.toPlay }]}>
-            {monthlyLeft} of {status.limit} slip scans left
+            {monthlyLeft} of {status.limit} bet uploads left
           </Text>
           <View style={styles.bar}>
             <View
@@ -143,7 +143,7 @@ function StatusCard({ status, onSignIn }: { status: ScanStatus | null; onSignIn:
           <Text style={styles.statusText}>
             {BETA_SCANS ? '🎉 Beta tester bonus · ' : status.firstMonth ? 'First-month bonus · ' : ''}
             Resets {formatDate(new Date(status.resetsAt).toISOString().slice(0, 10))}
-            {status.packLeft ? ` · +${status.packLeft} scan-pack scans` : ''}
+            {status.packLeft ? ` · +${status.packLeft} from upload packs` : ''}
           </Text>
         </>
       )}
@@ -198,8 +198,8 @@ function PlanCard({
       <View style={styles.scanRow}>
         <Text style={styles.scanBig}>{plan.scans.toLocaleString()}</Text>
         <Text style={styles.scanText}>
-          slip scans a month{'\n'}
-          <Text style={styles.scanSub}>about {perScan < 0.95 ? perScan.toFixed(1) : Math.round(perScan)}¢ a scan</Text>
+          bet uploads a month{'\n'}
+          <Text style={styles.scanSub}>about {perScan < 0.95 ? perScan.toFixed(1) : Math.round(perScan)}¢ an upload</Text>
         </Text>
       </View>
       {plan.perks.map((p) => (
@@ -219,7 +219,7 @@ function PlanCard({
             billing,
             title: `${plan.name} (${billing})`,
             price: `${usd(price)}${yearly ? '/yr' : '/mo'}`,
-            terms: `${plan.scans.toLocaleString()} slip scans a month. ${
+            terms: `${plan.scans.toLocaleString()} bet uploads a month. ${
               yearly ? 'Billed yearly' : 'Billed monthly'
             }, renews automatically. Cancel anytime in your App Store settings.`,
           })
@@ -260,8 +260,8 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
 
         <Text style={styles.pitch}>
           <Text style={{ color: colors.text, fontWeight: '800' }}>Unlimited bet tracking on every plan.</Text>{' '}
-          A slip scan is a photo of a bet slip that we read for you — every leg filled in. Plans add
-          more slip scans.
+          Upload a photo or screenshot of your bet slip and we fill in every leg. Plans give you more
+          bet uploads each month.
         </Text>
 
         <Segmented<Billing>
@@ -287,9 +287,9 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
         {/* Scan pack */}
         <View style={styles.pack}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.packTitle}>⚡ Slip scan pack</Text>
+            <Text style={styles.packTitle}>⚡ Upload pack</Text>
             <Text style={styles.packText}>
-              {SCAN_PACK.scans} extra slip scans · one-time · never expire. Great for a big weekend.
+              {SCAN_PACK.scans} extra bet uploads · one-time · never expire. Great for a big weekend.
             </Text>
           </View>
           <Button
@@ -298,9 +298,9 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
             onPress={() =>
               setPurchase({
                 key: 'pack',
-                title: 'Slip scan pack',
+                title: 'Upload pack',
                 price: `${usd(SCAN_PACK.price)} one-time`,
-                terms: `${SCAN_PACK.scans} extra slip scans that never expire. Charged once.`,
+                terms: `${SCAN_PACK.scans} extra bet uploads that never expire. Charged once.`,
               })
             }
             style={{ paddingHorizontal: space.lg }}
@@ -319,7 +319,7 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
           {BETA_SCANS ? (
             <Text style={styles.perk}>
               <Text style={{ color: colors.brand }}>🎉 </Text>
-              <Text style={{ fontWeight: '800' }}>Beta testers: {BETA_SCANS} slip scans a month</Text>
+              <Text style={{ fontWeight: '800' }}>Beta testers: {BETA_SCANS} bet uploads a month</Text>
             </Text>
           ) : null}
           {rookie.perks.map((p) => (
@@ -331,9 +331,9 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
         </View>
 
         <Text style={styles.fine}>
-          Slip scans reset every month and don't roll over; scan-pack scans never expire. Entering
+          Bet uploads reset every month and don't roll over; upload-pack uploads never expire. Entering
           bets by hand is always unlimited, and clear screenshots your phone reads on its own don't
-          use a slip scan. Subscriptions renew automatically and can
+          use an upload. Subscriptions renew automatically and can
           be cancelled anytime in your App Store settings. BetKeyper tracks bets you've placed
           elsewhere; it does not take wagers. 21+.
         </Text>

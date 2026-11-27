@@ -21,10 +21,10 @@ export function ScanBadge() {
     top = 'Own AI key';
     cta = 'Plans';
   } else if (!sync.email) {
-    top = `${Math.max(BETA_SCANS, FIRST_MONTH_SCANS)} free scans`;
-    cta = 'Get them';
+    top = 'Free uploads';
+    cta = `Get ${Math.max(BETA_SCANS, FIRST_MONTH_SCANS)}`;
   } else if (!status) {
-    top = '… scans';
+    top = '… uploads';
     cta = 'Plans';
   } else if (status.plan === 'staff') {
     top = 'Unlimited';
@@ -32,7 +32,7 @@ export function ScanBadge() {
   } else {
     const n = status.left;
     low = n <= Math.max(2, status.limit * 0.2);
-    top = `${n} scan${n === 1 ? '' : 's'} left`;
+    top = `${n} upload${n === 1 ? '' : 's'} left`;
     cta = status.plan === 'mvp' ? 'MVP' : status.plan === 'rookie' ? 'Upgrade' : `${findPlan(status.plan).name} ↑`;
   }
 

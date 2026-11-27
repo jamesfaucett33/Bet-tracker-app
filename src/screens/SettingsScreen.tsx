@@ -375,7 +375,7 @@ export function SettingsScreen({ onAddBet }: { onAddBet: () => void }) {
             {sync.email ? sync.name || 'Your account' : 'Create your free account'}
           </Text>
           <Text style={styles.profileSub} numberOfLines={1}>
-            {sync.email ?? 'Back up your bets and get free slip scans'}
+            {sync.email ?? 'Back up your bets and get free bet uploads'}
           </Text>
         </View>
         <Text style={styles.chev}>›</Text>
@@ -386,8 +386,8 @@ export function SettingsScreen({ onAddBet }: { onAddBet: () => void }) {
           <Text style={styles.planText}>
             {scan
               ? scan.plan === 'staff'
-                ? 'Unlimited slip scans'
-                : `${scan.left} slip scan${scan.left === 1 ? '' : 's'} left`
+                ? 'Unlimited bet uploads'
+                : `${scan.left} bet upload${scan.left === 1 ? '' : 's'} left`
               : 'Loading…'}
           </Text>
           <Text style={styles.planCta}>Plans ›</Text>
@@ -396,7 +396,7 @@ export function SettingsScreen({ onAddBet }: { onAddBet: () => void }) {
 
       <MenuGroup title="Bets">
         <MenuRow icon="✍️" label="Enter a bet manually" sub="Type in any bet, any book" onPress={onAddBet} />
-        <MenuRow icon="📷" label="Scan a bet slip" sub="Snap a photo, we fill in every leg" onPress={onAddBet} />
+        <MenuRow icon="📷" label="Upload a bet slip" sub="Photo or screenshot, we fill in every leg" onPress={onAddBet} />
       </MenuGroup>
 
       <MenuGroup title="Account">
@@ -405,7 +405,7 @@ export function SettingsScreen({ onAddBet }: { onAddBet: () => void }) {
           label={sync.email ? 'Account & password' : 'Sign in or create account'}
           onPress={() => setPage('account')}
         />
-        <MenuRow icon="⚡" label="Plans & slip scans" onPress={openPlans} />
+        <MenuRow icon="⚡" label="Plans & bet uploads" onPress={openPlans} />
       </MenuGroup>
 
       <MenuGroup title="Personalize">

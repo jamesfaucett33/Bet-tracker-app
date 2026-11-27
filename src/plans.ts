@@ -55,7 +55,7 @@ export const PLANS: Plan[] = [
     monthly: 0,
     yearly: 0,
     perks: [
-      { text: `${FIRST_MONTH_SCANS} slip scans your first month, then 5 a month` },
+      { text: `${FIRST_MONTH_SCANS} bet uploads your first month, then 5 a month` },
       ...BASE_PERKS,
       { text: 'NFL team colors' },
     ],
@@ -72,7 +72,7 @@ export const PLANS: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    tagline: 'Scan every ticket, every week',
+    tagline: 'Upload every ticket, every week',
     scans: 100,
     monthly: 2.99,
     yearly: 24.99,
@@ -103,7 +103,7 @@ export const PLANS: Plan[] = [
     scans: 750,
     monthly: 9.99,
     yearly: 89.99,
-    badge: 'Most scans',
+    badge: 'Most uploads',
     perks: [
       { text: 'Everything in All-Pro' },
       { text: 'Priority support' },

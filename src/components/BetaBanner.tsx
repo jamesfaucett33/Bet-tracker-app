@@ -35,8 +35,8 @@ export function BetaWelcome() {
       <Text style={styles.emoji}>🎉</Text>
       <Text style={styles.title}>Congratulations, beta tester!</Text>
       <Text style={styles.text}>
-        You've got <Text style={styles.big}>{BETA_SCANS} free slip scans</Text> a month while we're in
-        beta. Snap your tickets and we'll fill in every leg.
+        You've got <Text style={styles.big}>{BETA_SCANS} free bet uploads</Text> a month while we're in
+        beta. Snap or screenshot your tickets and we'll fill in every leg.
       </Text>
       <View style={styles.row}>
         <Pressable onPress={dismiss} style={[styles.btn, styles.btnMain]} accessibilityRole="button">
@@ -65,7 +65,7 @@ export function BetaSignupPitch() {
       <Text style={styles.title}>🎉 Beta tester bonus</Text>
       <Text style={styles.text}>
         Create your free account now and get{' '}
-        <Text style={styles.big}>{BETA_SCANS} free slip scans</Text> a month for the whole beta.
+        <Text style={styles.big}>{BETA_SCANS} free bet uploads</Text> a month for the whole beta.
       </Text>
     </View>
   );

@@ -106,7 +106,7 @@ export function AccountCard() {
     setBusy(false);
     if (err === 'CHECK_EMAIL')
       setMsg({
-        text: `🎉 Account created${BETA_SCANS ? ` — your ${BETA_SCANS} free beta slip scans are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
+        text: `🎉 Account created${BETA_SCANS ? ` — your ${BETA_SCANS} free beta bet uploads are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
         ok: true,
       });
     else if (err) setMsg({ text: err, ok: false });
@@ -133,7 +133,7 @@ export function AccountCard() {
             {scan ? (
               <Pressable onPress={openPlans} accessibilityRole="button" style={styles.planRow}>
                 <Text style={styles.body}>
-                  ⚡ {scan.plan === 'staff' ? 'Staff · unlimited slip scans' : `${findPlan(scan.plan).name} plan · ${scan.left} slip scan${scan.left === 1 ? '' : 's'} left`}
+                  ⚡ {scan.plan === 'staff' ? 'Staff · unlimited bet uploads' : `${findPlan(scan.plan).name} plan · ${scan.left} bet upload${scan.left === 1 ? '' : 's'} left`}
                 </Text>
                 <Text style={styles.planLink}>See plans ›</Text>
               </Pressable>
