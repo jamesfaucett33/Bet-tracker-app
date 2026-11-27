@@ -1,6 +1,6 @@
 import { findTeam, teamPalette } from './teamThemes';
 
-// BetKeeper palette: bright and fun. Deep navy with neon lime green and sky blue.
+// BetKeyper palette: bright and fun. Deep navy with neon lime green and sky blue.
 export const colors = {
   bg: '#061733', // deep navy
   surface: '#0D2650', // card blue
@@ -23,7 +23,7 @@ export const colors = {
 };
 
 // ---------- team colors ----------
-// The palette is chosen once at startup: the BetKeeper default, or the team
+// The palette is chosen once at startup: the BetKeyper default, or the team
 // picked in Settings. Changing it saves the choice and reloads the app.
 
 const TEAM_KEY = 'betkeeper:team';
@@ -42,7 +42,7 @@ export const activeTeamId: string | null = (() => {
   return team?.id ?? null;
 })();
 
-/** Switch to a team's colors (or null for the BetKeeper default) and reload. */
+/** Switch to a team's colors (or null for the BetKeyper default) and reload. */
 export function setTeamTheme(id: string | null) {
   try {
     if (id) globalThis.localStorage?.setItem(TEAM_KEY, id);

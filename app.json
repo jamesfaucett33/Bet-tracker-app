@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BetKeeper",
+    "name": "BetKeyper",
     "slug": "bet-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,8 +30,8 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "BetKeeper",
-      "shortName": "BetKeeper",
+      "name": "BetKeyper",
+      "shortName": "BetKeyper",
       "themeColor": "#061733",
       "backgroundColor": "#061733"
     },

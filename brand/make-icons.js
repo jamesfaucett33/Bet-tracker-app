@@ -1,4 +1,4 @@
-// Render the BetKeeper badge to every icon file the app uses.
+// Render the BetKeyper badge to every icon file the app uses.
 const { chromium } = require('playwright');
 const path = require('path');
 

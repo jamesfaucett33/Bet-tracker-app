@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { NFL_TEAMS, findTeam, teamPalette } from '../teamThemes';
 import { activeTeamId, colors, radius, setTeamTheme, space } from '../theme';
 
-const DEFAULT = { id: null, label: 'BetKeeper', bg: '#061733', accent: '#7BEA2B', second: '#3CC4FF' };
+const DEFAULT = { id: null, label: 'BetKeyper', bg: '#061733', accent: '#7BEA2B', second: '#3CC4FF' };
 
 function Swatch({
   label,
@@ -47,7 +47,7 @@ export function TeamPicker() {
     <View style={{ gap: space.md }}>
       <Pressable onPress={() => setOpen((o) => !o)} style={styles.headRow} accessibilityRole="button">
         <View style={{ flex: 1 }}>
-          <Text style={styles.headLabel}>{current ? current.name : 'BetKeeper (default)'}</Text>
+          <Text style={styles.headLabel}>{current ? current.name : 'BetKeyper (default)'}</Text>
           <Text style={styles.headHint}>
             Pick your favorite NFL team and the app takes on its colors.
           </Text>

@@ -1,6 +1,6 @@
 {
-  "name": "BetKeeper",
-  "short_name": "BetKeeper",
+  "name": "BetKeyper",
+  "short_name": "BetKeyper",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

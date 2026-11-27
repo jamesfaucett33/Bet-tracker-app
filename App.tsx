@@ -35,7 +35,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 ];
 
 const TITLES: Record<Tab, string> = {
-  dashboard: 'BetKeeper',
+  dashboard: 'BetKeyper',
   upcoming: 'Upcoming',
   live: 'Live',
   bets: 'Past Tickets',
@@ -189,7 +189,7 @@ function Main() {
             <Image source={require('./assets/badge.png')} style={styles.badge} />
             <Text style={styles.title}>
               <Text style={{ color: colors.text }}>Bet</Text>
-              <Text style={{ color: colors.brand }}>Keeper</Text>
+              <Text style={{ color: colors.brand }}>Keyper</Text>
             </Text>
           </View>
         ) : (

@@ -1,13 +1,13 @@
-# Submitting BetKeeper to the Apple App Store
+# Submitting BetKeyper to the Apple App Store
 
 **Who this is for:** a Claude Code session running on a Mac, helping submit this app to the App Store, together with the person at the Mac. Read the whole file first, then work through it **in order**. Stop and ask the person whenever a step needs their Apple ID, a password, a payment, a 2-factor code, or a decision. Never type passwords or codes yourself, and never commit secrets to the repository.
 
-**What BetKeeper is:** a personal sports-bet *tracker* (no real-money betting). Users sign up with email and password and scan or enter their tickets from any sportsbook or casino. The app tracks live games from ESPN's public feeds and keeps a win-loss record. It's built with **Expo (React Native) SDK 58**, uses **Supabase** for accounts and sync, and uses an optional AI scanner.
+**What BetKeyper is:** a personal sports-bet *tracker* (no real-money betting). Users sign up with email and password and scan or enter their tickets from any sportsbook or casino. The app tracks live games from ESPN's public feeds and keeps a win-loss record. It's built with **Expo (React Native) SDK 58**, uses **Supabase** for accounts and sync, and uses an optional AI scanner.
 
 - Repository: `jamesfaucett33/Bet-tracker-app` (branch `main`)
 - Web version (already live): https://jamesfaucett33.github.io/Bet-tracker-app/
 - Bundle ID already set in `app.json`: `com.jamesfaucett.bettracker` (can't be changed after the first upload, so keep it)
-- App name: **BetKeeper**. App Store title: **BetKeeper: Sports Bet Tracker**
+- App name: **BetKeyper**. App Store title: **BetKeyper: Sports Bet Tracker**
 
 ---
 
@@ -20,8 +20,8 @@ Check each item. Items marked **(code)** are changes to the app. If they're not 
   ```json
   "plugins": [
     ["expo-image-picker", {
-      "photosPermission": "BetKeeper reads your bet slip photos so it can log your tickets.",
-      "cameraPermission": "BetKeeper uses the camera to scan your bet slips."
+      "photosPermission": "BetKeyper reads your bet slip photos so it can log your tickets.",
+      "cameraPermission": "BetKeyper uses the camera to scan your bet slips."
     }]
   ]
   ```
@@ -75,7 +75,7 @@ Then upload it to App Store Connect:
 ```bash
 eas submit --platform ios --latest
 ```
-- First time: EAS creates the app record in App Store Connect if it doesn't exist (name **BetKeeper**, bundle ID `com.jamesfaucett.bettracker`, primary language English (U.S.)). If the name "BetKeeper" is taken on the App Store, stop and ask James for a fallback (e.g. "BetKeeper – Bet Tracker").
+- First time: EAS creates the app record in App Store Connect if it doesn't exist (name **BetKeyper**, bundle ID `com.jamesfaucett.bettracker`, primary language English (U.S.)). If the name "BetKeyper" is taken on the App Store, stop and ask James for a fallback (e.g. "BetKeyper – Bet Tracker").
 
 ## Part 5: TestFlight first
 
@@ -88,7 +88,7 @@ In App Store Connect → the app → **TestFlight**:
 
 App Store Connect → the app → **App Store** tab. Ready-to-paste text:
 
-- **Name** (30): `BetKeeper: Sports Bet Tracker`
+- **Name** (30): `BetKeyper: Sports Bet Tracker`
 - **Subtitle** (30): `Scan tickets from every book`
 - **Category:** Primary **Sports**; Secondary **Utilities** or **Lifestyle**
 - **Keywords** (100, commas, no spaces, don't repeat words from the name):
@@ -98,7 +98,7 @@ App Store Connect → the app → **App Store** tab. Ready-to-paste text:
   ```
   Bet anywhere. Keep it here.
 
-  BetKeeper is your personal scoreboard for every bet you make — at any sportsbook, any casino, any app. Snap a photo of a paper ticket from the window or a screenshot from your app, and BetKeeper logs it: odds, wager, to-win and every leg.
+  BetKeyper is your personal scoreboard for every bet you make — at any sportsbook, any casino, any app. Snap a photo of a paper ticket from the window or a screenshot from your app, and BetKeyper logs it: odds, wager, to-win and every leg.
 
   • One login, every book — Caesars, MGM, Circa, DraftKings, FanDuel and more, all in one place
   • Live sweats — scores, clocks and your legs updating in real time, with the leg in play highlighted
@@ -107,7 +107,7 @@ App Store Connect → the app → **App Store** tab. Ready-to-paste text:
   • Auto-settles from the final stats, leg by leg
   • Synced to your account on every device
 
-  BetKeeper does not accept wagers or offer betting. It's a tracker for bets you've already placed. 21+. Please gamble responsibly. If you or someone you know has a gambling problem, call 1-800-GAMBLER.
+  BetKeyper does not accept wagers or offer betting. It's a tracker for bets you've already placed. 21+. Please gamble responsibly. If you or someone you know has a gambling problem, call 1-800-GAMBLER.
   ```
 - **Support URL / Privacy Policy URL:** from Part 0.
 - **Screenshots:** required for the 6.9" iPhone size (1320×2868 or 1290×2796). Take them in the Simulator (iPhone 16 Pro Max) with the demo account: Dashboard, Live (a game in progress), Upcoming, Past, a ticket opened, and the scan screen. 3–6 screenshots.
@@ -117,7 +117,7 @@ App Store Connect → the app → **App Store** tab. Ready-to-paste text:
 - **Sign-In required:** yes. Give the **demo account** username and password in **App Review Information**.
 - **Review notes** (paste):
   ```
-  BetKeeper is a personal tracker for sports bets the user has already placed elsewhere. It does not accept wagers, process payments, or link to any sportsbook. Users log tickets by photo or by hand; live scores come from public ESPN feeds. Demo account provided above has sample tickets. Account deletion: Settings → Account → Delete Account.
+  BetKeyper is a personal tracker for sports bets the user has already placed elsewhere. It does not accept wagers, process payments, or link to any sportsbook. Users log tickets by photo or by hand; live scores come from public ESPN feeds. Demo account provided above has sample tickets. Account deletion: Settings → Account → Delete Account.
   ```
 
 ## Part 7: Submit for review

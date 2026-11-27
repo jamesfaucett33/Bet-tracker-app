@@ -93,7 +93,7 @@ export function SettingsScreen() {
       URL.revokeObjectURL(url);
       return;
     }
-    await Share.share({ message: json, title: 'BetKeeper backup' });
+    await Share.share({ message: json, title: 'BetKeyper backup' });
   };
 
   const doImport = () => {
@@ -310,7 +310,7 @@ export function SettingsScreen() {
       />
 
       <Text style={styles.footer}>
-        BetKeeper v1.0 · Bet anywhere. Keep it here. · For personal record-keeping only. Please gamble responsibly. If you or
+        BetKeyper v1.0 · Bet anywhere. Keep it here. · For personal record-keeping only. Please gamble responsibly. If you or
         someone you know has a gambling problem, call 1-800-GAMBLER.
       </Text>
     </ScrollView>
