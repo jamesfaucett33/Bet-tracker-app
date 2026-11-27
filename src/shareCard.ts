@@ -211,8 +211,10 @@ export async function shareCard(
   const nav = globalThis.navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (nav?.canShare?.({ files: [file] })) {
     try {
-      const lead = kind === 'win' ? 'Cashed 💰' : 'Bad beat 💀';
-      await nav.share({ files: [file], text: text ? `${lead} ${text}` : `${lead} #BetKeyper` });
+      await nav.share({
+        files: [file],
+        text: text ?? (kind === 'win' ? 'Check out this bet I just won! 💰' : 'Check out this bad beat 💀'),
+      });
       return 'shared';
     } catch {
       return 'cancelled';

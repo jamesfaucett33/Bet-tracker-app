@@ -33,10 +33,13 @@ type JumpTab = 'upcoming' | 'live' | 'bets';
 /** All recap: money on the table, how the day / week / all time went, and the fun stuff. */
 export function DashboardScreen({
   onEditBet,
+  onViewBet,
   onOpenSettings,
   onOpenTab,
 }: {
   onEditBet: (bet: Bet) => void;
+  /** Open a ticket to see its legs and stats (with Edit inside). */
+  onViewBet: (bet: Bet) => void;
   onOpenSettings?: () => void;
   onOpenTab?: (tab: JumpTab) => void;
 }) {
@@ -181,13 +184,13 @@ export function DashboardScreen({
           value={best.biggest ? money(betProfit(best.biggest), true) : '—'}
           sub={best.biggest?.pick}
           color={best.biggest ? colors.win : undefined}
-          onPress={best.biggest ? () => onEditBet(best.biggest!) : undefined}
+          onPress={best.biggest ? () => onViewBet(best.biggest!) : undefined}
         />
         <FunStat
           label="Longest odds cashed"
           value={best.longest ? formatOdds(best.longest.odds) : '—'}
           sub={best.longest?.pick}
-          onPress={best.longest ? () => onEditBet(best.longest!) : undefined}
+          onPress={best.longest ? () => onViewBet(best.longest!) : undefined}
         />
       </View>
 
@@ -202,7 +205,7 @@ export function DashboardScreen({
               sub={`${formatDate(settledDay(b))} · ${formatOdds(b.odds)} · ${money(b.stake)}`}
               right={money(betProfit(b), true)}
               rightColor={colors.win}
-              onPress={() => onEditBet(b)}
+              onPress={() => onViewBet(b)}
             />
           ))}
         </Card>
@@ -222,7 +225,7 @@ export function DashboardScreen({
               right={`${money(c.wouldHavePaid)}`}
               rightSub="would’ve paid"
               rightColor={colors.push}
-              onPress={() => onEditBet(c.bet)}
+              onPress={() => onViewBet(c.bet)}
             />
           ))}
         </Card>
@@ -245,7 +248,7 @@ export function DashboardScreen({
               }`}
               right={money(-b.stake, true)}
               rightColor={colors.loss}
-              onPress={() => onEditBet(b)}
+              onPress={() => onViewBet(b)}
             />
           ))}
         </Card>

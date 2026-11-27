@@ -57,10 +57,21 @@ export function inviteLink(code: string | null): string {
   return code ? `${appUrl()}?ref=${code}` : appUrl();
 }
 
-export function inviteText(code: string | null): string {
+/**
+ * The message that goes with a share. kind: 'win' / 'beat' for a ticket card,
+ * or omitted for a plain invite.
+ */
+export function inviteText(code: string | null, kind?: 'win' | 'beat'): string {
+  const lead =
+    kind === 'win'
+      ? 'Check out this bet I just won! 💰'
+      : kind === 'beat'
+        ? 'Check out this bad beat 💀'
+        : 'Join me on BetKeyper!';
+  const pitch = 'Keep track of all your bets in one place with BetKeyper.';
   return code
-    ? `Track every bet free with BetKeyper. Sign up with my link and we both get ${REFERRAL_BONUS} free bet uploads: ${inviteLink(code)}`
-    : `Track every bet free with BetKeyper: ${appUrl()}`;
+    ? `${lead} ${pitch} Sign up with my link and we both get ${REFERRAL_BONUS} free bet uploads: ${inviteLink(code)}`
+    : `${lead} ${pitch} ${appUrl()}`;
 }
 
 export interface ReferralInfo {

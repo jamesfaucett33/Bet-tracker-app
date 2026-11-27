@@ -18,6 +18,7 @@ import { captureReferral } from './src/referral';
 captureReferral();
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddMode, BetFormScreen } from './src/screens/BetFormScreen';
+import { TicketScreen } from './src/screens/TicketScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
 import { UpcomingScreen } from './src/screens/UpcomingScreen';
 import { CheerHost } from './src/cheer';
@@ -208,6 +209,7 @@ function Main() {
   const [editing, setEditing] = useState<Bet | null | undefined>(undefined);
   const plansOpen = usePlansOpen();
   const [addMenu, setAddMenu] = useState(false);
+  const [viewing, setViewing] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<AddMode | undefined>(undefined);
   const startAdd = (mode: AddMode) => {
     setAddMenu(false);
@@ -252,6 +254,7 @@ function Main() {
         {tab === 'dashboard' && (
           <DashboardScreen
             onEditBet={openBet}
+            onViewBet={(b) => setViewing(b.id)}
             onOpenSettings={() => setTab('settings')}
             onOpenTab={setTab}
           />
@@ -358,6 +361,28 @@ function Main() {
                 bet={editing ?? undefined}
                 mode={addMode}
                 onClose={() => setEditing(undefined)}
+              />
+            ) : null}
+          </ModalSafe>
+        </SafeAreaProvider>
+      </Modal>
+
+      <Modal
+        visible={viewing !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setViewing(null)}
+      >
+        <SafeAreaProvider>
+          <ModalSafe>
+            {viewing ? (
+              <TicketScreen
+                betId={viewing}
+                onClose={() => setViewing(null)}
+                onEdit={(b) => {
+                  setViewing(null);
+                  openBet(b);
+                }}
               />
             ) : null}
           </ModalSafe>

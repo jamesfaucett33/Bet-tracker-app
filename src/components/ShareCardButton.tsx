@@ -65,7 +65,7 @@ export function ShareCardButton({ bet }: { bet: Bet }) {
               title="Share"
               onPress={async () => {
                 if (!card) return;
-                const r = await shareCard(card.blob, card.kind, inviteText(card.code));
+                const r = await shareCard(card.blob, card.kind, inviteText(card.code, card.kind));
                 if (r === 'saved') setNote('Saved to your downloads.');
                 if (r === 'shared') close();
               }}
