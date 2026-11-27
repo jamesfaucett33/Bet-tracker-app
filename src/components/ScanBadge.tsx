@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { BETA_SCANS, findPlan, FIRST_MONTH_SCANS } from '../plans';
 import { openPlans, useScanStatus } from '../scanStatus';
-import { useStore } from '../store';
 import { useSync } from '../sync';
 import { colors, radius } from '../theme';
 
@@ -12,15 +11,12 @@ import { colors, radius } from '../theme';
 export function ScanBadge() {
   const sync = useSync();
   const status = useScanStatus();
-  const { settings } = useStore();
 
   let top: string;
   let cta: string;
   let low = false;
-  if (settings.anthropicApiKey.trim()) {
-    top = 'Own AI key';
-    cta = 'Plans';
-  } else if (!sync.email) {
+  // The corner always sells plans, even if this device has its own AI key.
+  if (!sync.email) {
     top = 'Free uploads';
     cta = `Get ${Math.max(BETA_SCANS, FIRST_MONTH_SCANS)}`;
   } else if (!status) {
