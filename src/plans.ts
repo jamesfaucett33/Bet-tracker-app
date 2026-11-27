@@ -76,7 +76,7 @@ export const PLANS: Plan[] = [
     tagline: 'Upload every ticket, every week',
     scans: 100,
     monthly: 2.99,
-    yearly: 24.99,
+    yearly: 29.99,
     badge: 'Most popular',
     perks: [
       { text: 'Everything in Starter' },
@@ -103,7 +103,7 @@ export const PLANS: Plan[] = [
     tagline: 'High roller. Every book, every day.',
     scans: 750,
     monthly: 9.99,
-    yearly: 89.99,
+    yearly: 77.99,
     badge: 'Most uploads',
     perks: [
       { text: 'Everything in All-Pro' },

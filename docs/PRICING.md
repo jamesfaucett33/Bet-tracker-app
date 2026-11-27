@@ -14,10 +14,13 @@ scans a month, so beta testers cost up to 50¢ a month each. Set it to 0 at laun
 |---|---|---|---|---|
 | Rookie (free) | — | — | — | 25 the first 30 days, then 5 |
 | Starter | $0.99 | $9.99 (save 16%) | $0.83 | 25 |
-| **Pro** (most popular) | $2.99 | $24.99 (save 30%) | $2.08 | 100 |
+| **Pro** (most popular) | $2.99 | $29.99 (save 16%) | $2.50 | 100 |
 | All-Pro | $5.99 | $49.99 (save 30%) | $4.17 | 400 |
-| MVP | $9.99 | $89.99 (save 25%) | $7.50 | 750 |
+| MVP | $9.99 | $77.99 (save 35%) | $6.50 | 750 |
 | Scan pack (one-time) | $0.99 | | | +50, never expire |
+
+Yearly discounts: about 15% on the lower plans, 30–35% on the top plans
+to pull heavy bettors into a year upfront.
 
 ## The math (1¢ per AI scan, Apple keeps 15%)
 
@@ -31,11 +34,11 @@ see 30–50% of an allowance used; the "typical" column assumes 40%.
 | Starter monthly | $0.84 | $0.25 | +$0.59 | +$0.74 |
 | Starter yearly | $0.71 | $0.25 | +$0.46 | +$0.61 |
 | Pro monthly | $2.54 | $1.00 | +$1.54 | +$2.14 |
-| Pro yearly | $1.77 | $1.00 | +$0.77 | +$1.37 |
+| Pro yearly | $2.12 | $1.00 | +$1.12 | +$1.72 |
 | All-Pro monthly | $5.09 | $4.00 | +$1.09 | +$3.49 |
 | All-Pro yearly | $3.54 | $4.00 | −$0.46 | +$1.94 |
 | MVP monthly | $8.49 | $7.50 | +$0.99 | +$5.49 |
-| MVP yearly | $6.37 | $7.50 | −$1.13 | +$3.37 |
+| MVP yearly | $5.52 | $7.50 | −$1.98 | +$2.52 |
 | Scan pack | $0.84 | $0.50 | +$0.34 | |
 
 Every monthly plan makes money even if every scan is used. The two big yearly
