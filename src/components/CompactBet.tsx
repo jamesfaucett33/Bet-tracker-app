@@ -8,6 +8,7 @@ import { colors, profitColor, radius, space, statusColor } from '../theme';
 import { Bet } from '../types';
 import { BetCard } from './BetCard';
 import { ShareCardButton } from './ShareCardButton';
+import { LOSS_TITLE, lossKind } from '../lossKind';
 import { DotKind, dotCounts, dotForResult, LegDots } from './LegDots';
 
 /**
@@ -62,7 +63,9 @@ export function CompactBet({
   let sub: string;
   let right: { text: string; color: string };
   if (variant === 'past') {
+    const lk = bet.status === 'lost' ? lossKind(bet) : null;
     sub = [
+      lk ? `${LOSS_TITLE[lk].emoji} ${{ badBeat: 'Bad beat', badBet: 'Bad bet', busted: 'Busted' }[lk]}` : '',
       bet.book,
       legs.length ? `${legs.length} legs` : bet.betType,
       legs.some((l) => l.result) ? dotCounts(kinds) : '',

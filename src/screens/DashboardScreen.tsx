@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BetaWelcome } from '../components/BetaBanner';
 import { TripCard } from '../components/TripCard';
 import { TicketListSheet } from '../components/TicketListSheet';
+import { LOSS_TITLE, lossKind } from '../lossKind';
 import { pendingReferral, REFERRAL_BONUS } from '../referral';
 import { activeTrip } from '../trips';
 import { dotCounts, dotForResult } from '../components/LegDots';
@@ -311,6 +312,7 @@ export function DashboardScreen({
               right={`${money(c.wouldHavePaid)}`}
               rightSub="would’ve paid"
               rightColor={colors.push}
+              tag={lossTag(c.bet)}
               onPress={() => onViewBet(c.bet)}
             />
           ))}
@@ -319,7 +321,7 @@ export function DashboardScreen({
         <Empty text="No heartbreakers in the last 30 days. Love to see it." />
       )}
 
-      <SectionTitle>💀 Worst beats this week</SectionTitle>
+      <SectionTitle>💀 Bad beats & bad bets this week</SectionTitle>
       {worst.length ? (
         <Card style={{ padding: 0 }}>
           {worst.map((b, i) => (
@@ -334,6 +336,7 @@ export function DashboardScreen({
               }`}
               right={money(-b.stake, true)}
               rightColor={colors.loss}
+              tag={lossTag(b)}
               onPress={() => onViewBet(b)}
             />
           ))}
@@ -453,6 +456,15 @@ function FunStat({
   );
 }
 
+/** "😩 Bad beat" / "🤡 Bad bet" / "💀 Busted" for a losing ticket. */
+function lossTag(b: Bet): { text: string; color: string } | undefined {
+  if (b.status !== 'lost') return undefined;
+  const k = lossKind(b);
+  const t = LOSS_TITLE[k];
+  const word = { badBeat: 'Bad beat', badBet: 'Bad bet', busted: 'Busted' }[k];
+  return { text: `${t.emoji} ${word}`, color: k === 'badBeat' ? colors.push : k === 'badBet' ? colors.toPlay : colors.loss };
+}
+
 function RecapRow({
   title,
   sub,
@@ -461,11 +473,14 @@ function RecapRow({
   rightColor,
   first,
   onPress,
+  tag,
 }: {
   title: string;
   sub: string;
   right: string;
   rightSub?: string;
+  /** Small label pill, e.g. "😩 Bad beat". */
+  tag?: { text: string; color: string };
   rightColor: string;
   first: boolean;
   onPress: () => void;
@@ -487,6 +502,9 @@ function RecapRow({
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={[styles.recapRight, { color: rightColor }]}>{right}</Text>
         {rightSub ? <Text style={styles.recapRightSub}>{rightSub}</Text> : null}
+        {tag ? (
+          <Text style={[styles.tag, { color: tag.color, borderColor: tag.color }]}>{tag.text}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -595,6 +613,16 @@ const styles = StyleSheet.create({
   recapRow: { flexDirection: 'row', alignItems: 'center', padding: space.md, gap: space.md },
   recapTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
   recapSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  tag: {
+    fontSize: 11,
+    fontWeight: '800',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
   recapRight: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
   recapRightSub: { color: colors.textFaint, fontSize: 11 },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
