@@ -256,8 +256,8 @@ export function SettingsScreen({
           <>
           <Card style={{ gap: space.md }}>
             <Text style={styles.body}>
-              Optional. Signed-in accounts get free AI scans included. If you have your own Anthropic
-              API key, add it here to scan on your own account instead (about 2–4¢ per scan).
+              Optional. Signed-in accounts get free bet uploads with their plan. If you have your own Anthropic
+              API key, add it here to read slips on your own account instead (no upload limit; you pay Anthropic directly).
             </Text>
             <Text
               style={styles.link}
@@ -467,7 +467,7 @@ export function SettingsScreen({
       </MenuGroup>
 
       <Text style={styles.footer}>
-        BetKeyper v1.0 · Bet anywhere. Keep it here. · For personal record-keeping only. Please gamble responsibly. If you or
+        BetKeyper v1.0 · Every ticket. Every book. One place. · For personal record-keeping only. Please gamble responsibly. If you or
         someone you know has a gambling problem, call 1-800-GAMBLER.
       </Text>
     </ScrollView>

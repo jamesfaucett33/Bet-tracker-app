@@ -96,34 +96,40 @@ App Store Connect → the app → **App Store** tab. Ready-to-paste text:
 - **Promotional text:** `What happens in Vegas… gets tracked. Scan every ticket from every sportsbook and keep your real record in one place.`
 - **Description:**
   ```
-  Bet anywhere. Keep it here.
+  Every ticket. Every book. One place.
 
   BetKeyper is your personal scoreboard for every bet you make — at any sportsbook, any casino, any app. Snap a photo of a paper ticket from the window or a screenshot from your app, and BetKeyper logs it: odds, wager, to-win and every leg.
 
   • One login, every book — Caesars, MGM, Circa, DraftKings, FanDuel and more, all in one place
   • Live sweats — scores, clocks and your legs updating in real time, with the leg in play highlighted
   • Upcoming, Live and Past — see what's riding, what's playing and how it all finished
-  • Your real record — profit and loss for today, the week and all time, recent wins, close calls and worst beats
-  • Auto-settles from the final stats, leg by leg
+  • Your real record — won, lost and net for today, 7 days, 30 days and all time, with bad beats and close calls
+  • Auto-settles from the final stats, leg by leg, with CASHED! and bad-beat moments
+  • Share any ticket as a card — locked in, sweating it live, cashed or a bad beat
+  • Trips — track a Vegas weekend as one trip
+  • Your team's colors — NFL, NBA, MLB and NHL
+  • Alerts when tickets cash, legs hit or you're one leg away
   • Synced to your account on every device
+
+  Typing in bets is free and unlimited. Plans add more bet uploads (slips read for you) each month.
 
   BetKeyper does not accept wagers or offer betting. It's a tracker for bets you've already placed. 21+. Please gamble responsibly. If you or someone you know has a gambling problem, call 1-800-GAMBLER.
   ```
 - **Support URL / Privacy Policy URL:** from Part 0.
 - **Screenshots:** required for the 6.9" iPhone size (1320×2868 or 1290×2796). Take them in the Simulator (iPhone 16 Pro Max) with the demo account: Dashboard, Live (a game in progress), Upcoming, Past, a ticket opened, and the scan screen. 3–6 screenshots.
-- **App icon:** comes from the build (`assets/icon.png`, the gold ticket with a keyhole).
+- **App icon:** comes from the build (`assets/icon.png`, the lime shield with a keyhole on navy).
 - **Age rating questionnaire:** answer honestly. There's no simulated gambling and no real-money gambling in the app, but it's about sports betting. Answer "Gambling" questions as **None** unless asked about references, and pick **17+** if Apple's questionnaire allows, or set the age to 17+ manually. Include "21+" in the description, as above.
-- **App Privacy** ("nutrition label"): Data collected and linked to the user: **Contact Info: Email address** (account), **User Content: other user content** (bets, photos sent for scanning). Used for **App Functionality** only. **No tracking.**
+- **App Privacy** ("nutrition label"): Data collected and linked to the user: **Contact Info: Name, Email address, Phone number (optional)** (account; used for App Functionality, and for Developer's Marketing only when the person opted in), **User Content: other user content** (bets, photos sent for scanning), **Identifiers: Device ID** (push notification token, App Functionality), **Purchases** (subscriptions, App Functionality). **No tracking.**
 - **Sign-In required:** yes. Give the **demo account** username and password in **App Review Information**.
 - **Review notes** (paste):
   ```
-  BetKeyper is a personal tracker for sports bets the user has already placed elsewhere. It does not accept wagers, process payments, or link to any sportsbook. Users log tickets by photo or by hand; live scores come from public ESPN feeds. Demo account provided above has sample tickets. Account deletion: Settings → Account → Delete Account.
+  BetKeyper is a personal tracker for sports bets the user has already placed elsewhere. It does not accept wagers, process payments, or link to any sportsbook. Users log tickets by photo or by hand; live scores come from public ESPN feeds. Demo account provided above has sample tickets. Account deletion: Profile → Account & password → Delete Account.
   ```
 
 ## Part 7: Submit for review
 
 1. Select the TestFlight build under **Build** on the version page.
-2. Pricing: **Free**. Availability: **United States** to start.
+2. Pricing: **Free** (with in-app subscriptions: Starter, Pro, All-Pro, MVP, monthly and yearly, plus the Upload pack; set these up under **Monetization → Subscriptions / In-App Purchases** with the prices in `docs/PRICING.md`, and connect RevenueCat first — see `docs/TODO.md`). Availability: **United States** to start.
 3. **Add for Review → Submit.** Reviews usually take 1–3 days. If Apple rejects it, read the message to James. Common ones for this app: missing account deletion (5.1.1(v)), gambling concerns (5.3; the answer is that it doesn't accept wagers, it's a tracker), or a missing demo account. Fix, rebuild (`eas build`, `eas submit`), and resubmit.
 
 ## Notes for the Claude on the Mac
