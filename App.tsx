@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -184,9 +185,12 @@ function Main() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.header}>
         {tab === 'dashboard' ? (
-          <Text style={styles.title}>
-            Bet<Text style={{ color: colors.brand }}>Keeper</Text>
-          </Text>
+          <View style={styles.brandRow}>
+            <Image source={require('./assets/badge.png')} style={styles.badge} />
+            <Text style={styles.title}>
+              Bet<Text style={{ color: colors.brand }}>Keeper</Text>
+            </Text>
+          </View>
         ) : (
           <Text style={styles.title}>
             {TITLES[tab]}
@@ -296,6 +300,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingBottom: space.sm, backgroundColor: colors.bg },
   title: { color: colors.text, fontSize: 30, fontWeight: '800', marginTop: space.sm },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  badge: { width: 36, height: 36, marginTop: space.sm },
   titleRule: {
     height: 2,
     width: 44,
