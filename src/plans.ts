@@ -40,7 +40,7 @@ export function scansFor(id: PlanId): number {
 }
 
 /** One-time scan pack: extra scans that never expire. */
-export const SCAN_PACK = { scans: 50, price: 0.99 };
+export const SCAN_PACK = { scans: 30, price: 0.99 };
 
 const BASE_PERKS = [
   { text: 'Unlimited bet tracking (type it in anytime)' },
@@ -77,7 +77,7 @@ export const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     tagline: 'Upload every ticket, every week',
-    scans: 100,
+    scans: 75,
     monthly: 2.99,
     yearly: 27.99, // 22% off
     yearlyOff: 20,
@@ -93,7 +93,7 @@ export const PLANS: Plan[] = [
     id: 'allpro',
     name: 'All-Pro',
     tagline: 'For serious volume',
-    scans: 400,
+    scans: 200,
     monthly: 5.99,
     yearly: 52.99, // 26% off
     yearlyOff: 25,
@@ -106,7 +106,7 @@ export const PLANS: Plan[] = [
     id: 'mvp',
     name: 'MVP',
     tagline: 'High roller. Every book, every day.',
-    scans: 750,
+    scans: 400,
     monthly: 9.99,
     yearly: 82.99, // 31% off
     yearlyOff: 30,

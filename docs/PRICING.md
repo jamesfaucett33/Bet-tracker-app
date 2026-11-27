@@ -10,44 +10,41 @@ scans a month, so beta testers cost up to 50¢ a month each. Set it to 0 at laun
 
 ## Plans
 
-| Plan | Monthly | Yearly | Yearly per month | AI scans / month |
+| Plan | Monthly | Yearly | Yearly per month | Bet uploads / month |
 |---|---|---|---|---|
 | Rookie (free) | — | — | — | 25 the first 30 days, then 5 |
 | Starter | $0.99 | $9.99 (save 15%) | $0.83 | 25 |
-| **Pro** (most popular) | $2.99 | $27.99 (save 20%) | $2.33 | 100 |
-| All-Pro | $5.99 | $52.99 (save 25%) | $4.42 | 400 |
-| MVP | $9.99 | $82.99 (save 30%) | $6.92 | 750 |
-| Scan pack (one-time) | $0.99 | | | +50, never expire |
+| **Pro** (most popular) | $2.99 | $27.99 (save 20%) | $2.33 | 75 |
+| All-Pro | $5.99 | $52.99 (save 25%) | $4.42 | 200 |
+| MVP | $9.99 | $82.99 (save 30%) | $6.92 | 400 |
+| Upload pack (one-time) | $0.99 | | | +30, never expire |
 
-Yearly discounts step up with the plan: 15% / 20% / 25% / 30% (each price
-saves at least that much), to pull bigger bettors into a year upfront.
+**Rule: every paid plan is profitable even if a subscriber uses every upload,
+every month, on monthly or yearly billing.**
 
-## The math (1¢ per AI scan, Apple keeps 15%)
+## The math (1¢ per AI upload, Apple keeps 15%)
 
-Worst case is a subscriber using **every** scan, every month. Typical apps
-see 30–50% of an allowance used; the "typical" column assumes 40%.
+Profit per subscriber per month:
 
-| Plan | You keep / month | AI cost, all used | Profit, all used | Profit, typical (40%) |
+| Plan | Monthly, all used | Yearly, all used | Monthly, typical (40%) | Yearly, typical (40%) |
 |---|---|---|---|---|
-| Rookie, first month | $0 | $0.25 | −$0.25 (once) | −$0.10 |
-| Rookie, after | $0 | $0.05 | −$0.05 | −$0.02 |
-| Starter monthly | $0.84 | $0.25 | +$0.59 | +$0.74 |
-| Starter yearly | $0.71 | $0.25 | +$0.46 | +$0.61 |
-| Pro monthly | $2.54 | $1.00 | +$1.54 | +$2.14 |
-| Pro yearly | $1.98 | $1.00 | +$0.98 | +$1.58 |
-| All-Pro monthly | $5.09 | $4.00 | +$1.09 | +$3.49 |
-| All-Pro yearly | $3.75 | $4.00 | −$0.25 | +$2.15 |
-| MVP monthly | $8.49 | $7.50 | +$0.99 | +$5.49 |
-| MVP yearly | $5.88 | $7.50 | −$1.62 | +$2.88 |
-| Scan pack | $0.84 | $0.50 | +$0.34 | |
+| Starter (25) | +$0.59 | +$0.46 | +$0.74 | +$0.61 |
+| Pro (75) | +$1.79 | +$1.23 | +$2.24 | +$1.68 |
+| All-Pro (200) | +$3.09 | +$1.75 | +$4.29 | +$2.95 |
+| MVP (400) | +$4.49 | +$1.88 | +$6.89 | +$4.28 |
+| Upload pack (30) | +$0.54 once | | | |
 
-Every monthly plan makes money even if every scan is used. The two big yearly
-plans lose a little only on someone who maxes out every month for a year; at
-normal usage they're the most profitable plans because they're paid upfront.
+Free plan (acquisition cost): first month up to $0.25, then up to $0.05 a
+month. Beta: up to $0.50 a month per tester while `BETA_SCANS` is 50.
+
+**Break-even cost per upload** (yearly plan, every upload used): Starter
+2.8¢, Pro 2.6¢, All-Pro 1.9¢, MVP 1.5¢. The scanner must cost under 1.5¢ an
+upload for every plan to stay profitable in the worst case.
 
 ## Before launch
-- **Confirm the 1¢.** The scanner currently runs on a large model (2–4¢ a
-  scan). Test a smaller model on real tickets; switch only if it stays
+- **Get the cost under 1.5¢.** The scanner currently runs on a large model
+  (2–4¢ an upload), which would lose money on full-use MVP / All-Pro yearly
+  plans. Test a smaller model on real tickets; switch only if it stays
   accurate. The numbers above assume 1¢.
 - **Web payments** (Stripe) cost about 30¢ + 3% each, so on the website sell
   Starter yearly only.
@@ -56,6 +53,6 @@ normal usage they're the most profitable plans because they're paid upfront.
   person's plan into the `subscriptions` table.
 
 ## Levers if margins get tight
-- Lower All-Pro / MVP scan counts, or raise their yearly prices.
-- More scan packs (best margin per dollar).
-- Free plan: 3 scans a month instead of 5.
+- Lower upload counts or raise yearly prices (keep worst case profitable).
+- More upload packs (best margin per dollar).
+- Free plan: 3 uploads a month instead of 5.

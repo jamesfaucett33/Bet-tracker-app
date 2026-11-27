@@ -10,7 +10,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 /** AI scans per month for each plan (from src/plans.ts). */
-const PLAN_SCANS: Record<string, number> = {"rookie":50,"starter":50,"pro":100,"allpro":400,"mvp":750,"staff":100000};
+const PLAN_SCANS: Record<string, number> = {"rookie":50,"starter":50,"pro":75,"allpro":200,"mvp":400,"staff":100000};
 const FIRST_MONTH_SCANS = 25;
 const FIRST_MONTH_DAYS = 30;
 
