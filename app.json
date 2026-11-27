@@ -6,11 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0B0D",
+    "backgroundColor": "#061733",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B0B0D"
+      "backgroundColor": "#061733"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,7 @@
     "android": {
       "package": "com.jamesfaucett.bettracker",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0B0D",
+        "backgroundColor": "#061733",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -32,8 +32,8 @@
       "output": "single",
       "name": "BetKeeper",
       "shortName": "BetKeeper",
-      "themeColor": "#0B0B0D",
-      "backgroundColor": "#0B0B0D"
+      "themeColor": "#061733",
+      "backgroundColor": "#061733"
     },
     "experiments": {
       "baseUrl": "/Bet-tracker-app"

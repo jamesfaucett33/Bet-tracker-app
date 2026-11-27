@@ -1,24 +1,22 @@
-// BetKeeper palette: Vegas black and gold, with casino-felt green for hits
-// and chip red for misses.
+// BetKeeper palette: bright and fun. Deep navy with electric green and sky blue.
 export const colors = {
-  bg: '#0B0B0D', // onyx
-  surface: '#17171B', // charcoal cards
-  surfaceAlt: '#24242A',
-  border: '#3D3524', // gold-tinted hairlines
-  text: '#F5F2EA',
-  textDim: '#B8B1A2',
-  textFaint: '#7C766A',
-  accent: '#D4AF37', // Vegas gold (brand, buttons, "to win")
-  accentDim: '#8C7424',
-  gold: '#D4AF37',
-  goldLight: '#F2C14E',
-  champagne: '#E9D8A6',
-  win: '#2EBD6B', // felt green
-  loss: '#E5484D', // chip red
-  push: '#8AB4F8', // a push is neutral: cool blue, never confused with gold
-  pending: '#D4AF37', // open tickets: gold
+  bg: '#061733', // deep navy
+  surface: '#0D2650', // card blue
+  surfaceAlt: '#173566',
+  border: '#22487F',
+  text: '#F4F8FF',
+  textDim: '#A9BCD9',
+  textFaint: '#7189AE',
+  accent: '#3DE36B', // electric green (brand, buttons, "to win")
+  accentDim: '#22A048',
+  brand: '#3DE36B', // electric green
+  sky: '#3CC4FF', // sky blue highlights
+  win: '#3DE36B',
+  loss: '#FF5468',
+  push: '#B794FF', // a push is neutral: purple, never confused with anything else
+  pending: '#3CC4FF', // open tickets: sky blue
   /** A leg in play (orange dots). */
-  toPlay: '#FF7A1A',
+  toPlay: '#FF9F1C',
 };
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 };

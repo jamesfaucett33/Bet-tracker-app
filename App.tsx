@@ -185,12 +185,12 @@ function Main() {
       <SafeAreaView edges={['top']} style={styles.header}>
         {tab === 'dashboard' ? (
           <Text style={styles.title}>
-            Bet<Text style={{ color: colors.gold }}>Keeper</Text>
+            Bet<Text style={{ color: colors.brand }}>Keeper</Text>
           </Text>
         ) : (
           <Text style={styles.title}>
             {TITLES[tab]}
-            <Text style={{ color: colors.gold }}>.</Text>
+            <Text style={{ color: colors.brand }}>.</Text>
           </Text>
         )}
         <View style={styles.titleRule} />
@@ -300,14 +300,14 @@ const styles = StyleSheet.create({
     height: 2,
     width: 44,
     borderRadius: 1,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.brand,
     marginTop: 6,
   },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.gold + '66',
+    borderTopColor: colors.brand + '66',
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 2 },

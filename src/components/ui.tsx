@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     padding: space.lg,
   },
   sectionTitle: {
-    color: colors.champagne,
+    color: colors.sky,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   segment: { flex: 1, paddingVertical: 8, borderRadius: radius.sm, alignItems: 'center' },
-  segmentSelected: { backgroundColor: colors.gold },
+  segmentSelected: { backgroundColor: colors.brand },
   segmentText: { color: colors.textDim, fontWeight: '600', fontSize: 13 },
   segmentTextSelected: { color: colors.bg, fontWeight: '800' },
   field: { marginBottom: space.lg },
