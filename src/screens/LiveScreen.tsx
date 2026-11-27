@@ -820,6 +820,20 @@ export function LiveScreen({ onEditBet }: { onEditBet: (bet: Bet) => void }) {
       ) : null}
 
 
+      {/* Same-game tickets, listed by game (they're also inside each game). */}
+      {inProgress
+        .filter((e) => e.single.length)
+        .map((e) => (
+          <View key={`slips-${e.game.eventId}`} style={{ marginTop: space.lg }}>
+            <TicketList
+              title={`Your live slips · ${e.game.away.abbr} @ ${e.game.home.abbr} (${e.single.length})`}
+              bets={e.single}
+              fallback={e.game}
+              onEditBet={onEditBet}
+            />
+          </View>
+        ))}
+
       {multiBets.length ? (
         <View style={{ marginTop: entries.length ? space.lg : 0 }}>
           <TicketList
