@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { Button, ChipRow, confirm, Field, notify, Segmented } from '../components/ui';
-import { formatAmount, isValidISODate, parseNumber, todayISO, uid } from '../format';
+import { formatAmount, formatDate, isValidISODate, parseNumber, todayISO, uid } from '../format';
+import { daysAgoISO } from '../recap';
 import {
   formatOdds,
   americanToDecimal,
@@ -124,6 +125,7 @@ export function BetFormScreen({
       : false, // new parlays: total odds / to-win straight from the ticket
   );
   const [moreOpen, setMoreOpen] = useState(isEdit);
+  const [pickDate, setPickDate] = useState(false);
   const [otherBook, setOtherBook] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -956,6 +958,59 @@ export function BetFormScreen({
         <Text style={styles.step}>Sport</Text>
         <ChipRow options={sportOptions} value={sport} onChange={setSport} />
 
+        {/* When it was placed: matters when logging an old ticket */}
+        <View style={styles.placedRow}>
+          <Text style={styles.placedLabel}>Placed</Text>
+          {[
+            { label: 'Today', value: todayISO() },
+            { label: 'Yesterday', value: daysAgoISO(1) },
+          ].map((o) => {
+            const on = !pickDate && date === o.value;
+            return (
+              <Pressable
+                key={o.label}
+                onPress={() => {
+                  setPickDate(false);
+                  setDate(o.value);
+                }}
+                style={[styles.placedChip, on && styles.placedChipOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.placedText, on && styles.placedTextOn]}>{o.label}</Text>
+              </Pressable>
+            );
+          })}
+          {(() => {
+            const other = pickDate || (date !== todayISO() && date !== daysAgoISO(1));
+            return (
+              <Pressable
+                onPress={() => setPickDate(true)}
+                style={[styles.placedChip, other && styles.placedChipOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: other }}
+              >
+                <Text style={[styles.placedText, other && styles.placedTextOn]}>
+                  {other && !pickDate && isValidISODate(date) ? formatDate(date) : 'Pick a date'}
+                </Text>
+              </Pressable>
+            );
+          })()}
+        </View>
+        {pickDate ? (
+          <Field
+            label="Date placed"
+            value={date}
+            onChangeText={setDate}
+            placeholder="YYYY-MM-DD, e.g. 2026-11-23"
+            error={showErr('date')}
+            autoCapitalize="none"
+            hint="The day you placed the bet. We look for the game that day and the week after."
+          />
+        ) : showErr('date') ? (
+          <Text style={styles.err}>{errors.date}</Text>
+        ) : null}
+
         {/* More options */}
         <Pressable
           onPress={() => setMoreOpen((v) => !v)}
@@ -963,7 +1018,7 @@ export function BetFormScreen({
           accessibilityRole="button"
         >
           <Text style={styles.moreText}>
-            {moreOpen ? 'Hide options ▲' : 'More options: date, result, notes ▼'}
+            {moreOpen ? 'Hide options ▲' : 'More options: result, notes ▼'}
           </Text>
         </Pressable>
         {moreOpen ? (
@@ -989,14 +1044,6 @@ export function BetFormScreen({
                 </Pressable>
               </>
             ) : null}
-            <Field
-              label="Date placed"
-              value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              error={showErr('date')}
-              autoCapitalize="none"
-            />
             <Text style={styles.label}>Result</Text>
             <Segmented<BetStatus>
               value={status}
@@ -1107,6 +1154,24 @@ const styles = StyleSheet.create({
   ticketTitle: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: space.md },
   payLine: { color: colors.money, fontSize: 15, fontWeight: '800', textAlign: 'center' },
   moreBtn: { paddingVertical: space.lg, alignItems: 'center' },
+  placedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: space.sm,
+    marginBottom: space.lg,
+  },
+  placedLabel: { color: colors.text, fontSize: 15, fontWeight: '800', marginRight: 2 },
+  placedChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  placedChipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  placedText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  placedTextOn: { color: colors.bg },
   moreText: { color: colors.accent, fontSize: 15, fontWeight: '700' },
   modeLink: {
     paddingVertical: 12,
