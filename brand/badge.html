@@ -20,7 +20,6 @@ function badge({ bg = null, scale = 0.8, mono = false } = {}) {
     ${bg ? `<rect x="${-off}" y="${-off}" width="${s}" height="${s}" fill="${bg}"/>` : ''}
     <path d="M105 10 l80 28 v62 c0 52 -36 86 -80 100 c-44 -14 -80 -48 -80 -100 v-62z" fill="${fillOuter}" stroke="${lime}" stroke-width="9" stroke-linejoin="round"/>
     <path d="M105 32 l60 21 v47 c0 40 -27 66 -60 77 c-33 -11 -60 -37 -60 -77 v-47z" fill="url(#g)" mask="url(#m)"/>
-    <path d="M105 44 l49 17 v39 c0 33 -22 54 -49 64 c-27 -10 -49 -31 -49 -64 v-39z" fill="none" stroke="${sky}" stroke-width="3" mask="url(#m)" opacity="${mono ? 0 : 0.9}"/>
     ${mono ? '' : `<circle cx="105" cy="92" r="20" fill="${hole}"/><path d="M96 104 h18 l7 40 h-32z" fill="${hole}"/>`}
   </svg>`;
 }
