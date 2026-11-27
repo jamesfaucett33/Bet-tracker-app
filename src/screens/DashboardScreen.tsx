@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ProfitChart } from '../components/ProfitChart';
 import { dotCounts, dotForResult } from '../components/LegDots';
 import { Card, Chip, SectionTitle, Segmented } from '../components/ui';
 import { formatAmount, formatDate, formatPct, todayISO } from '../format';
@@ -18,7 +17,7 @@ import {
   Tally,
   worstBeats,
 } from '../recap';
-import { filterByPeriod, groupBy, Period, profitSeries, summarize } from '../stats';
+import { filterByPeriod, groupBy, Period, summarize } from '../stats';
 import { useStore } from '../store';
 import { useSync } from '../sync';
 import { colors, profitColor, radius, space } from '../theme';
@@ -66,7 +65,8 @@ export function DashboardScreen({
   const allSummary = useMemo(() => summarize(bets), [bets]);
 
   const periodBets = useMemo(() => filterByPeriod(bets, period), [bets, period]);
-  const series = useMemo(() => profitSeries(periodBets), [periodBets]);
+  const periodSummary = useMemo(() => summarize(periodBets), [periodBets]);
+  const periodSettled = periodSummary.wins + periodSummary.losses + periodSummary.pushes;
   const groups = useMemo(() => groupBy(periodBets, (b) => b[breakdown]), [periodBets, breakdown]);
 
   return (
@@ -232,7 +232,7 @@ export function DashboardScreen({
         <Empty text="No losses this week. Don’t jinx it. 🤫" />
       )}
 
-      <SectionTitle>Profit over time</SectionTitle>
+      <SectionTitle>Your numbers</SectionTitle>
       <Segmented<Period>
         value={period}
         onChange={setPeriod}
@@ -243,9 +243,30 @@ export function DashboardScreen({
           { value: 'all', label: 'All Time' },
         ]}
       />
-      <Card style={{ marginTop: space.md }}>
-        <ProfitChart series={series} />
-      </Card>
+      <View style={[styles.grid, { marginTop: space.md }]}>
+        <FunStat
+          label="Profit"
+          value={money(periodSummary.profit, true)}
+          color={profitColor(periodSummary.profit)}
+          sub={`ROI ${formatPct(periodSummary.roi)}`}
+        />
+        <FunStat
+          label="Record"
+          value={record(periodSummary.wins, periodSummary.losses, periodSummary.pushes)}
+          sub={`${formatPct(periodSummary.winRate)} won`}
+        />
+        <FunStat
+          label="Wagered"
+          value={money(periodSummary.settledStake)}
+          sub={`${periodSettled} settled ticket${periodSettled === 1 ? '' : 's'}`}
+        />
+        <FunStat
+          label="Paid back"
+          value={money(periodSummary.settledStake + periodSummary.profit)}
+          color={colors.money}
+          sub="stakes + winnings returned"
+        />
+      </View>
 
       <SectionTitle>Breakdown</SectionTitle>
       <View style={styles.chips}>

@@ -1,5 +1,5 @@
 import { betProfit, betToWin } from './odds';
-import { settledDay, settledOrder } from './recap';
+import { settledDay } from './recap';
 import { Bet } from './types';
 
 export interface Summary {
@@ -64,13 +64,6 @@ export function groupBy(bets: Bet[], keyFn: (b: Bet) => string): GroupRow[] {
   return [...groups.entries()]
     .map(([key, list]) => ({ key, summary: summarize(list) }))
     .sort((a, b) => b.summary.count - a.summary.count);
-}
-
-/** Cumulative profit after each settled bet, oldest first. */
-export function profitSeries(bets: Bet[]): number[] {
-  const settled = bets.filter((b) => b.status !== 'pending').sort(settledOrder);
-  let running = 0;
-  return settled.map((b) => (running += betProfit(b)));
 }
 
 export type Period = 'all' | '7d' | '30d' | 'ytd';
