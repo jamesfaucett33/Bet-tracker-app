@@ -34,14 +34,6 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
-const TITLES: Record<Tab, string> = {
-  dashboard: 'BetKeyper',
-  upcoming: 'Upcoming',
-  live: 'Live',
-  bets: 'Past Tickets',
-  settings: 'Settings',
-};
-
 /**
  * Web only: a link ending in #import=<base64 JSON> loads bets in one tap.
  * Shows an in-app banner (browser dialogs can be blocked on page load) and
@@ -184,21 +176,18 @@ function Main() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.header}>
-        {tab === 'dashboard' ? (
-          <View style={styles.brandRow}>
-            <Image source={require('./assets/badge.png')} style={styles.badge} />
+        <View style={styles.brandRow}>
+          <Image source={require('./assets/badge.png')} style={styles.badge} />
+          <View style={{ flex: 1 }}>
             <Text style={styles.title}>
               <Text style={{ color: colors.text }}>Bet</Text>
               <Text style={{ color: colors.brand }}>Keyper</Text>
             </Text>
+            <Text style={styles.slogan} numberOfLines={1}>
+              Every ticket. Every book. One place.
+            </Text>
           </View>
-        ) : (
-          <Text style={styles.title}>
-            {TITLES[tab]}
-            <Text style={{ color: colors.brand }}>.</Text>
-          </Text>
-        )}
-        <View style={styles.titleRule} />
+        </View>
         <UpdateBanner />
         <ImportBanner link={link} />
       </SafeAreaView>
@@ -300,16 +289,18 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingBottom: space.sm, backgroundColor: colors.bg },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800', marginTop: space.sm },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  badge: { width: 36, height: 36, marginTop: space.sm },
-  titleRule: {
-    height: 2,
-    width: 44,
-    borderRadius: 1,
-    backgroundColor: colors.brand,
-    marginTop: 6,
+  title: { color: colors.text, fontSize: 28, fontWeight: '800', lineHeight: 32 },
+  slogan: { color: colors.textDim, fontSize: 12, fontWeight: '700', letterSpacing: 0.3, marginTop: 1 },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: space.sm,
+    paddingBottom: space.sm,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.brand + '55',
   },
+  badge: { width: 42, height: 42 },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
