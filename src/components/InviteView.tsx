@@ -48,8 +48,13 @@ export function InviteView({ onSignUp }: { onSignUp: () => void }) {
 
       {!sync.email ? (
         <Card style={{ gap: space.md }}>
-          <Text style={styles.body}>Create your free account to get your invite link.</Text>
+          <Text style={styles.body}>
+            Create your free account to get your own invite link (you both get {REFERRAL_BONUS}{' '}
+            uploads), or just share BetKeyper now.
+          </Text>
           <Button title="Create free account" onPress={onSignUp} />
+          <Button title="Share BetKeyper" variant="secondary" onPress={share} />
+          {note ? <Text style={styles.note}>{note}</Text> : null}
         </Card>
       ) : (
         <Card style={{ gap: space.md }}>

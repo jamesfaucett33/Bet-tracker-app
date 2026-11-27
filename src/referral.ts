@@ -87,8 +87,10 @@ export function inviteText(
             ? "Check out the bet I'm riding 🎟️"
             : kind === 'push'
               ? 'Check out my bet 🤝'
-              : 'Join me on BetKeyper!';
-  const pitch = 'Keep track of all your bets in one place for free with BetKeyper.';
+              : 'Try BetKeyper free! 🎟️';
+  const pitch = kind
+    ? 'Keep track of all your bets in one place for free with BetKeyper.'
+    : 'Keep all your bets in one spot, from every sportsbook.';
   return code
     ? `${lead} ${pitch} Sign up with my link and we both get ${REFERRAL_BONUS} free bet uploads: ${inviteLink(code)}`
     : `${lead} ${pitch} ${appUrl()}`;
