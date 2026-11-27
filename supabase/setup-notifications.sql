@@ -9,8 +9,11 @@ create table if not exists public.notification_prefs (
   updated_at timestamptz not null default now()
 );
 alter table public.notification_prefs enable row level security;
+drop policy if exists "own prefs read" on public.notification_prefs;
 create policy "own prefs read" on public.notification_prefs for select using (auth.uid() = user_id);
+drop policy if exists "own prefs insert" on public.notification_prefs;
 create policy "own prefs insert" on public.notification_prefs for insert with check (auth.uid() = user_id);
+drop policy if exists "own prefs update" on public.notification_prefs;
 create policy "own prefs update" on public.notification_prefs for update using (auth.uid() = user_id);
 grant select, insert, update on public.notification_prefs to authenticated;
 
@@ -22,9 +25,13 @@ create table if not exists public.push_tokens (
   updated_at timestamptz not null default now()
 );
 alter table public.push_tokens enable row level security;
+drop policy if exists "own tokens read" on public.push_tokens;
 create policy "own tokens read" on public.push_tokens for select using (auth.uid() = user_id);
+drop policy if exists "own tokens insert" on public.push_tokens;
 create policy "own tokens insert" on public.push_tokens for insert with check (auth.uid() = user_id);
+drop policy if exists "own tokens update" on public.push_tokens;
 create policy "own tokens update" on public.push_tokens for update using (auth.uid() = user_id);
+drop policy if exists "own tokens delete" on public.push_tokens;
 create policy "own tokens delete" on public.push_tokens for delete using (auth.uid() = user_id);
 grant select, insert, update, delete on public.push_tokens to authenticated;
 
@@ -37,3 +44,15 @@ create table if not exists public.notifications_sent (
   primary key (user_id, bet_id, event)
 );
 alter table public.notifications_sent enable row level security; -- server only
+
+-- Register this phone for the signed-in person. A phone belongs to whoever
+-- signed in last on it, so a shared phone stops getting the old account's
+-- notifications.
+create or replace function public.register_push_token(p_token text, p_platform text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  delete from push_tokens where token = p_token;
+  insert into push_tokens (token, user_id, platform) values (p_token, auth.uid(), p_platform);
+end $$;
+grant execute on function public.register_push_token(text, text) to authenticated;

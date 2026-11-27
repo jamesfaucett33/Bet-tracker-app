@@ -111,6 +111,27 @@ Deno.serve(async (req) => {
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) return json({ error: 'config', message: 'Scanning is not set up yet.' }, 500);
+
+  // Reserve this upload BEFORE reading, then re-check, so many scans sent at
+  // once can't slip past the limit (each one counts the others' reservations).
+  const reserve = await db.from('scan_usage').insert({
+    ...(hasPaidFrom ? { paid_from: paidFrom } : {}),
+    cost_usd: 0.00001,
+  });
+  if (reserve.error) return json({ error: 'usage', message: reserve.error.message }, 500);
+  if (paidFrom === 'plan') {
+    let again = db.from('scan_usage').select('id', { count: 'exact', head: true }).gte('created_at', since);
+    if (hasPaidFrom) again = again.eq('paid_from', 'plan');
+    const { count } = await again;
+    if ((count ?? 0) > win.limit) {
+      return json({ error: 'limit', plan, used: count, limit: win.limit, resets_at: new Date(win.resetsMs).toISOString() }, 402);
+    }
+  } else {
+    const { data: packs } = await db.from('scan_packs').select('scans');
+    const bought = (packs ?? []).reduce((n: number, r: { scans: number }) => n + Number(r.scans), 0);
+    const { count } = await db.from('scan_usage').select('id', { count: 'exact', head: true }).eq('paid_from', 'pack');
+    if ((count ?? 0) > bought) return json({ error: 'limit', plan, limit: win.limit }, 402);
+  }
   const anthropic = new Anthropic({ apiKey });
 
   let msg;
@@ -145,8 +166,8 @@ Deno.serve(async (req) => {
   const outputTokens = u.output_tokens ?? 0;
   const [inPrice, outPrice] = PRICES[msg.model] ?? PRICES[MODEL] ?? [5, 25];
   const cost = Math.max(0.00001, (inputTokens * inPrice + outputTokens * outPrice) / 1_000_000);
-  await db.from('scan_usage').insert({
-    ...(hasPaidFrom ? { paid_from: paidFrom } : {}),
+  // What the read actually cost (the reservation above counts the upload).
+  await db.from('scan_costs').insert({
     cost_usd: cost,
     input_tokens: inputTokens,
     output_tokens: outputTokens,

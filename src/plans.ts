@@ -57,7 +57,11 @@ export const PLANS: Plan[] = [
     monthly: 0,
     yearly: 0,
     perks: [
-      { text: `${FIRST_MONTH_SCANS} bet uploads your first month, then 5 a month` },
+      {
+        text: BETA_SCANS
+          ? `${BETA_SCANS} bet uploads a month during the beta (then ${FIRST_MONTH_SCANS} your first month and 5 a month)`
+          : `${FIRST_MONTH_SCANS} bet uploads your first month, then 5 a month`,
+      },
       ...BASE_PERKS,
       { text: 'NFL team colors' },
     ],

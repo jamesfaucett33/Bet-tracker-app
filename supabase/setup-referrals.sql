@@ -13,6 +13,7 @@ create table if not exists public.referral_codes (
   created_at timestamptz not null default now()
 );
 alter table public.referral_codes enable row level security;
+drop policy if exists "read own code" on public.referral_codes;
 create policy "read own code" on public.referral_codes
   for select using (auth.uid() = user_id);
 grant select on public.referral_codes to authenticated;
@@ -25,6 +26,7 @@ create table if not exists public.referrals (
   created_at timestamptz not null default now()
 );
 alter table public.referrals enable row level security;
+drop policy if exists "see own referrals" on public.referrals;
 create policy "see own referrals" on public.referrals
   for select using (auth.uid() = referrer_id or auth.uid() = referred_id);
 grant select on public.referrals to authenticated;
@@ -82,6 +84,10 @@ begin
   end;
   return new;
 end $$;
+
+-- Only the database itself makes codes.
+revoke execute on function public.make_referral_code(uuid) from public, anon, authenticated;
+revoke execute on function public.handle_referral() from public, anon, authenticated;
 
 drop trigger if exists on_auth_user_referral on auth.users;
 create trigger on_auth_user_referral

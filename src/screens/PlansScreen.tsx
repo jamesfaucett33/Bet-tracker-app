@@ -63,7 +63,11 @@ function Checkout({ purchase, onClose }: { purchase: Purchase; onClose: () => vo
             <Text style={styles.sheetTitle}>{purchase.title}</Text>
             <Text style={styles.sheetPrice}>{purchase.price}</Text>
             <Text style={styles.sheetTerms}>{purchase.terms}</Text>
-            <Button title="Subscribe" onPress={buy} style={{ marginTop: space.lg }} />
+            <Button
+              title={purchase.key === 'pack' ? 'Buy' : 'Subscribe'}
+              onPress={buy}
+              style={{ marginTop: space.lg }}
+            />
             <Button title="Cancel" variant="secondary" onPress={onClose} style={{ marginTop: space.sm }} />
           </>
         ) : stage === 'working' ? (
@@ -235,7 +239,8 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
   const [billing, setBilling] = useState<Billing>('yearly');
   const [purchase, setPurchase] = useState<Purchase | null>(null);
   const currentId = status?.plan ?? 'rookie';
-  const currentIdx = PLANS.findIndex((p) => p.id === currentId);
+  // Staff is above every plan.
+  const currentIdx = currentId === 'staff' ? PLANS.length : PLANS.findIndex((p) => p.id === currentId);
   const rookie = PLANS[0];
 
   return (
@@ -277,6 +282,13 @@ export function PlansScreen({ onSignIn }: { onSignIn: () => void }) {
             { value: 'yearly', label: `Yearly · up to ${BEST_SAVING}% off` },
           ]}
         />
+
+        {BETA_SCANS ? (
+          <Text style={styles.betaNote}>
+            🎉 Beta: everyone gets at least {BETA_SCANS} bet uploads a month free right now. Plans show
+            their regular amounts after launch.
+          </Text>
+        ) : null}
 
         {PAID.map((p) => (
           <PlanCard
@@ -484,6 +496,7 @@ const styles = StyleSheet.create({
   sheetPrice: { color: colors.money, fontSize: 30, fontWeight: '900', marginTop: 4 },
   sheetTerms: { color: colors.textDim, fontSize: 14, lineHeight: 20, marginTop: space.sm },
   betaIcon: { fontSize: 44, textAlign: 'center' },
+  betaNote: { color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'center' },
   invite: { color: colors.text, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   fine: { color: colors.textFaint, fontSize: 11, lineHeight: 16, marginTop: space.sm },
 });

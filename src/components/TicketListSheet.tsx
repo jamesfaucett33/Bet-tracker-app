@@ -1,4 +1,5 @@
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, space } from '../theme';
 import { Bet } from '../types';
 import { CompactBet } from './CompactBet';
@@ -19,11 +20,14 @@ export function TicketListSheet({
 }) {
   return (
     <Modal visible={!!bets} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View
+      <SafeAreaView
+        edges={Platform.OS === 'web' ? [] : ['top', 'bottom']}
         style={[
           styles.root,
-          // Clear the iPhone status bar on the home-screen app.
-          { paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' as unknown as number },
+          // Web (home-screen app): clear the iPhone status bar with CSS.
+          Platform.OS === 'web'
+            ? { paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' as unknown as number }
+            : null,
         ]}
       >
         <View style={styles.header}>
@@ -50,7 +54,7 @@ export function TicketListSheet({
           )}
           ListEmptyComponent={<Text style={styles.empty}>No tickets here yet.</Text>}
         />
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

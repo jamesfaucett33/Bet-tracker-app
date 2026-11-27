@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { fetchScanStatus, ScanStatus } from './cloudScan';
-import { savePrefsToAccount } from './notify';
+import { syncPrefsOnSignIn } from './notify';
 import { useSync } from './sync';
 
 /**
@@ -32,8 +32,13 @@ export function useScanStatus(): ScanStatus | null {
     if (who === loadedFor) return;
     loadedFor = who;
     if (who) {
-      refreshScanStatus();
-      void savePrefsToAccount();
+      // Try again later if this fails (e.g. offline at launch).
+      fetchScanStatus().then((st) => {
+        status = st;
+        if (!st) loadedFor = null;
+        emit();
+      });
+      void syncPrefsOnSignIn();
     }
     else {
       status = null;

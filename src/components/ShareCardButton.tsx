@@ -49,12 +49,15 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
       const link = cardLinksLive()
         ? await uploadCard(blob, {
             title: cardTitle(bet, kind, now),
-            description: inviteText(code, kind, kind === 'beat' ? lossKind(bet, now) : undefined).replace(/https?:\S+/, '').trim(),
+            description: inviteText(code, kind, kind === 'beat' ? lossKind(bet, now) : undefined).replace(/:?\s*https?:\S+/, '').trim(),
             ref: code,
           })
         : null;
       setCard({ blob, url: URL.createObjectURL(blob), kind, code, link });
       setNote(null);
+    } catch {
+      setNote(null);
+      // Drawing failed (very old browser): nothing to share.
     } finally {
       setBusy(false);
     }
@@ -111,7 +114,8 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
               title="Share"
               onPress={async () => {
                 if (!card) return;
-                const loss = card.kind === 'beat' ? lossKind(bet) : undefined;
+                const loss =
+                  card.kind === 'beat' ? lossKind(bet, liveLegs.map((l) => l.progress.state)) : undefined;
                 const r = card.link
                   ? await shareLink(card.link, inviteText(null, card.kind, loss).replace(/\s*https?:\S+$/, ''))
                   : await shareCard(card.blob, card.kind, inviteText(card.code, card.kind, loss));

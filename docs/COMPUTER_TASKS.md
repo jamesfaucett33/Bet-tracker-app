@@ -42,7 +42,7 @@ Supabase → the project → **SQL Editor → New query**. For each file below, 
 
 If one says a table or policy **already exists**, that part was done before: note it and move on. Report any other error to James word for word.
 
-✅ **Check:** Table Editor shows `scan_usage`, `subscriptions`, `scan_packs`, `upgrade_interest`, `referral_codes`, `referrals`, `notification_prefs`, `push_tokens`, `notifications_sent`. Storage shows a bucket named `cards`.
+✅ **Check:** Table Editor shows `scan_usage`, `scan_costs`, `subscriptions`, `scan_packs`, `upgrade_interest`, `referral_codes`, `referrals`, `notification_prefs`, `push_tokens`, `notifications_sent`. Storage shows a bucket named `cards`.
 
 ---
 

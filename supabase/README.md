@@ -24,7 +24,7 @@ Project: `zielynjbewfhoerigbzm` (URL and publishable key are in `src/sync.tsx`).
 - Scans per plan: `src/plans.ts` (then re-run the build script and redeploy).
 
 ## Seeing results
-- Spend per tester: Table Editor → `scan_usage` (sum `cost_usd` by `user_id`).
+- Spend per person: Table Editor → `scan_costs` (sum `cost_usd` by `user_id`). `scan_usage` counts uploads.
 
 ## Customer list (name, phone, marketing opt-ins)
 Sign-up saves `full_name`, `phone`, `marketing_email`, `marketing_sms` and

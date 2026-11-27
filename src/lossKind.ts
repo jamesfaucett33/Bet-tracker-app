@@ -9,13 +9,15 @@ import { Bet } from './types';
 export type LossKind = 'badBeat' | 'badBet' | 'busted';
 
 export function lossKind(bet: Bet, legNow?: (string | undefined)[]): LossKind {
-  const legs = bet.legs ?? [];
-  if (legs.length < 2) return 'busted';
-  const res = legs.map((l, i) => l.result ?? legNow?.[i]);
+  // Voided and pushed legs don't count either way.
+  const res = (bet.legs ?? [])
+    .map((l, i) => (l.voided ? 'void' : (l.result ?? legNow?.[i])))
+    .filter((r) => r !== 'void' && r !== 'push');
+  if (res.length < 2) return 'busted';
   const hits = res.filter((r) => r === 'hit').length;
   const misses = res.filter((r) => r === 'miss').length;
-  if (misses === 1 && hits === legs.length - 1) return 'badBeat';
-  if (hits === 0 && misses === legs.length) return 'badBet';
+  if (misses === 1 && hits === res.length - 1) return 'badBeat';
+  if (hits === 0 && misses === res.length) return 'badBet';
   return 'busted';
 }
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BETA_SCANS, findPlan } from '../plans';
 import { BetaSignupPitch } from './BetaBanner';
-import { pendingReferral, REFERRAL_BONUS } from '../referral';
+import { clearReferral, pendingReferral, REFERRAL_BONUS } from '../referral';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
@@ -106,9 +106,11 @@ export function AccountCard() {
           })
         : await sync.signIn(email, password);
     setBusy(false);
+    const hadRef = fn === 'signUp' && !!pendingReferral();
+    if (fn === 'signUp' && (err === 'CHECK_EMAIL' || !err)) clearReferral();
     if (err === 'CHECK_EMAIL')
       setMsg({
-        text: `🎉 Account created${pendingReferral() ? ` — your ${REFERRAL_BONUS} bonus uploads unlock when you confirm your email` : BETA_SCANS ? ` — your ${BETA_SCANS} free beta bet uploads are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
+        text: `🎉 Account created${hadRef ? ` — your ${REFERRAL_BONUS} bonus uploads unlock when you confirm your email` : BETA_SCANS ? ` — your ${BETA_SCANS} free beta bet uploads are waiting` : ''}. Open the email sent to ${email.trim()}, tap the confirm link, then come back here and tap Sign In.`,
         ok: true,
       });
     else if (err) setMsg({ text: err, ok: false });

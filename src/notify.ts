@@ -75,6 +75,33 @@ export function setNotifyPref(key: keyof NotifyPrefs, on: boolean) {
   void savePrefsToAccount();
 }
 
+/**
+ * On sign-in: use the account's saved choices (set on another device), or
+ * save this device's if the account has none yet.
+ */
+export async function syncPrefsOnSignIn() {
+  try {
+    const sb = getCloudClient();
+    const { data } = (await sb?.auth.getSession()) ?? { data: null };
+    if (!sb || !data?.session) return;
+    const { data: row, error } = await sb.from('notification_prefs').select('prefs').maybeSingle();
+    if (error) return;
+    if (row?.prefs && typeof row.prefs === 'object') {
+      prefs = { ...DEFAULTS, ...(row.prefs as Partial<NotifyPrefs>) };
+      try {
+        globalThis.localStorage?.setItem(KEY, JSON.stringify(prefs));
+      } catch {
+        // private mode
+      }
+      listeners.forEach((l) => l());
+    } else {
+      await savePrefsToAccount();
+    }
+  } catch {
+    // not set up yet
+  }
+}
+
 /** Saves the choices to the signed-in account (quietly skips if not set up yet). */
 export async function savePrefsToAccount() {
   try {
@@ -93,6 +120,18 @@ export async function savePrefsToAccount() {
 // ---------- phone notifications (App Store / Play Store app) ----------
 
 export type PushResult = 'on' | 'denied' | 'unsupported' | 'error';
+
+/** Whether this phone already allows notifications (store app only). */
+export async function pushAllowed(): Promise<boolean> {
+  if (!pushSupported()) return false;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+    return (await Notifications.getPermissionsAsync()).status === 'granted';
+  } catch {
+    return false;
+  }
+}
 
 /** Phone notifications work in the store app, not the website. */
 export function pushSupported(): boolean {
@@ -120,15 +159,11 @@ export async function enablePush(): Promise<PushResult> {
     const sb = getCloudClient();
     const { data } = (await sb?.auth.getSession()) ?? { data: null };
     const uid = data?.session?.user?.id;
-    if (sb && uid) {
-      await sb.from('push_tokens').upsert({
-        token,
-        user_id: uid,
-        platform: Platform.OS,
-        updated_at: new Date().toISOString(),
-      });
-      await savePrefsToAccount();
-    }
+    if (!sb || !uid) return 'error';
+    // The phone now belongs to this account (stops the last account's alerts).
+    const { error } = await sb.rpc('register_push_token', { p_token: token, p_platform: Platform.OS });
+    if (error) return 'error';
+    await savePrefsToAccount();
     return 'on';
   } catch {
     return 'error';

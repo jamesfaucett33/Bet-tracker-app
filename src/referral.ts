@@ -41,6 +41,15 @@ export function captureReferral() {
   }
 }
 
+/** Forget the invite code once it's been used for a sign-up. */
+export function clearReferral() {
+  try {
+    globalThis.localStorage?.removeItem(KEY);
+  } catch {
+    // private mode
+  }
+}
+
 /** The invite code this device arrived with, if any. */
 export function pendingReferral(): string | null {
   return store.get();

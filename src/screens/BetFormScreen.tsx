@@ -95,11 +95,26 @@ export function BetFormScreen({
   const [sport, setSport] = useState(bet?.sport ?? settings.sports[0] ?? 'Other');
   const [betType, setBetType] = useState<BetType>(bet?.betType ?? 'Spread');
   const [pick, setPick] = useState(bet?.pick ?? '');
-  const [odds, setOdds] = useState(bet ? formatOdds(bet.odds) : '');
+  const [odds, setOddsRaw] = useState(bet ? formatOdds(bet.odds) : '');
+  const setOdds = (v: string) => {
+    setOddsRaw(v);
+    if (bet && !toWinTyped.current) setToWinInputRaw('');
+  };
   const [stakeMode, setStakeMode] = useState<'$' | 'u'>('$');
-  const [stake, setStake] = useState(bet ? String(bet.stake) : '');
+  const [stake, setStakeRaw] = useState(bet ? String(bet.stake) : '');
+  const setStake = (v: string) => {
+    setStakeRaw(v);
+    if (bet && !toWinTyped.current) setToWinInputRaw('');
+  };
   // Exact "to win" printed on the ticket (optional; overrides the odds math).
-  const [toWinInput, setToWinInput] = useState(bet?.toWin ? bet.toWin.toFixed(2) : '');
+  const [toWinInput, setToWinInputRaw] = useState(bet?.toWin ? bet.toWin.toFixed(2) : '');
+  // The saved to-win belongs to the saved wager/odds: if those change during an
+  // edit and to-win wasn't retyped, work it out again.
+  const toWinTyped = useRef(false);
+  const setToWinInput = (v: string) => {
+    toWinTyped.current = true;
+    setToWinInputRaw(v);
+  };
   const [book, setBook] = useState(bet?.book ?? settings.books[0] ?? '');
   const [status, setStatus] = useState<BetStatus>(bet?.status ?? 'pending');
   const [notes, setNotes] = useState(bet?.notes ?? '');
@@ -184,8 +199,10 @@ export function BetFormScreen({
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
     if (!isValidISODate(date)) e.date = 'Use YYYY-MM-DD';
-    if (betType === 'Future' && decidedBy.trim() && !isValidISODate(decidedBy.trim()))
-      e.decidedBy = 'Use YYYY-MM-DD, e.g. 2027-02-14';
+    if (betType === 'Future' && decidedBy.trim()) {
+      if (!isValidISODate(decidedBy.trim())) e.decidedBy = 'Use YYYY-MM-DD, e.g. 2027-02-14';
+      else if (decidedBy.trim() < date) e.decidedBy = "Can't be before the day you placed it";
+    }
     if (!isValidAmerican(oddsNum))
       e.odds = multiLeg
         ? 'Every leg needs valid odds (e.g. -110 or +150)'
@@ -280,6 +297,7 @@ export function BetFormScreen({
       toWin: printedToWin ?? exactLegsToWin ?? Math.round(potentialProfit(stakeNum, oddsNum) * 100) / 100,
       book: book.trim(),
       status,
+      ...(bet?.settledBy && status === bet.status ? { settledBy: bet.settledBy } : {}),
       notes: notes.trim() || undefined,
       decidedBy: betType === 'Future' && decidedBy.trim() ? decidedBy.trim() : undefined,
       legs: finalLegs,
@@ -1063,7 +1081,7 @@ export function BetFormScreen({
                   const n = parseNumber(stake);
                   if (Number.isFinite(n)) {
                     const conv = m === 'u' ? n / settings.unitSize : n * settings.unitSize;
-                    setStake(String(Math.round(conv * 100) / 100));
+                    setStakeRaw(String(Math.round(conv * 100) / 100));
                   }
                   setStakeMode(m);
                 }}

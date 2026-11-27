@@ -14,7 +14,7 @@ import { Bet } from './types';
  * Game-day pop-ups while the app is open:
  * - a full-screen CASHED! / BUSTED moment when a ticket is decided,
  * - small banners as legs land ("2 of 3 legs in", "One leg away from $148").
- * Only changes seen while the app is open fire; nothing replays on launch.
+ * Only tickets watched live here (or a win just marked) fire; nothing replays on launch.
  * Can be turned off in Profile.
  */
 
@@ -50,6 +50,7 @@ export function useAlertsOn(): boolean {
 // ---- queue ----
 type Moment = { kind: 'cash' | 'bust'; betId: string; leg?: string };
 type Toast = { id: number; emoji: string; text: string; color: string };
+let moments: Moment[] = [];
 let moment: Moment | null = null;
 let toasts: Toast[] = [];
 let nextId = 1;
@@ -62,7 +63,8 @@ const subscribe = (l: () => void) => {
 
 function pushMoment(m: Moment) {
   if (!enabled || !notifyPrefs()[m.kind === 'cash' ? 'cashed' : 'busted']) return;
-  moment = m;
+  if (moment) moments = [...moments, m];
+  else moment = m;
   emit();
   if (Platform.OS === 'web') (globalThis.navigator as Navigator | undefined)?.vibrate?.(m.kind === 'cash' ? [80, 60, 80, 60, 200] : 200);
 }
@@ -80,6 +82,8 @@ function pushToast(emoji: string, text: string, color: string, pref: 'legs' | 'o
 // ---- watchers ----
 /** Last leg states seen this session, per bet. */
 const seenLegs = new Map<string, string[]>();
+/** Tickets with a game seen in progress this session (their result is news). */
+const watchedLive = new Set<string>();
 
 /** Watches one open ticket's legs and announces the ones that land. */
 function BetWatcher({ bet }: { bet: Bet }) {
@@ -90,6 +94,7 @@ function BetWatcher({ bet }: { bet: Bet }) {
   useEffect(() => {
     const before = seenLegs.get(bet.id);
     seenLegs.set(bet.id, states);
+    if (states.includes('live')) watchedLive.add(bet.id);
     if (!before || before.length !== states.length) return; // first look: no replay
     const total = states.length;
     states.forEach((st, i) => {
@@ -99,9 +104,10 @@ function BetWatcher({ bet }: { bet: Bet }) {
       const label = legs[i].label;
       if (st === 'hit') {
         const done = states.filter((x) => x === 'hit' || x === 'push').length;
-        const left = states.filter((x) => x === 'live' || x === 'pre');
+        const left = states.filter((x) => x === 'live' || x === 'pre' || x === 'unknown');
         const dead = states.includes('miss');
-        if (total > 1 && left.length === 1 && !dead) {
+        // "One leg away" only when exactly one gradeable leg is left.
+        if (total > 1 && left.length === 1 && !dead && !states.includes('unknown') && notifyPrefs().oneAway) {
           const last = legs[states.findIndex((x) => x === 'live' || x === 'pre')].label;
           pushToast('🔥', `One leg away from ${formatAmount(betToWin(bet), settings)}! Waiting on ${last}`, colors.toPlay, 'oneAway');
         } else {
@@ -129,7 +135,10 @@ export function AlertsHost() {
     if (!before) return; // first load: no replay
     for (const b of bets) {
       if (before.get(b.id) !== 'pending' || b.status === 'pending') continue;
-      // Decided while the app is open: auto-graded, or a win you just marked.
+      // Only news: a game watched live here, or a win just marked on this device
+      // (not results synced from another device or graded from old games).
+      const justMarked = b.settledBy !== 'auto' && Date.now() - (b.updatedAt ?? 0) < 15000;
+      if (!watchedLive.has(b.id) && !justMarked) continue;
       if (b.status === 'won') pushMoment({ kind: 'cash', betId: b.id });
       else if (b.status === 'lost' && b.settledBy === 'auto') {
         const dead = b.legs?.find((l) => l.result === 'miss');
@@ -197,7 +206,8 @@ function MomentModal() {
 
   if (!m || !bet) return null;
   const close = () => {
-    moment = null;
+    moment = moments[0] ?? null; // next one, if several were decided at once
+    moments = moments.slice(1);
     emit();
   };
   const cash = m.kind === 'cash';

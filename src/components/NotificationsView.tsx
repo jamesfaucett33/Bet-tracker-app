@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { setAlertsOn, useAlertsOn } from '../alerts';
-import { enablePush, NOTIFY_OPTIONS, pushSupported, setNotifyPref, useNotifyPrefs } from '../notify';
+import { enablePush, NOTIFY_OPTIONS, pushAllowed, pushSupported, setNotifyPref, useNotifyPrefs } from '../notify';
 import { useSync } from '../sync';
 import { colors, space } from '../theme';
 import { Button, Card, SectionTitle } from './ui';
@@ -12,6 +12,9 @@ export function NotificationsView() {
   const inApp = useAlertsOn();
   const sync = useSync();
   const [push, setPush] = useState<string | null>(null);
+  useEffect(() => {
+    pushAllowed().then((ok) => ok && setPush('on'));
+  }, []);
 
   const row = (label: string, sub: string, value: boolean, onChange: (v: boolean) => void, emoji?: string) => (
     <View style={styles.row} key={label}>
