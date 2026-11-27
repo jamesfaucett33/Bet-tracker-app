@@ -1,63 +1,53 @@
-# Buying and setting up betkeyper.com on GoDaddy
+# Buying betkeyper.com and putting BetKeyper on it (GoDaddy + Cloudflare)
 
-**For Claude, running on James's computer with GoDaddy open in the browser.** James is logged in to GoDaddy. Your job is to buy two domains and set up their DNS so the BetKeyper app can move to betkeyper.com. Work in the browser. Take your time and check each screen.
+**For Claude, running on James's computer with a browser.** James is logged in to GoDaddy and GitHub. Your job: buy two domains on GoDaddy, then host the BetKeyper app on **Cloudflare Pages** (free) at betkeyper.com. Cloudflare is used instead of GitHub Pages because it runs the small "card page" that makes shared bets show up as a big tappable picture in texts. Work in the browser and check each screen.
 
 ## Ground rules
 
-- **Ask James before any payment.** Before you click the final "Complete Purchase" / "Place Order", stop and show him the cart (items, years, total). Go ahead only after he says yes.
-- **Don't add upsells.** No paid email, website builder, Microsoft 365, SSL certificate, hosting or "Domain Protection" add-ons. Remove them if the cart adds them on its own. Free privacy is fine to keep.
-- **Don't change his payment details or account settings**, and never type in a card number yourself. If checkout needs payment info, stop and let James enter it.
-- If a screen doesn't match these steps (GoDaddy changes its layout), describe what you see and ask James before guessing.
+- **Ask James before any payment.** Before the final "Complete Purchase" / "Place Order", stop and show him the cart (items, years, total). Go ahead only after he says yes.
+- **No upsells.** No paid email, website builder, Microsoft 365, SSL certificate, hosting or "Domain Protection" add-ons. Free privacy is fine.
+- **Never type card numbers or change his payment or account settings.** If checkout needs payment info, stop and let James enter it.
+- **Cloudflare stays on the Free plan.** Pick Free on every plan screen.
+- If a screen doesn't match these steps, describe what you see and ask James before guessing.
 
-## Step 1: Buy the domains
+## Step 1: Buy the domains (GoDaddy)
 
-1. Search GoDaddy for **betkeyper.com** and add it to the cart, **1 year** term.
-2. Search for **betkeyper.app** and add it to the cart, **1 year** term.
-3. In the cart, remove any add-ons (see the ground rules). Auto-renew **on** is good, so the names aren't lost.
-4. **Stop and show James the cart and total.** Expect about $25–40 for both in the first year. Buy only after he OKs it.
+1. Search GoDaddy for **betkeyper.com** and add it to the cart, **1 year**.
+2. Search **betkeyper.app** and add it, **1 year**.
+3. Remove add-ons from the cart. Auto-renew **on** is good.
+4. **Stop and show James the cart and total** (expect about $25–40). Buy only after he OKs it.
 
-## Step 2: DNS for betkeyper.com
+## Step 2: Create a free Cloudflare account and add betkeyper.com
 
-Go to **My Products → Domains → betkeyper.com → DNS** (or "Manage DNS").
+1. Go to **dash.cloudflare.com/sign-up**. James enters his email and a password (let him type the password).
+2. In Cloudflare: **Add a domain** → `betkeyper.com` → **Free** plan → continue. Let it import existing DNS records, then continue.
+3. Cloudflare shows **two nameservers** (like `xxx.ns.cloudflare.com` and `yyy.ns.cloudflare.com`). Copy both exactly.
+4. Back in GoDaddy: **My Products → Domains → betkeyper.com → DNS → Nameservers → Change nameservers → "I'll use my own nameservers"**. Enter the two Cloudflare nameservers, save, and confirm the warning.
+5. Back in Cloudflare, click **Check nameservers**. It can take from a few minutes to a few hours to show **Active**. You can do Step 3 meanwhile.
 
-**Delete** these default GoDaddy records if they're there:
-- The **A** record for `@` that points to "Parked" or to a GoDaddy IP address.
-- The **CNAME** record for `www` that points to `@`. It gets replaced below.
-- Any **Forwarding** set up on betkeyper.com. This domain must **not** forward anywhere.
+## Step 3: Put the app on Cloudflare Pages
 
-Leave the **NS** and **SOA** records alone, along with anything named `_domainconnect`.
+1. In Cloudflare: **Workers & Pages → Create → Pages → Connect to Git**.
+2. Connect **GitHub** (James approves the GitHub prompt) and choose the repository **jamesfaucett33/Bet-tracker-app** (only that one repository is needed).
+3. Build settings:
+   - Project name: `betkeyper`
+   - Production branch: `main`
+   - Framework preset: **None**
+   - Build command: `npm run build:web`
+   - Build output directory: `dist`
+   - **Environment variables** (Production): `EXPO_ROOT` = `1` and `NODE_VERSION` = `22`
+4. **Save and Deploy.** Wait for the build to finish (a few minutes). It gives a `betkeyper.pages.dev` address; open it and check the BetKeyper app loads.
+5. In the Pages project: **Custom domains → Set up a custom domain** → `betkeyper.com` → activate. Then add `www.betkeyper.com` too. (Cloudflare creates the DNS records itself.)
 
-**Add** these 5 records, with TTL on the default or 1 hour:
+## Step 4: Send betkeyper.app to betkeyper.com
 
-| Type | Name | Value |
-|---|---|---|
-| A | @ | 185.199.108.153 |
-| A | @ | 185.199.109.153 |
-| A | @ | 185.199.110.153 |
-| A | @ | 185.199.111.153 |
-| CNAME | www | jamesfaucett33.github.io |
+Easiest: in GoDaddy, **betkeyper.app → Forwarding → Add forwarding** → `https://betkeyper.com`, **Permanent (301)**, **forward only**. If GoDaddy won't allow it for .app, skip it and tell James; it isn't critical.
 
-The CNAME value is `jamesfaucett33.github.io` exactly: no `https://` and nothing after `.io`.
-
-When you're done, the A records for `@` should be exactly those four, with nothing else.
-
-## Step 3: Forward betkeyper.app to the .com
-
-Go to **My Products → Domains → betkeyper.app → Forwarding** (sometimes under "Domain Settings").
-
-- Forward to: `https://betkeyper.com`
-- Type: **Permanent (301)**
-- Settings: **Forward only** (not "masking")
-
-If GoDaddy won't let you forward the .app domain, leave it as is and tell James. It isn't critical.
-
-## Step 4: Report back
+## Step 5: Report back
 
 Tell James:
-- Which domains were bought, and the total charged.
-- A list of the DNS records now on betkeyper.com.
-- Whether the .app forwarding worked.
+- What was bought and the total.
+- Whether Cloudflare shows betkeyper.com as **Active**.
+- Whether **https://betkeyper.com** opens the BetKeyper app.
 
-Then James should tell his BetKeyper Claude session **"domain's set up."** It will connect GitHub Pages to betkeyper.com and move the app over.
-
-DNS can take anywhere from a few minutes to a few hours to take effect. Seeing a GoDaddy page or an error at betkeyper.com right away is normal.
+Then James tells his BetKeyper Claude session **"domain's set up"**, and it finishes the move (Supabase login addresses, card sharing storage, invite links, forwarding the old GitHub address).

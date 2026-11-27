@@ -3,8 +3,8 @@
 Things to add once the core app is fine-tuned.
 
 ## Domain & email (start with these)
-- [ ] **Buy betkeyper.com + betkeyper.app** on GoDaddy and add the DNS records (see `DOMAIN_SETUP_GODADDY.md`).
-- [ ] **Move the app to betkeyper.com**: GitHub Pages custom domain + HTTPS, serve from the root instead of `/Bet-tracker-app`, update the Supabase Site URL and redirect URLs, forward the old github.io link. Remind testers to sign in first (bets saved only in the browser don't carry over).
+- [ ] **Buy betkeyper.com + betkeyper.app** on GoDaddy and host on Cloudflare Pages (see `DOMAIN_SETUP_GODADDY.md`).
+- [ ] **Move the app to betkeyper.com** (Cloudflare Pages, built with EXPO_ROOT=1 so it serves from the root), update the Supabase Site URL and redirect URLs, forward the old github.io link. Remind testers to sign in first (bets saved only in the browser don't carry over).
 - [ ] **Email verification**: Supabase → Confirm email ON. Send through Resend (free) from `noreply@betkeyper.com`; Resend's DNS records go in GoDaddy. The app already shows "check your email" after sign-up.
 - [ ] **BetKeyper-branded email templates** (confirm email, reset password).
 - [ ] **Forgot password** link on the sign-in screen (needs the email setup above).
@@ -18,6 +18,7 @@ Things to add once the core app is fine-tuned.
 - [ ] Hand `APP_STORE_SUBMISSION.md` to Dad's Claude on the Mac.
 
 ## Plans & payments
+- [ ] Run `supabase/setup-cards.sql` (storage for shared card links). Card links switch on automatically on betkeyper.com.
 - [ ] Run `supabase/setup-referrals.sql` (invite codes + Give 25 / Get 25 rewards). Needs Confirm email ON to stop fake-account farming.
 - [ ] Point invite links at betkeyper.com once the domain is live (src/referral.ts appUrl).
 - [ ] **At launch:** set `BETA_SCANS` to 0 in `src/plans.ts` (beta gives every account 50 bet uploads a month), re-run the scan-function build script and redeploy.

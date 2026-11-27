@@ -278,3 +278,73 @@ export async function shareCard(
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   return 'saved';
 }
+
+// ---------- one-link sharing (betkeyper.com on Cloudflare) ----------
+
+/** Card links need the card page (functions/c), which runs on betkeyper.com. */
+export function cardLinksLive(): boolean {
+  if (Platform.OS !== 'web' || typeof location === 'undefined') return false;
+  const h = location.hostname;
+  return h === 'betkeyper.com' || h === 'www.betkeyper.com' || h.endsWith('.pages.dev');
+}
+
+/** Headline for a card's link preview, e.g. "💰 CASHED! +$245.60". */
+export function cardTitle(bet: Bet, kind: CardKind, legNow?: (string | undefined)[]): string {
+  if (kind === 'win') return `💰 CASHED! +${money(betProfit(bet))}`;
+  if (kind === 'open') return `🎟️ LOCKED IN · to win ${money(betToWin(bet))}`;
+  if (kind === 'live') return `🔥 SWEATING IT · to win ${money(betToWin(bet))}`;
+  if (kind === 'push') return '🤝 PUSH';
+  const t = LOSS_TITLE[lossKind(bet, legNow)];
+  return `${t.emoji} ${t.title}`;
+}
+
+/**
+ * Uploads the card so it can be shared as one link whose preview is the card
+ * itself. Returns the link, or null (not signed in / not set up) to fall back
+ * to sharing the picture.
+ */
+export async function uploadCard(
+  blob: Blob,
+  meta: { title: string; description: string; ref: string | null },
+): Promise<string | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getCloudClient } = require('./sync') as typeof import('./sync');
+    const sb = getCloudClient();
+    const { data } = (await sb?.auth.getSession()) ?? { data: null };
+    const uid = data?.session?.user?.id;
+    if (!sb || !uid) return null;
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(9)))
+      .map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32])
+      .join('');
+    const up = await sb.storage.from('cards').upload(`${uid}/${id}.png`, blob, { contentType: 'image/png' });
+    if (up.error) return null;
+    await sb.storage
+      .from('cards')
+      .upload(`${uid}/${id}.json`, new Blob([JSON.stringify(meta)], { type: 'application/json' }), {
+        contentType: 'application/json',
+      });
+    return `${location.origin}/c/${uid}/${id}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Shares one link (its preview is the card). Call from a tap. */
+export async function shareLink(url: string, text: string): Promise<'shared' | 'saved' | 'cancelled'> {
+  const nav = globalThis.navigator as Navigator | undefined;
+  if (nav?.share) {
+    try {
+      await nav.share({ text, url });
+      return 'shared';
+    } catch {
+      return 'cancelled';
+    }
+  }
+  try {
+    await nav?.clipboard?.writeText(`${text} ${url}`);
+  } catch {
+    // ignore
+  }
+  return 'saved';
+}

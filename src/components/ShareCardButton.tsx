@@ -3,7 +3,17 @@ import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } fr
 import { useBetLive } from '../live';
 import { lossKind } from '../lossKind';
 import { fetchReferral, inviteText } from '../referral';
-import { canMakeCards, cardKind, CardKind, drawCard, shareCard } from '../shareCard';
+import {
+  canMakeCards,
+  cardKind,
+  CardKind,
+  cardLinksLive,
+  cardTitle,
+  drawCard,
+  shareCard,
+  shareLink,
+  uploadCard,
+} from '../shareCard';
 import { colors, radius, space } from '../theme';
 import { Bet } from '../types';
 import { Button } from './ui';
@@ -18,9 +28,13 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
   const { legGames, legs: liveLegs } = useBetLive(bet);
   const live = bet.status === 'pending' && legGames.some((g) => g?.state === 'in');
   const kind = cardKind(bet, live);
-  const [card, setCard] = useState<{ blob: Blob; url: string; kind: CardKind; code: string | null } | null>(
-    null,
-  );
+  const [card, setCard] = useState<{
+    blob: Blob;
+    url: string;
+    kind: CardKind;
+    code: string | null;
+    link: string | null;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   if (!canMakeCards()) return null;
@@ -29,13 +43,17 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
     setBusy(true);
     try {
       const code = (await fetchReferral().catch(() => null))?.code ?? null;
-      const blob = await drawCard(
-        bet,
-        code,
-        live,
-        liveLegs.map((l) => l.progress.state),
-      );
-      setCard({ blob, url: URL.createObjectURL(blob), kind, code });
+      const now = liveLegs.map((l) => l.progress.state);
+      const blob = await drawCard(bet, code, live, now);
+      // On betkeyper.com: upload now, so Share sends one link whose preview is the card.
+      const link = cardLinksLive()
+        ? await uploadCard(blob, {
+            title: cardTitle(bet, kind, now),
+            description: inviteText(code, kind, kind === 'beat' ? lossKind(bet, now) : undefined).replace(/https?:\S+/, '').trim(),
+            ref: code,
+          })
+        : null;
+      setCard({ blob, url: URL.createObjectURL(blob), kind, code, link });
       setNote(null);
     } finally {
       setBusy(false);
@@ -93,7 +111,14 @@ export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean 
               title="Share"
               onPress={async () => {
                 if (!card) return;
-                const r = await shareCard(card.blob, card.kind, inviteText(card.code, card.kind, card.kind === 'beat' ? lossKind(bet) : undefined));
+                const loss = card.kind === 'beat' ? lossKind(bet) : undefined;
+                const r = card.link
+                  ? await shareLink(card.link, inviteText(null, card.kind, loss).replace(/\s*https?:\S+$/, ''))
+                  : await shareCard(card.blob, card.kind, inviteText(card.code, card.kind, loss));
+                if (r === 'saved' && card.link) {
+                  setNote('Link copied. Paste it in a text.');
+                  return;
+                }
                 if (r === 'saved') setNote('Saved to your downloads.');
                 if (r === 'shared') close();
               }}
