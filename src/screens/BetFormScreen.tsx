@@ -375,7 +375,7 @@ export function BetFormScreen({
     if (!useAI && !canReadOnDevice() && !(await canScanInCloud())) {
       notify(
         'Set up scanning',
-        'Add your Anthropic API key in Profile → Your own AI key, then try again.',
+        'Photo reading is unavailable right now. Try again in a minute, or enter the bet manually.',
       );
       return;
     }

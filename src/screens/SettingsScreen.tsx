@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Linking,
   Pressable,
   Platform,
   ScrollView,
@@ -19,7 +18,6 @@ import { InviteView } from '../components/InviteView';
 import { TeamPicker } from '../components/TeamPicker';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
 import { parseNumber } from '../format';
-import { cleanKey, testKey } from '../scan';
 import { useStore } from '../store';
 import { Bet } from '../types';
 import { findPlan } from '../plans';
@@ -79,7 +77,7 @@ function ListEditor({
   );
 }
 
-type Page = 'menu' | 'account' | 'notify' | 'invite' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
+type Page = 'menu' | 'account' | 'notify' | 'invite' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'danger';
 
 export function SettingsScreen({
   onAddBet,
@@ -100,9 +98,6 @@ export function SettingsScreen({
   const [unit, setUnit] = useState(String(settings.unitSize));
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
-  const [apiKey, setApiKey] = useState(settings.anthropicApiKey);
-  const keySaved = !!settings.anthropicApiKey && apiKey === settings.anthropicApiKey;
-  const [keyStatus, setKeyStatus] = useState<string | null>(null); // null | 'testing' | 'ok' | error
 
   const doExport = async () => {
     const json = exportData();
@@ -139,7 +134,6 @@ export function SettingsScreen({
     bankroll: 'Bankroll & Units',
     lists: 'Sportsbooks & Sports',
     backup: 'Backup & Import',
-    ai: 'Your Own AI Key',
     danger: 'Delete Data',
   };
 
@@ -252,90 +246,6 @@ export function SettingsScreen({
           </Card>
           </>
         ) : null}
-        {page === 'ai' ? (
-          <>
-          <Card style={{ gap: space.md }}>
-            <Text style={styles.body}>
-              Optional. Signed-in accounts get free bet uploads with their plan. If you have your own Anthropic
-              API key, add it here to read slips on your own account instead (no upload limit; you pay Anthropic directly).
-            </Text>
-            <Text
-              style={styles.link}
-              onPress={() => Linking.openURL('https://console.anthropic.com/settings/keys')}
-              accessibilityRole="link"
-            >
-              Get an API key at console.anthropic.com →
-            </Text>
-            <TextInput
-              value={apiKey}
-              onChangeText={setApiKey}
-              placeholder="sk-ant-…"
-              placeholderTextColor={colors.textFaint}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.keyInput}
-            />
-            <View style={styles.addRow}>
-              <Button
-                title={keySaved ? 'Key saved ✓' : 'Save Key'}
-                onPress={() => {
-                  const clean = cleanKey(apiKey);
-                  setApiKey(clean);
-                  setKeyStatus(null);
-                  updateSettings({ anthropicApiKey: clean });
-                }}
-                disabled={keySaved || !cleanKey(apiKey)}
-                style={{ flex: 1 }}
-              />
-              {settings.anthropicApiKey ? (
-                <Button
-                  title="Remove"
-                  variant="secondary"
-                  onPress={() => {
-                    setApiKey('');
-                    updateSettings({ anthropicApiKey: '' });
-                  }}
-                  style={{ paddingHorizontal: 18 }}
-                />
-              ) : null}
-            </View>
-            {settings.anthropicApiKey ? (
-              <>
-                <Text style={styles.fine}>
-                  Saved key: {settings.anthropicApiKey.slice(0, 11)}…
-                  {settings.anthropicApiKey.slice(-4)} ({settings.anthropicApiKey.length} characters).
-                  The end should match the key shown in the Console.
-                </Text>
-                <Button
-                  title={keyStatus === 'testing' ? 'Testing…' : 'Test Key'}
-                  variant="secondary"
-                  disabled={keyStatus === 'testing'}
-                  onPress={async () => {
-                    setKeyStatus('testing');
-                    const err = await testKey(settings.anthropicApiKey);
-                    setKeyStatus(err ?? 'ok');
-                  }}
-                />
-                {keyStatus && keyStatus !== 'testing' ? (
-                  <Text
-                    style={[
-                      styles.body,
-                      { color: keyStatus === 'ok' ? colors.win : colors.loss, fontWeight: '600' },
-                    ]}
-                  >
-                    {keyStatus === 'ok' ? '✓ Key works — scanning is ready.' : keyStatus}
-                  </Text>
-                ) : null}
-              </>
-            ) : null}
-            <Text style={styles.fine}>
-              Your key is stored only on this device and is never included in backups. Slip photos are
-              sent to Anthropic only to read them.
-            </Text>
-          </Card>
-          </>
-        ) : null}
         {page === 'danger' ? (
           <>
           <Button
@@ -344,7 +254,7 @@ export function SettingsScreen({
             onPress={() =>
               confirm(
                 'Delete all tickets?',
-                `This permanently deletes all ${bets.length} tickets on this device and in your account. Your settings and API key stay.`,
+                `This permanently deletes all ${bets.length} tickets on this device and in your account. Your settings stay.`,
                 clearBets,
                 'Delete Tickets',
               )
@@ -357,7 +267,7 @@ export function SettingsScreen({
             onPress={() =>
               confirm(
                 'Delete all data?',
-                'This permanently deletes every ticket and resets all settings, including your API key.',
+                'This permanently deletes every ticket and resets all settings.',
                 clearAll,
                 'Delete All',
               )
@@ -462,7 +372,6 @@ export function SettingsScreen({
           sub={`${bets.length} bet${bets.length === 1 ? '' : 's'}`}
           onPress={() => setPage('backup')}
         />
-        <MenuRow icon="🔑" label="Your own AI key" sub="Advanced" onPress={() => setPage('ai')} />
         <MenuRow icon="🗑️" label="Delete data" danger onPress={() => setPage('danger')} />
       </MenuGroup>
 

@@ -195,7 +195,7 @@ export async function testKey(apiKey: string): Promise<string | null> {
 
 /** Sends the slip image to Claude and returns the bets it found. */
 export async function readBetSlip(apiKey: string, imageBase64: string): Promise<ScannedBet[]> {
-  if (!apiKey.trim()) throw new ScanError('Add your Anthropic API key in Profile → Your own AI key to scan slips.');
+  if (!apiKey.trim()) throw new ScanError('Photo reading is unavailable right now. Try again in a minute, or enter the bet manually.');
 
   // The key is the user's own and lives only on their device, so calling the
   // API straight from the app is acceptable here. A version sold to other
@@ -230,10 +230,10 @@ export async function readBetSlip(apiKey: string, imageBase64: string): Promise<
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError)
       throw new ScanError(
-        `Your API key was rejected (${e.message}). Use Profile → Your own AI key → Test Key to check it.`,
+        'Photo reading is unavailable right now. Try again in a minute, or enter the bet manually.',
       );
     if (e instanceof Anthropic.PermissionDeniedError)
-      throw new ScanError('Your API key does not have access to this model.');
+      throw new ScanError('Photo reading is unavailable right now. Try again in a minute, or enter the bet manually.');
     if (e instanceof Anthropic.RateLimitError)
       throw new ScanError('Too many scans at once — wait a moment and try again.');
     if (e instanceof Anthropic.BadRequestError)

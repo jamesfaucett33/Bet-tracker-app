@@ -18,6 +18,7 @@ Things to add once the core app is fine-tuned.
 - [ ] Hand `APP_STORE_SUBMISSION.md` to Dad's Claude on the Mac.
 
 ## Plans & payments
+- [ ] Once the server scanner (scan-slip) is live: stop using any Anthropic key saved on a device (src/readSlip.ts / BetFormScreen use `settings.anthropicApiKey`), so every scan counts as an upload. The Profile option is already gone.
 - [ ] Run `supabase/setup-cards.sql` (storage for shared card links). Card links switch on automatically on betkeyper.com.
 - [ ] Run `supabase/setup-referrals.sql` (invite codes + Give 25 / Get 25 rewards). Needs Confirm email ON to stop fake-account farming.
 - [ ] Point invite links at betkeyper.com once the domain is live (src/referral.ts appUrl).
