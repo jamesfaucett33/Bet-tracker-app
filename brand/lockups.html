@@ -5,16 +5,23 @@
   .lockup { display: inline-flex; align-items: center; gap: 28px; padding: 24px; }
   .stack { flex-direction: column; gap: 14px; }
   .word { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 900; letter-spacing: -2px; line-height: 1; }
-  .bet { color: #3CC4FF; }
+  .bet { color: #0B2A5B; } /* navy: for light backgrounds */
+  .dark .bet { color: #FFFFFF; } /* on dark backgrounds */
   .keeper { color: #7BEA2B; }
 </style></head>
 <body>
-<!-- BetKeeper logo lockups on a transparent background: badge + wordmark ("Bet" sky blue, "Keeper" neon lime). -->
+<!-- BetKeeper logo lockups on a transparent background: badge + wordmark ("Bet" navy, or white in the -on-dark versions; "Keeper" neon lime). -->
 <div id="h" class="lockup"><span id="badge-h"></span><span class="word" style="font-size:150px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
 <br/>
 <div id="v" class="lockup stack"><span id="badge-v"></span><span class="word" style="font-size:110px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
 <br/>
 <div id="w" class="lockup"><span class="word" style="font-size:150px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
+<br/>
+<div id="hd" class="lockup dark"><span id="badge-hd"></span><span class="word" style="font-size:150px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
+<br/>
+<div id="vd" class="lockup stack dark"><span id="badge-vd"></span><span class="word" style="font-size:110px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
+<br/>
+<div id="wd" class="lockup dark"><span class="word" style="font-size:150px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
 <script>
 const shield = (px) => `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="18 4 174 202">
   <defs><linearGradient id="g${px}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A6F55F"/><stop offset="1" stop-color="#7BEA2B"/></linearGradient></defs>
@@ -24,5 +31,7 @@ const shield = (px) => `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" he
 </svg>`;
 document.getElementById('badge-h').innerHTML = shield(190);
 document.getElementById('badge-v').innerHTML = shield(260);
+document.getElementById('badge-hd').innerHTML = shield(190).replace(/g190/g, 'gd190');
+document.getElementById('badge-vd').innerHTML = shield(260).replace(/g260/g, 'gd260');
 </script>
 </body></html>

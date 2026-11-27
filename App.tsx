@@ -188,7 +188,7 @@ function Main() {
           <View style={styles.brandRow}>
             <Image source={require('./assets/badge.png')} style={styles.badge} />
             <Text style={styles.title}>
-              <Text style={{ color: colors.sky }}>Bet</Text>
+              <Text style={{ color: colors.text }}>Bet</Text>
               <Text style={{ color: colors.brand }}>Keeper</Text>
             </Text>
           </View>
