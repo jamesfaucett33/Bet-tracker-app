@@ -344,7 +344,7 @@ function Main() {
         accessibilityRole="button"
         accessibilityLabel="Add bet"
       >
-        <Text style={[styles.fabText, addMenu && { transform: [{ rotate: '45deg' }] }]}>+</Text>
+        <Text style={styles.fabText}>{addMenu ? '✕  Close' : '＋  Add bet'}</Text>
       </Pressable>
 
       <View style={[styles.tabBar, WEB ? webBottom : { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -508,9 +508,9 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: space.lg,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    height: 56,
+    paddingHorizontal: 22,
+    borderRadius: 28,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   backBar: { paddingHorizontal: space.lg, paddingVertical: 10, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
   backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
-  fabText: { color: colors.bg, fontSize: 34, fontWeight: '600', marginTop: -3 },
+  fabText: { color: colors.bg, fontSize: 18, fontWeight: '900' },
   menuBackdrop: {
     position: 'absolute',
     top: 0,
