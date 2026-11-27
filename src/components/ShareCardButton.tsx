@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useBetLive } from '../live';
 import { fetchReferral, inviteText } from '../referral';
 import { canMakeCards, cardKind, CardKind, drawCard, shareCard } from '../shareCard';
 import { colors, radius, space } from '../theme';
@@ -7,24 +8,32 @@ import { Bet } from '../types';
 import { Button } from './ui';
 
 /**
- * "Share this win" / "Share this bad beat" for a settled ticket: draws the
- * card, shows a preview, and opens the share sheet from the preview (a fresh
- * tap, which iPhones require for sharing files).
+ * "Share this bet" for any ticket (open, live, won, lost): draws the card,
+ * shows a preview, and opens the share sheet from the preview (a fresh tap,
+ * which iPhones require for sharing files). `compact` is the small icon used
+ * on ticket rows.
  */
-export function ShareCardButton({ bet }: { bet: Bet }) {
-  const kind = cardKind(bet);
+export function ShareCardButton({ bet, compact }: { bet: Bet; compact?: boolean }) {
+  const { legGames, legs: liveLegs } = useBetLive(bet);
+  const live = bet.status === 'pending' && legGames.some((g) => g?.state === 'in');
+  const kind = cardKind(bet, live);
   const [card, setCard] = useState<{ blob: Blob; url: string; kind: CardKind; code: string | null } | null>(
     null,
   );
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  if (!kind || !canMakeCards()) return null;
+  if (!canMakeCards()) return null;
 
   const open = async () => {
     setBusy(true);
     try {
       const code = (await fetchReferral().catch(() => null))?.code ?? null;
-      const blob = await drawCard(bet, code);
+      const blob = await drawCard(
+        bet,
+        code,
+        live,
+        liveLegs.map((l) => l.progress.state),
+      );
       setCard({ blob, url: URL.createObjectURL(blob), kind, code });
       setNote(null);
     } finally {
@@ -38,23 +47,37 @@ export function ShareCardButton({ bet }: { bet: Bet }) {
 
   return (
     <>
-      <Pressable
-        onPress={open}
-        style={({ pressed }) => [
-          styles.btn,
-          { borderColor: kind === 'win' ? colors.money : colors.loss },
-          pressed && { opacity: 0.7 },
-        ]}
-        accessibilityRole="button"
-      >
-        {busy ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={styles.btnText}>
-            {kind === 'win' ? '💰 Share this win' : '💀 Share this bad beat'}
-          </Text>
-        )}
-      </Pressable>
+      {compact ? (
+        <Pressable
+          onPress={open}
+          hitSlop={10}
+          style={({ pressed }) => [styles.icon, pressed && { opacity: 0.6 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Share this bet"
+        >
+          {busy ? <ActivityIndicator size="small" color={colors.bg} /> : <Text style={styles.iconText}>📤 Share</Text>}
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={open}
+          style={({ pressed }) => [styles.btn, pressed && { opacity: 0.8 }]}
+          accessibilityRole="button"
+        >
+          {busy ? (
+            <ActivityIndicator color={colors.bg} />
+          ) : (
+            <Text style={styles.btnText}>
+              {kind === 'win'
+                ? '💰 Share this win'
+                : kind === 'beat'
+                  ? '💀 Share this bad beat'
+                  : kind === 'live'
+                    ? '🔥 Share this sweat'
+                    : '📤 Share this bet'}
+            </Text>
+          )}
+        </Pressable>
+      )}
       <Modal visible={!!card} transparent animationType="fade" onRequestClose={close}>
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
@@ -89,13 +112,21 @@ export function ShareCardButton({ bet }: { bet: Bet }) {
 const styles = StyleSheet.create({
   btn: {
     marginTop: space.sm,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: radius.md,
-    borderWidth: 1.5,
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.brand,
   },
-  btnText: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  btnText: { color: colors.bg, fontSize: 16, fontWeight: '900' },
+  icon: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 64,
+    alignItems: 'center',
+  },
+  iconText: { color: colors.bg, fontSize: 12, fontWeight: '900' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',

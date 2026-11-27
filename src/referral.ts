@@ -61,13 +61,22 @@ export function inviteLink(code: string | null): string {
  * The message that goes with a share. kind: 'win' / 'beat' for a ticket card,
  * or omitted for a plain invite.
  */
-export function inviteText(code: string | null, kind?: 'win' | 'beat'): string {
+export function inviteText(
+  code: string | null,
+  kind?: 'win' | 'beat' | 'push' | 'open' | 'live',
+): string {
   const lead =
     kind === 'win'
       ? 'Check out this bet I just won! 💰'
       : kind === 'beat'
         ? 'Check out this bad beat 💀'
-        : 'Join me on BetKeyper!';
+        : kind === 'live'
+          ? "Sweating this one live 🔥 Check out my bet!"
+          : kind === 'open'
+            ? "Check out the bet I'm riding 🎟️"
+            : kind === 'push'
+              ? 'Check out my bet 🤝'
+              : 'Join me on BetKeyper!';
   const pitch = 'Keep track of all your bets in one place for free with BetKeyper.';
   return code
     ? `${lead} ${pitch} Sign up with my link and we both get ${REFERRAL_BONUS} free bet uploads: ${inviteLink(code)}`

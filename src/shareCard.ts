@@ -9,12 +9,14 @@ import { Bet } from './types';
  * settled ticket, drawn on a canvas in the app's current colors. Web only.
  */
 
-export type CardKind = 'win' | 'beat';
+export type CardKind = 'win' | 'beat' | 'push' | 'open' | 'live';
 
-export function cardKind(bet: Bet): CardKind | null {
+/** What kind of card a ticket makes; open bets are 'live' while a game is on. */
+export function cardKind(bet: Bet, live = false): CardKind {
   if (bet.status === 'won') return 'win';
   if (bet.status === 'lost') return 'beat';
-  return null;
+  if (bet.status === 'push') return 'push';
+  return live ? 'live' : 'open';
 }
 
 const W = 1080;
@@ -67,14 +69,22 @@ function shield(ctx: CanvasRenderingContext2D, x: number, y: number, size: numbe
 }
 
 /** Draws the card and returns it as a PNG blob. */
-export async function drawCard(bet: Bet, inviteCode?: string | null): Promise<Blob> {
-  const kind = cardKind(bet) ?? 'win';
+export async function drawCard(
+  bet: Bet,
+  inviteCode?: string | null,
+  live = false,
+  /** Open bets: where each leg stands right now ('hit' / 'miss' / 'push'). */
+  legNow?: (string | undefined)[],
+): Promise<Blob> {
+  const kind = cardKind(bet, live);
   const win = kind === 'win';
+  const open = kind === 'open' || kind === 'live';
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
-  const hot = win ? colors.money : colors.loss;
+  const hot =
+    kind === 'win' ? colors.money : kind === 'beat' ? colors.loss : kind === 'live' ? colors.toPlay : kind === 'push' ? colors.push : colors.brand;
 
   // Background
   const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -98,11 +108,25 @@ export async function drawCard(bet: Bet, inviteCode?: string | null): Promise<Bl
   ctx.fillText('Keyper', 196 + betW, 120);
 
   // Headline
-  const legs = bet.legs ?? [];
+  const now = (i: number) => {
+    const st = legNow?.[i];
+    return st === 'hit' || st === 'miss' || st === 'push' ? st : undefined;
+  };
+  const legs = (bet.legs ?? []).map((l, i) => ({ ...l, result: l.result ?? now(i) }));
   const missed = legs.filter((l) => l.result === 'miss').length;
   const hits = legs.filter((l) => l.result === 'hit').length;
-  const headline = win ? 'CASHED!' : missed === 1 && hits > 0 ? 'ONE LEG AWAY' : 'BAD BEAT';
-  const emoji = win ? '💰' : missed === 1 && hits > 0 ? '😩' : '💀';
+  const [headline, emoji] =
+    kind === 'win'
+      ? ['CASHED!', '💰']
+      : kind === 'live'
+        ? ['SWEATING IT', '🔥']
+        : kind === 'open'
+          ? ['LOCKED IN', '🎟️']
+          : kind === 'push'
+            ? ['PUSH', '🤝']
+            : missed === 1 && hits > 0
+              ? ['ONE LEG AWAY', '😩']
+              : ['BAD BEAT', '💀'];
   ctx.textAlign = 'center';
   ctx.fillStyle = hot;
   let size = 120;
@@ -114,27 +138,36 @@ export async function drawCard(bet: Bet, inviteCode?: string | null): Promise<Bl
   ctx.fillText(`${headline} ${emoji}`, W / 2, 300);
 
   // Big number
-  const amount = win ? betProfit(bet) : betToWin(bet);
-  const big = win ? `+${money(amount)}` : money(amount);
+  const amount = win ? betProfit(bet) : kind === 'push' ? bet.stake : betToWin(bet);
+  const big = win ? `+${money(amount)}` : open ? `to win ${money(amount)}` : money(amount);
   let bigSize = 170;
   ctx.font = `900 ${bigSize}px ${FONT}`;
   while (bigSize > 80 && ctx.measureText(big).width > W - 180) {
     bigSize -= 6;
     ctx.font = `900 ${bigSize}px ${FONT}`;
   }
-  ctx.fillStyle = win ? colors.money : '#FFFFFF';
+  ctx.fillStyle = win || open ? colors.money : '#FFFFFF';
   ctx.fillText(big, W / 2, 470);
   ctx.font = `700 40px ${FONT}`;
   ctx.fillStyle = colors.textDim;
   ctx.fillText(
-    win ? `on a ${money(bet.stake)} bet` : `would have paid on a ${money(bet.stake)} bet`,
+    win || open
+      ? `on a ${money(bet.stake)} bet${legs.length ? ` · ${hits} of ${legs.length} legs hit so far` : ''}`.replace(
+          / · 0 of \d+ legs hit so far/,
+          '',
+        )
+      : kind === 'push'
+        ? 'stake back, on to the next one'
+        : `would have paid on a ${money(bet.stake)} bet`,
     W / 2,
     575,
   );
 
   // Ticket box
   const top = 650;
-  const rows = legs.length ? legs.slice(0, 7) : [{ pick: bet.pick, result: win ? 'hit' : 'miss' }];
+  const rows = legs.length
+    ? legs.slice(0, 7)
+    : [{ pick: bet.pick, result: win ? 'hit' : kind === 'beat' ? 'miss' : kind === 'push' ? 'push' : undefined }];
   const boxH = 120 + rows.length * 74 + (legs.length > 7 ? 60 : 0);
   ctx.fillStyle = colors.surfaceAlt;
   roundRect(ctx, 80, top, W - 160, boxH, 36);
@@ -205,7 +238,7 @@ export async function shareCard(
   kind: CardKind,
   text?: string,
 ): Promise<'shared' | 'saved' | 'cancelled'> {
-  const file = new File([blob], kind === 'win' ? 'betkeyper-win.png' : 'betkeyper-bad-beat.png', {
+  const file = new File([blob], `betkeyper-${kind}.png`, {
     type: 'image/png',
   });
   const nav = globalThis.navigator as Navigator & { canShare?: (d: ShareData) => boolean };
@@ -213,7 +246,7 @@ export async function shareCard(
     try {
       await nav.share({
         files: [file],
-        text: text ?? (kind === 'win' ? 'Check out this bet I just won! 💰' : 'Check out this bad beat 💀'),
+        text: text ?? 'Check out my bet on BetKeyper',
       });
       return 'shared';
     } catch {

@@ -121,8 +121,9 @@ export function CompactBet({
           </Text>
           <Text style={styles.chev}>▾</Text>
         </View>
-        <View style={styles.dots}>
+        <View style={[styles.dots, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
           <LegDots kinds={kinds} size={8} />
+          <ShareCardButton bet={bet} compact />
         </View>
       </View>
     </Pressable>

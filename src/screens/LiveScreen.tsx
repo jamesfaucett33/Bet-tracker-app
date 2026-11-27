@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ShareCardButton } from '../components/ShareCardButton';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { betChance, legChance } from '../chance';
 import { legsSummary, TeamLogo } from '../components/LiveLegs';
@@ -380,6 +381,7 @@ export function TicketList({
                     {[bet.book, bet.notes].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
+                <ShareCardButton bet={bet} compact />
               </View>
               {!expanded ? (
                 <>
@@ -465,6 +467,7 @@ export function TicketList({
                 ))}
               </View>
             ) : null}
+            <ShareCardButton bet={bet} />
             <Pressable
               onPress={() => onEditBet(bet)}
               style={({ pressed }) => [styles.detailsBtn, pressed && { opacity: 0.7 }]}
