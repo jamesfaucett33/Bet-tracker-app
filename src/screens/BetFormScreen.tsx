@@ -102,6 +102,7 @@ export function BetFormScreen({
   const [book, setBook] = useState(bet?.book ?? settings.books[0] ?? '');
   const [status, setStatus] = useState<BetStatus>(bet?.status ?? 'pending');
   const [notes, setNotes] = useState(bet?.notes ?? '');
+  const [decidedBy, setDecidedBy] = useState(bet?.decidedBy ?? '');
   const [legs, setLegs] = useState<LegDraft[]>(
     bet?.legs?.map((l) => ({
       id: l.id,
@@ -181,6 +182,8 @@ export function BetFormScreen({
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
     if (!isValidISODate(date)) e.date = 'Use YYYY-MM-DD';
+    if (betType === 'Future' && decidedBy.trim() && !isValidISODate(decidedBy.trim()))
+      e.decidedBy = 'Use YYYY-MM-DD, e.g. 2027-02-14';
     if (!isValidAmerican(oddsNum))
       e.odds = multiLeg
         ? 'Every leg needs valid odds (e.g. -110 or +150)'
@@ -192,7 +195,7 @@ export function BetFormScreen({
     if (multiLegType && legs.filter((l) => l.pick.trim()).length < 2)
       e.legs = 'Add at least 2 legs';
     return e;
-  }, [date, oddsNum, stakeNum, pick, multiLeg, multiLegType, odds, legs]);
+  }, [date, oddsNum, stakeNum, pick, multiLeg, multiLegType, odds, legs, betType, decidedBy]);
 
   const valid = Object.keys(errors).length === 0;
   // Parlay priced from its legs: pay it like the book does, from the exact leg
@@ -276,6 +279,7 @@ export function BetFormScreen({
       book: book.trim(),
       status,
       notes: notes.trim() || undefined,
+      decidedBy: betType === 'Future' && decidedBy.trim() ? decidedBy.trim() : undefined,
       legs: finalLegs,
       game: keptGame(),
       trackerUrl,
@@ -791,10 +795,23 @@ export function BetFormScreen({
             label="What did you bet on?"
             value={pick}
             onChangeText={setPick}
-            placeholder="e.g. Chiefs -3.5 vs Bills"
+            placeholder={
+              betType === 'Future' ? 'e.g. Chiefs to win the Super Bowl' : 'e.g. Chiefs -3.5 vs Bills'
+            }
             error={showErr('pick')}
           />
         )}
+        {betType === 'Future' ? (
+          <Field
+            label="When is it decided? (optional)"
+            value={decidedBy}
+            onChangeText={setDecidedBy}
+            placeholder="YYYY-MM-DD, e.g. 2027-02-14"
+            autoCapitalize="none"
+            error={showErr('decidedBy')}
+            hint="Futures stay open until this date (Super Bowl, end of season…), then we'll ask you how it went."
+          />
+        ) : null}
         {showLegs ? (
           <View style={styles.legsBox}>
             <Text style={styles.legsTitle}>Your legs</Text>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatAmount } from '../format';
+import { formatAmount, formatDate } from '../format';
 import { useBetLive } from '../live';
 import { betProfit, betToWin, formatOdds } from '../odds';
 import { useStore } from '../store';
@@ -87,7 +87,11 @@ export function CompactBet({
         : `${multiGame ? 'First game ' : ''}${next.detail}`
       : legGames.some(Boolean)
         ? ''
-        : 'Game not found yet';
+        : bet.betType === 'Future'
+          ? bet.decidedBy
+            ? `Future · decided ${formatDate(bet.decidedBy)}`
+            : 'Future · open until you settle it'
+          : 'Game not found yet';
     sub = [kickoff, bet.book, `${formatAmount(bet.stake, settings)} @ ${formatOdds(bet.odds)}`]
       .filter(Boolean)
       .join(' · ');

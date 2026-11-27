@@ -1053,6 +1053,12 @@ export function useBetLive(bet: Bet) {
 export type BetPhase = 'upcoming' | 'live' | 'settle' | 'past';
 export function betPhase(bet: Bet, legGames?: (LiveGame | undefined)[]): BetPhase {
   if (bet.status !== 'pending') return 'past';
+  // Futures stay open until the day they're decided, then ask to be settled.
+  if (bet.betType === 'Future' && !bet.legs?.length) {
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return bet.decidedBy && today > bet.decidedBy ? 'settle' : 'upcoming';
+  }
   const found = (legGames ?? []).filter(Boolean) as LiveGame[];
   if (found.some((g) => g.state === 'in')) return 'live';
   const daysOld = (Date.now() - new Date(`${bet.date}T12:00:00`).getTime()) / 86400000;

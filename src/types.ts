@@ -141,6 +141,12 @@ export interface Bet {
   toWin?: number;
   /** 'auto' when the app settled it from the game's final stats. */
   settledBy?: 'auto';
+  /**
+   * Futures (e.g. Super Bowl winner): the day it's decided, YYYY-MM-DD. The
+   * bet stays open until then, then asks to be settled. No date = open until
+   * settled by hand.
+   */
+  decidedBy?: string;
 }
 
 export interface Settings {

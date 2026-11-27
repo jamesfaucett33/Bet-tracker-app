@@ -227,7 +227,8 @@ export function betMarkets(bet: Bet): { label: string; market?: Market }[] {
   return [
     {
       label: bet.pick,
-      market: !isGradeable(bet.pick)
+      // Futures aren't one game, so they're never graded from a box score.
+      market: bet.betType === 'Future' || !isGradeable(bet.pick)
         ? undefined
         : EACH_QUARTER.test(bet.pick)
           ? parseMarket(bet.pick)
@@ -260,6 +261,7 @@ export function legGame(
 
 /** The game a bet is on: stored, or recovered from its description. */
 export function betGame(bet: Bet): GameRef | undefined {
+  if (bet.betType === 'Future') return undefined; // a season-long bet, not one game
   return bet.game ?? parseGame(bet.pick, bet.sport);
 }
 
