@@ -879,10 +879,10 @@ const styles = StyleSheet.create({
   panel: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border },
   playerRow: { padding: space.md },
   playerName: { color: colors.text, fontSize: 14, fontWeight: '800' },
   playerLine: { color: colors.textDim, fontSize: 13, marginTop: 2 },
@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
   ticketLeg: {
     marginTop: space.md,
     paddingTop: space.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   bigChip: {
@@ -1031,7 +1031,7 @@ const styles = StyleSheet.create({
   rowSummary: { fontSize: 12, fontWeight: '700' },
   rowDots: { flexDirection: 'row', gap: 4 },
   chev: { color: colors.textFaint, fontSize: 24, fontWeight: '300' },
-  playerProp: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  playerProp: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   playerPropLabel: { fontSize: 13, fontWeight: '700', flex: 1 },
   playerPropValue: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   footnote: {

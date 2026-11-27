@@ -3,7 +3,7 @@ export const colors = {
   bg: '#061733', // deep navy
   surface: '#0D2650', // card blue
   surfaceAlt: '#173566',
-  border: '#22487F',
+  border: '#2F64A8', // bright blue outlines
   text: '#F4F8FF',
   textDim: '#A9BCD9',
   textFaint: '#7189AE',

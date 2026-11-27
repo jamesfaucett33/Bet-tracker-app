@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1.5,
     borderColor: colors.border,
     padding: space.lg,
   },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: 3,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   segment: { flex: 1, paddingVertical: 8, borderRadius: radius.sm, alignItems: 'center' },

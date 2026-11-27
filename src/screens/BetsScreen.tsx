@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   search: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: space.md,
     paddingVertical: 12,

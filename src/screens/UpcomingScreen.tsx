@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   container: { padding: space.lg, paddingBottom: 120 },
   tRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
   tTotal: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     borderTopColor: colors.border,
     marginTop: 4,
     paddingTop: 9,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   summary: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingVertical: space.md,
     paddingHorizontal: space.md,
