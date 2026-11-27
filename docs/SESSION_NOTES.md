@@ -24,7 +24,7 @@ Then tell this session **"computer setup's done"** and paste Claude's report.
 
 ## Then this session does (code side)
 - Test on betkeyper.com: sign-up email, uploads count down, shared card shows as the tappable preview in iMessage, invite rewards.
-- Point invite links at betkeyper.com (`src/referral.ts` `appUrl`) and forward the old GitHub address.
+- Point invite links at betkeyper.com (`src/referral.ts` `appUrl`), the link-preview ad (`public/index.html` og:image → `https://betkeyper.com/og-image.png`), and forward the old GitHub address.
 - **Forgot password** link on the sign-in screen (email now works).
 - **Test a cheaper scan model** on real tickets; goal: under 1¢ (must be under 1.5¢ for every plan to stay profitable).
 
