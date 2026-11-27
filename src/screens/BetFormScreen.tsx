@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
   batchTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
   batchMeta: { color: colors.textDim, fontSize: 13, marginTop: 2 },
   batchDupe: { color: colors.loss, fontSize: 14, fontWeight: '700', marginTop: 2 },
-  batchPay: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: 4 },
+  batchPay: { color: colors.money, fontSize: 14, fontWeight: '700', marginTop: 4 },
   batchPayNote: { color: colors.textDim, fontSize: 12, fontWeight: '400' },
   batchLeg: { color: colors.text, fontSize: 13, marginTop: 3 },
   legHint: { color: colors.textFaint, fontSize: 12, marginBottom: space.sm },
@@ -1031,6 +1031,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   toWinLabel: { color: colors.textDim, fontSize: 13 },
-  toWinValue: { color: colors.accent, fontSize: 28, fontWeight: '800', marginVertical: 2 },
+  toWinValue: { color: colors.money, fontSize: 28, fontWeight: '800', marginVertical: 2 },
   statusBar: { height: 3, borderRadius: 2, marginTop: 6, marginBottom: space.lg, opacity: 0.8 },
 });

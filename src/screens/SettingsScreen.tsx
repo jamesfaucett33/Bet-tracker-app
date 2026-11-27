@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { AccountCard } from '../components/AccountCard';
+import { TeamPicker } from '../components/TeamPicker';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
 import { parseNumber } from '../format';
 import { cleanKey, testKey } from '../scan';
@@ -109,6 +110,11 @@ export function SettingsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <AccountCard />
+
+      <SectionTitle>Team Colors</SectionTitle>
+      <Card>
+        <TeamPicker />
+      </Card>
 
       <SectionTitle>Bankroll & Units</SectionTitle>
       <Card>

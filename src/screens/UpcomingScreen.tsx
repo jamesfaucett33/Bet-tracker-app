@@ -63,7 +63,7 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
                 <Text style={[styles.tCell, styles.tName]}>{r.label}</Text>
                 <Text style={[styles.tCell, styles.tNum]}>{r.list.length}</Text>
                 <Text style={[styles.tCell, styles.tMoney]}>{money(sum(r.list, (b) => b.stake))}</Text>
-                <Text style={[styles.tCell, styles.tMoney, { color: colors.accent }]}>
+                <Text style={[styles.tCell, styles.tMoney, { color: colors.money }]}>
                   {money(sum(r.list, betToWin))}
                 </Text>
               </View>
@@ -72,13 +72,13 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
               <Text style={[styles.tCell, styles.tName, styles.bold]}>Total open</Text>
               <Text style={[styles.tCell, styles.tNum, styles.bold]}>{open.length}</Text>
               <Text style={[styles.tCell, styles.tMoney, styles.bold]}>{money(totalStake)}</Text>
-              <Text style={[styles.tCell, styles.tMoney, styles.bold, { color: colors.accent }]}>
+              <Text style={[styles.tCell, styles.tMoney, styles.bold, { color: colors.money }]}>
                 {money(totalWin)}
               </Text>
             </View>
             <Text style={styles.payout}>
               Total payout if everything cashes:{' '}
-              <Text style={{ color: colors.accent, fontWeight: '800' }}>
+              <Text style={{ color: colors.money, fontWeight: '800' }}>
                 {money(totalStake + totalWin)}
               </Text>
             </Text>

@@ -20,7 +20,7 @@ export function TicketMoney({ bet }: { bet: Bet }) {
   const cells: { label: string; value: string; color?: string }[] = [
     { label: 'Odds', value: formatOdds(bet.odds) },
     { label: 'Wagered', value: money(bet.stake) },
-    { label: 'To win', value: money(toWin), color: colors.accent },
+    { label: 'To win', value: money(toWin), color: colors.money },
     settled
       ? {
           label: 'Result',

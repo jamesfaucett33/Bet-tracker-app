@@ -106,7 +106,7 @@ export function DashboardScreen({
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.tableLabel}>Could win</Text>
-            <Text style={[styles.tableValue, { color: colors.accent }]}>
+            <Text style={[styles.tableValue, { color: colors.money }]}>
               {money(sum(open, betToWin))}
             </Text>
             <Text style={styles.tableSub}>if everything cashes 🙏</Text>
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
   vDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   cellLabel: { color: colors.textDim, fontSize: 12, fontWeight: '700' },
   cellValue: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 2 },
-  cellSub: { color: colors.accent, fontSize: 12, fontWeight: '600', marginTop: 1 },
+  cellSub: { color: colors.money, fontSize: 12, fontWeight: '600', marginTop: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: space.lg },
   stat: {
     flexGrow: 1,

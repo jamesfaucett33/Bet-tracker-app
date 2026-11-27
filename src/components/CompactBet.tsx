@@ -91,7 +91,7 @@ export function CompactBet({
     sub = [kickoff, bet.book, `${formatAmount(bet.stake, settings)} @ ${formatOdds(bet.odds)}`]
       .filter(Boolean)
       .join(' · ');
-    right = { text: `To win ${formatAmount(betToWin(bet), settings)}`, color: colors.accent };
+    right = { text: `To win ${formatAmount(betToWin(bet), settings)}`, color: colors.money };
   }
 
   return (

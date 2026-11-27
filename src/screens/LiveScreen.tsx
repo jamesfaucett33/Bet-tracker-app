@@ -386,7 +386,7 @@ export function TicketList({
                   <View style={styles.condensed}>
                     <Text style={styles.condensedText} numberOfLines={1}>
                       {money(bet.stake)} to win{' '}
-                      <Text style={{ color: colors.accent, fontWeight: '800' }}>
+                      <Text style={{ color: colors.money, fontWeight: '800' }}>
                         {money(betToWin(bet))}
                       </Text>
                     </Text>
@@ -417,7 +417,7 @@ export function TicketList({
                   <View key={st.label} style={styles.stat}>
                     <Text style={styles.statLabel}>{st.label}</Text>
                     <Text
-                      style={[styles.statValue, st.hi && { color: colors.accent }]}
+                      style={[styles.statValue, st.hi && { color: colors.money }]}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                     >
