@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { findPlan } from '../plans';
+import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
 import { Button, Card, SectionTitle } from './ui';
@@ -16,11 +17,7 @@ function ago(ms: number | null): string {
 /** Sign in / create account for cloud sync, or show sync status. */
 export function AccountCard() {
   const sync = useSync();
-  const [credit, setCredit] = useState<ScanCredit | null>(null);
-  useEffect(() => {
-    if (sync.email) fetchScanCredit().then(setCredit);
-    else setCredit(null);
-  }, [sync.email, sync.lastSync]);
+  const scan = useScanStatus();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   // Change password (signed in)
@@ -79,14 +76,13 @@ export function AccountCard() {
               Your bets are saved to your account and show up on every device and browser you sign
               in on.
             </Text>
-            {credit ? (
-              <Text style={styles.body}>
-                ✨ Free AI scans:{' '}
-                {credit.spent >= credit.limit
-                  ? 'beta cap reached — contact James for options'
-                  : `about ${scansLeft(credit)} scan${scansLeft(credit) === 1 ? '' : 's'} left`}{' '}
-                · ${credit.spent.toFixed(2)} of ${credit.limit.toFixed(2)} used
-              </Text>
+            {scan ? (
+              <Pressable onPress={openPlans} accessibilityRole="button" style={styles.planRow}>
+                <Text style={styles.body}>
+                  ⚡ {scan.plan === 'staff' ? 'Staff · unlimited AI scans' : `${findPlan(scan.plan).name} plan · ${scan.left} AI scan${scan.left === 1 ? '' : 's'} left`}
+                </Text>
+                <Text style={styles.planLink}>See plans ›</Text>
+              </Pressable>
             ) : null}
             <View style={styles.row}>
               <Button
@@ -214,6 +210,8 @@ export function AccountCard() {
 }
 
 const styles = StyleSheet.create({
+  planRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  planLink: { color: colors.accent, fontSize: 14, fontWeight: '700' },
   signedIn: { color: colors.accent, fontSize: 15, fontWeight: '800' },
   body: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
   fine: { color: colors.textFaint, fontSize: 12, lineHeight: 17 },

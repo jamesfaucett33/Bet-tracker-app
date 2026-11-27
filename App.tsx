@@ -10,6 +10,9 @@ import {
   Text,
   View,
 } from 'react-native';
+import { ScanBadge } from './src/components/ScanBadge';
+import { PlansScreen } from './src/screens/PlansScreen';
+import { closePlans, usePlansOpen } from './src/scanStatus';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BetFormScreen } from './src/screens/BetFormScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
@@ -162,6 +165,7 @@ function Main() {
   const [tab, setTab] = useState<Tab>('dashboard');
   // undefined = closed, null = new bet, Bet = editing
   const [editing, setEditing] = useState<Bet | null | undefined>(undefined);
+  const plansOpen = usePlansOpen();
 
   if (!loaded) {
     return (
@@ -187,6 +191,7 @@ function Main() {
               Every ticket. Every book. One place.
             </Text>
           </View>
+          <ScanBadge />
         </View>
         <UpdateBanner />
         <ImportBanner link={link} />
@@ -267,6 +272,24 @@ function Main() {
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
+
+      <Modal
+        visible={plansOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closePlans}
+      >
+        <SafeAreaProvider>
+          {plansOpen ? (
+            <PlansScreen
+              onSignIn={() => {
+                setEditing(undefined);
+                setTab('settings');
+              }}
+            />
+          ) : null}
+        </SafeAreaProvider>
+      </Modal>
     </View>
   );
 }
@@ -289,8 +312,8 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingBottom: space.sm, backgroundColor: colors.bg },
-  title: { color: colors.text, fontSize: 28, fontWeight: '800', lineHeight: 32 },
-  slogan: { color: colors.textDim, fontSize: 12, fontWeight: '700', letterSpacing: 0.3, marginTop: 1 },
+  title: { color: colors.text, fontSize: 26, fontWeight: '800', lineHeight: 30 },
+  slogan: { color: colors.textDim, fontSize: 10.5, fontWeight: '700', marginTop: 1 },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -300,7 +323,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: colors.brand + '55',
   },
-  badge: { width: 42, height: 42 },
+  badge: { width: 38, height: 38 },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,

@@ -25,7 +25,8 @@ import { canReadOnDevice } from '../ocr';
 import { deriveTrackerUrl } from '../qr';
 import { duplicateMessage, findDuplicate, sameTicket } from '../dupes';
 import { cheer } from '../cheer';
-import { canScanInCloud, fetchScanCredit, ScanCredit, scansLeft } from '../cloudScan';
+import { canScanInCloud } from '../cloudScan';
+import { openPlans, refreshScanStatus, useScanStatus } from '../scanStatus';
 import { readSlip, SlipRead } from '../readSlip';
 import { PickedImage, PickSource, pickSlipImages, ScanError, ScannedBet } from '../scan';
 import { useStore } from '../store';
@@ -120,14 +121,13 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
   const [scannedPick, setScannedPick] = useState('');
   const [trackerUrl, setTrackerUrl] = useState<string | undefined>(bet?.trackerUrl);
   // Free AI scanning credit (signed-in users without their own key).
-  const [credit, setCredit] = useState<ScanCredit | null>(null);
-  const [showCap, setShowCap] = useState(false);
+  const scanStatus = useScanStatus();
+  const credit = settings.anthropicApiKey.trim() ? null : scanStatus;
+  const [capHit, setCapHit] = useState(false);
+  const showCap = capHit || (credit ? credit.left <= 0 : false);
+  const setShowCap = setCapHit;
   const refreshCredit = () => {
-    if (settings.anthropicApiKey.trim()) return;
-    fetchScanCredit().then((c) => {
-      setCredit(c);
-      if (c && c.spent >= c.limit) setShowCap(true);
-    });
+    if (!settings.anthropicApiKey.trim()) refreshScanStatus();
   };
   useEffect(() => {
     if (!bet) refreshCredit();
@@ -371,7 +371,7 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
             : res.usedAI
             ? 'Slip read with AI. Check the details below, then save.'
             : res.limitReached
-              ? 'Beta AI scan cap reached — read on your phone instead. Double-check every field.'
+              ? 'Out of AI scans this month — read on your phone instead. Double-check every field.'
               : 'Slip read on your phone. Double-check every field — sign in (Settings) for AI scanning.',
       );
     } catch (e) {
@@ -649,9 +649,11 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
                 </View>
                 {credit && !settings.anthropicApiKey ? (
                   <Text style={styles.creditLine}>
-                    {credit.spent >= credit.limit
-                      ? 'Beta AI scan cap reached — contact James for options. Scans now read on your phone.'
-                      : `✨ AI scanning · about ${scansLeft(credit)} free scan${scansLeft(credit) === 1 ? '' : 's'} left`}
+                    {credit.plan === 'staff'
+                      ? '✨ AI scanning · unlimited'
+                      : credit.left <= 0
+                        ? 'Out of AI scans this month. Scans now read on your phone.'
+                        : `✨ AI scanning · ${credit.left} scan${credit.left === 1 ? '' : 's'} left`}
                   </Text>
                 ) : null}
                 {scanNote ? <Text style={styles.scanNote}>✓ {scanNote}</Text> : null}
@@ -671,12 +673,13 @@ export function BetFormScreen({ bet, onClose }: { bet?: Bet; onClose: () => void
         {showCap && !isEdit ? (
           <View style={{ marginBottom: space.lg }}>
             <View style={styles.capBox}>
-              <Text style={styles.capTitle}>Beta scan cap reached</Text>
+              <Text style={styles.capTitle}>You're out of AI scans this month</Text>
               <Text style={styles.capText}>
                 {
-                  "You've reached your free AI scan cap for the beta. Contact James for options. Scans now read on your phone instead — double-check each field."
+                  'Scans now read on your phone instead — double-check each field. Upgrade or grab a scan pack to keep scanning with AI.'
                 }
               </Text>
+              <Button title="See plans" onPress={openPlans} style={{ marginTop: space.md }} />
             </View>
           </View>
         ) : null}

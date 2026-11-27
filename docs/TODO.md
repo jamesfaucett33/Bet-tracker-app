@@ -17,6 +17,12 @@ Things to add once the core app is fine-tuned.
 - [ ] **Privacy policy** and **support** pages (could live on betkeyper.com).
 - [ ] Hand `APP_STORE_SUBMISSION.md` to Dad's Claude on the Mac.
 
+## Plans & payments
+- [ ] Run `supabase/setup-plans.sql` and redeploy the `scan-slip` function (plan limits). Set your own account to `staff`.
+- [ ] Test a smaller, cheaper scan model on real tickets (target about 1¢ a scan).
+- [ ] Hook up payments: RevenueCat + Apple in-app purchase (+ Google Play, Stripe for web). Upgrade buttons currently say "coming with the App Store launch".
+- [ ] Build the "soon" perks sold on Pro: all-league team colors, share cards, trip view.
+
 ## Features
 - [ ] **Free AI scanning** for signed-in users: Anthropic API key, saved as a Supabase secret, deploy the scan function.
 - [ ] **Team colors for NBA, MLB, NHL** (NFL is done).
