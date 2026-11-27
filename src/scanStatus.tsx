@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { fetchScanStatus, ScanStatus } from './cloudScan';
+import { savePrefsToAccount } from './notify';
 import { useSync } from './sync';
 
 /**
@@ -30,7 +31,10 @@ export function useScanStatus(): ScanStatus | null {
     const who = sync.email ?? null;
     if (who === loadedFor) return;
     loadedFor = who;
-    if (who) refreshScanStatus();
+    if (who) {
+      refreshScanStatus();
+      void savePrefsToAccount();
+    }
     else {
       status = null;
       emit();

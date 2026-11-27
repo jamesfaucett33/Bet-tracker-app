@@ -37,6 +37,14 @@
     },
     "experiments": {
       "baseUrl": "/Bet-tracker-app"
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#7BEA2B"
+        }
+      ]
+    ]
   }
 }

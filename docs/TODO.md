@@ -28,6 +28,10 @@ Things to add once the core app is fine-tuned.
 - [ ] Turn on Pro-only gating at launch (all-league team colors already lock when the beta ends).
 - [ ] Sync trips and team choice to the account (they're saved on the device for now).
 
+## Notifications
+- [ ] Run `supabase/setup-notifications.sql`.
+- [ ] Build the push sender (Edge Function on a 2-minute schedule) and add the APNs key at launch — plan in `docs/NOTIFICATIONS.md`.
+
 ## Features
 - [ ] **Free AI scanning** for signed-in users: Anthropic API key, saved as a Supabase secret, deploy the scan function.
 - [ ] Save the chosen team to the account, so it follows you to other devices.

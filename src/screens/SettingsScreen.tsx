@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { AccountCard } from '../components/AccountCard';
 import { TripsView } from '../components/TripsView';
-import { setAlertsOn, useAlertsOn } from '../alerts';
+import { useAlertsOn } from '../alerts';
+import { NotificationsView } from '../components/NotificationsView';
 import { InviteView } from '../components/InviteView';
 import { TeamPicker } from '../components/TeamPicker';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
@@ -78,7 +79,7 @@ function ListEditor({
   );
 }
 
-type Page = 'menu' | 'account' | 'invite' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
+type Page = 'menu' | 'account' | 'notify' | 'invite' | 'trips' | 'team' | 'bankroll' | 'lists' | 'backup' | 'ai' | 'danger';
 
 export function SettingsScreen({
   onAddBet,
@@ -133,6 +134,7 @@ export function SettingsScreen({
     account: 'Account',
     trips: 'Trips',
     invite: 'Invite Friends',
+    notify: 'Notifications',
     team: 'Team Colors',
     bankroll: 'Bankroll & Units',
     lists: 'Sportsbooks & Sports',
@@ -150,6 +152,7 @@ export function SettingsScreen({
         <Text style={styles.pageTitle}>{PAGES[page]}</Text>
         {page === 'account' ? <AccountCard /> : null}
         {page === 'trips' ? <TripsView onEditBet={onEditBet} /> : null}
+        {page === 'notify' ? <NotificationsView /> : null}
         {page === 'invite' ? <InviteView onSignUp={() => setPage('account')} /> : null}
         {page === 'team' ? (
           <>
@@ -439,9 +442,9 @@ export function SettingsScreen({
         <MenuRow icon="🎨" label="Team colors" sub={teamName} onPress={() => setPage('team')} />
         <MenuRow
           icon="🔔"
-          label={`Game-day pop-ups: ${alerts ? 'On' : 'Off'}`}
-          sub="Cash / bust moments and legs as they land"
-          onPress={() => setAlertsOn(!alerts)}
+          label="Notifications"
+          sub={alerts ? 'Cash, bust and leg alerts on' : 'Pop-ups off'}
+          onPress={() => setPage('notify')}
         />
         <MenuRow
           icon="💰"

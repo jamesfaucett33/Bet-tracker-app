@@ -3,6 +3,7 @@ import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, View } 
 import { ShareCardButton } from './components/ShareCardButton';
 import { formatAmount } from './format';
 import { useBetLive } from './live';
+import { notifyPrefs } from './notify';
 import { betProfit, betToWin } from './odds';
 import { useStore } from './store';
 import { colors, radius, space } from './theme';
@@ -59,13 +60,13 @@ const subscribe = (l: () => void) => {
 };
 
 function pushMoment(m: Moment) {
-  if (!enabled) return;
+  if (!enabled || !notifyPrefs()[m.kind === 'cash' ? 'cashed' : 'busted']) return;
   moment = m;
   emit();
   if (Platform.OS === 'web') (globalThis.navigator as Navigator | undefined)?.vibrate?.(m.kind === 'cash' ? [80, 60, 80, 60, 200] : 200);
 }
-function pushToast(emoji: string, text: string, color: string) {
-  if (!enabled) return;
+function pushToast(emoji: string, text: string, color: string, pref: 'legs' | 'oneAway' = 'legs') {
+  if (!enabled || !notifyPrefs()[pref]) return;
   const t = { id: nextId++, emoji, text, color };
   toasts = [...toasts.slice(-2), t];
   emit();
@@ -101,7 +102,7 @@ function BetWatcher({ bet }: { bet: Bet }) {
         const dead = states.includes('miss');
         if (total > 1 && left.length === 1 && !dead) {
           const last = legs[states.findIndex((x) => x === 'live' || x === 'pre')].label;
-          pushToast('🔥', `One leg away from ${formatAmount(betToWin(bet), settings)}! Waiting on ${last}`, colors.toPlay);
+          pushToast('🔥', `One leg away from ${formatAmount(betToWin(bet), settings)}! Waiting on ${last}`, colors.toPlay, 'oneAway');
         } else {
           pushToast('✅', total > 1 ? `${label} hit! ${done} of ${total} legs in` : `${label} is in!`, colors.win);
         }
