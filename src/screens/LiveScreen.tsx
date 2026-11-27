@@ -20,6 +20,7 @@ import {
   findPlayerKey,
   gameLine,
   playerStatus,
+  betPhase,
   gradeMarket,
   LegProgress,
   LiveGame,
@@ -347,7 +348,9 @@ export function TicketList({
         })),
         overall,
       );
-      return { bet, legs, chance, summary, overall };
+      // Settle buttons once it's over, or when its game was never found.
+      const canSettle = overall === 'post' || betPhase(bet, legGamesHere) === 'settle';
+      return { bet, legs, chance, summary, overall, canSettle };
     });
     // Tickets still alive first, best chance on top.
     return list.sort((a, b) => (b.chance ?? -1) - (a.chance ?? -1));
@@ -356,7 +359,7 @@ export function TicketList({
   return (
     <>
       <SectionTitle>{title}</SectionTitle>
-      {tickets.map(({ bet, legs, chance, summary, overall }) => {
+      {tickets.map(({ bet, legs, chance, summary, overall, canSettle }) => {
         const missed = legs.some((l) => l.prop.progress.state === 'miss');
         const allHit = legs.every(
           (l) => l.prop.progress.state === 'hit' || l.prop.progress.state === 'push',
@@ -451,7 +454,7 @@ export function TicketList({
                 <PropMeter prop={leg.prop} final={overall === 'post'} />
               </View>
             ))}
-            {overall === 'post' ? (
+            {canSettle ? (
               <View style={styles.settleRow}>
                 {(['won', 'lost', 'push'] as const).map((st) => (
                   <Pressable

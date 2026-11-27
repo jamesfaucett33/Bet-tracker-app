@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { AccountCard } from '../components/AccountCard';
 import { TripsView } from '../components/TripsView';
+import { setAlertsOn, useAlertsOn } from '../alerts';
 import { InviteView } from '../components/InviteView';
 import { TeamPicker } from '../components/TeamPicker';
 import { Button, Card, confirm, Field, notify, SectionTitle } from '../components/ui';
@@ -89,6 +90,7 @@ export function SettingsScreen({
   const sync = useSync();
   const scan = useScanStatus();
   const [page, setPage] = useState<Page>('menu');
+  const alerts = useAlertsOn();
   const teamName = findTeam(activeTeamId)?.name ?? 'BetKeyper (default)';
   const { settings, updateSettings, exportData, importData, clearAll, clearBets, bets } = useStore();
   const [bankroll, setBankroll] = useState(
@@ -435,6 +437,12 @@ export function SettingsScreen({
 
       <MenuGroup title="Personalize">
         <MenuRow icon="🎨" label="Team colors" sub={teamName} onPress={() => setPage('team')} />
+        <MenuRow
+          icon="🔔"
+          label={`Game-day pop-ups: ${alerts ? 'On' : 'Off'}`}
+          sub="Cash / bust moments and legs as they land"
+          onPress={() => setAlertsOn(!alerts)}
+        />
         <MenuRow
           icon="💰"
           label="Bankroll & units"

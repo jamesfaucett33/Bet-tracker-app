@@ -22,6 +22,7 @@ import { TicketScreen } from './src/screens/TicketScreen';
 import { BetsScreen } from './src/screens/BetsScreen';
 import { UpcomingScreen } from './src/screens/UpcomingScreen';
 import { CheerHost } from './src/cheer';
+import { AlertsHost } from './src/alerts';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -346,6 +347,7 @@ function Main() {
       </View>
 
       <CheerHost />
+      <AlertsHost />
 
       <Modal
         visible={editing !== undefined}
