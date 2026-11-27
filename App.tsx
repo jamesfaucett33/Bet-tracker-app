@@ -183,7 +183,17 @@ function Main() {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.header}>
-        <Text style={styles.title}>{TITLES[tab]}</Text>
+        {tab === 'dashboard' ? (
+          <Text style={styles.title}>
+            Bet<Text style={{ color: colors.gold }}>Keeper</Text>
+          </Text>
+        ) : (
+          <Text style={styles.title}>
+            {TITLES[tab]}
+            <Text style={{ color: colors.gold }}>.</Text>
+          </Text>
+        )}
+        <View style={styles.titleRule} />
         <UpdateBanner />
         <ImportBanner link={link} />
       </SafeAreaView>
@@ -286,11 +296,18 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingBottom: space.sm, backgroundColor: colors.bg },
   title: { color: colors.text, fontSize: 30, fontWeight: '800', marginTop: space.sm },
+  titleRule: {
+    height: 2,
+    width: 44,
+    borderRadius: 1,
+    backgroundColor: colors.gold,
+    marginTop: 6,
+  },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    borderTopColor: colors.gold + '66',
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 2 },

@@ -4,7 +4,7 @@ export const colors = {
   bg: '#0B0B0D', // onyx
   surface: '#17171B', // charcoal cards
   surfaceAlt: '#24242A',
-  border: '#33323A',
+  border: '#3D3524', // gold-tinted hairlines
   text: '#F5F2EA',
   textDim: '#B8B1A2',
   textFaint: '#7C766A',
@@ -16,7 +16,7 @@ export const colors = {
   win: '#2EBD6B', // felt green
   loss: '#E5484D', // chip red
   push: '#8AB4F8', // a push is neutral: cool blue, never confused with gold
-  pending: '#E9D8A6', // open tickets: champagne
+  pending: '#D4AF37', // open tickets: gold
   /** A leg in play (orange dots). */
   toPlay: '#FF7A1A',
 };
