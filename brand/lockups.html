@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; }
+  .lockup { display: inline-flex; align-items: center; gap: 28px; padding: 24px; }
+  .stack { flex-direction: column; gap: 14px; }
+  .word { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 900; letter-spacing: -2px; line-height: 1; }
+  .bet { color: #3CC4FF; }
+  .keeper { color: #7BEA2B; }
+</style></head>
+<body>
+<!-- BetKeeper logo lockups on a transparent background: badge + wordmark ("Bet" sky blue, "Keeper" neon lime). -->
+<div id="h" class="lockup"><span id="badge-h"></span><span class="word" style="font-size:150px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
+<br/>
+<div id="v" class="lockup stack"><span id="badge-v"></span><span class="word" style="font-size:110px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
+<br/>
+<div id="w" class="lockup"><span class="word" style="font-size:150px"><span class="bet">Bet</span><span class="keeper">Keeper</span></span></div>
+<script>
+const shield = (px) => `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="18 4 174 202">
+  <defs><linearGradient id="g${px}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A6F55F"/><stop offset="1" stop-color="#7BEA2B"/></linearGradient></defs>
+  <path d="M105 10 l80 28 v62 c0 52 -36 86 -80 100 c-44 -14 -80 -48 -80 -100 v-62z" fill="#0D2650" stroke="#7BEA2B" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M105 32 l60 21 v47 c0 40 -27 66 -60 77 c-33 -11 -60 -37 -60 -77 v-47z" fill="url(#g${px})"/>
+  <circle cx="105" cy="92" r="20" fill="#061733"/><path d="M96 104 h18 l7 40 h-32z" fill="#061733"/>
+</svg>`;
+document.getElementById('badge-h').innerHTML = shield(190);
+document.getElementById('badge-v').innerHTML = shield(260);
+</script>
+</body></html>
