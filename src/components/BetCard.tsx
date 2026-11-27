@@ -1,12 +1,13 @@
 import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatDate } from '../format';
-import { autoSettle, gameLine, useBetLive } from '../live';
+import { autoSettle, betPhase, gameLine, useBetLive } from '../live';
 import { GameHeader, legsSummary, LiveLegs } from './LiveLegs';
 import { Dot, dotCounts, dotForResult } from './LegDots';
 import { TicketMoney } from './TicketMoney';
 import { formatOdds } from '../odds';
 import { useStore } from '../store';
+import { confirm } from './ui';
 import { colors, radius, space, statusColor } from '../theme';
 import { Bet, BetStatus } from '../types';
 
@@ -29,14 +30,12 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
       : 'pre';
   const summary = showLive ? legsSummary(liveLegs, overall) : null;
   const decision = autoSettle(bet, legGames);
+  const phase = betPhase(bet, legGames);
   const review = decision && 'review' in decision ? decision.review : null;
   // Leg-by-leg record once games finish (kept for dead tickets too).
   const legKinds = (bet.legs ?? []).map((l, i) => dotForResult(l.result, legGames[i]?.state));
   const legRecord =
     bet.status !== 'pending' && bet.legs?.some((l) => l.result) ? dotCounts(legKinds) : null;
-  // Nothing is won until it's official: Won / Push appear once every game the
-  // app found is final (or it couldn't find any). Lost is always available.
-  const gamesOver = !legGames.some((g) => g && g.state !== 'post');
 
   return (
     <Pressable
@@ -122,26 +121,42 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
         <TicketMoney bet={bet} />
         <Text style={[styles.detail, { marginTop: 6 }]}>Placed {formatDate(bet.date)}</Text>
 
-        {bet.status === 'pending' ? (
-          <View style={styles.actions}>
-            {(gamesOver ? (['won', 'lost', 'push'] as const) : (['lost'] as const)).map((s) => (
-              <Pressable
-                key={s}
-                onPress={() => setStatus(bet.id, s)}
-                accessibilityRole="button"
-                accessibilityLabel={`Mark ${s}`}
-                style={({ pressed }) => [
-                  styles.actionBtn,
-                  { borderColor: statusColor[s] },
-                  pressed && { backgroundColor: statusColor[s] + '33' },
-                ]}
-              >
-                <Text style={[styles.actionText, { color: statusColor[s] }]}>
-                  {s === 'won' ? 'Won' : s === 'lost' ? 'Lost' : 'Push'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+        {bet.status === 'pending' && phase === 'settle' ? (
+          <>
+            <Text style={styles.settleLabel}>Games are over. How did it go?</Text>
+            <View style={styles.actions}>
+              {(['won', 'lost', 'push'] as const).map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => setStatus(bet.id, s)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mark ${s}`}
+                  style={({ pressed }) => [
+                    styles.actionBtn,
+                    { borderColor: statusColor[s] },
+                    pressed && { backgroundColor: statusColor[s] + '33' },
+                  ]}
+                >
+                  <Text style={[styles.actionText, { color: statusColor[s] }]}>
+                    {s === 'won' ? 'Mark won' : s === 'lost' ? 'Mark lost' : 'Push'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : bet.status === 'pending' && phase === 'live' ? (
+          // A leg can be dead before the app has the final: let them call it.
+          <Text
+            style={styles.markLost}
+            onPress={() =>
+              confirm('Mark this ticket lost?', 'Do this if a leg has already missed.', () =>
+                setStatus(bet.id, 'lost'),
+              'Mark lost')
+            }
+            accessibilityRole="button"
+          >
+            A leg already missed? Mark ticket lost
+          </Text>
         ) : null}
       </View>
     </Pressable>
@@ -149,6 +164,8 @@ export function BetCard({ bet, onPress }: { bet: Bet; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  settleLabel: { color: colors.text, fontSize: 14, fontWeight: '700', marginTop: space.md },
+  markLost: { color: colors.textDim, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline', marginTop: space.md, textAlign: 'center' },
   card: {
     flexDirection: 'row',
     backgroundColor: colors.surface,

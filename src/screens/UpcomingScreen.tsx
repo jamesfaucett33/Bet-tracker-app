@@ -35,7 +35,11 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
   // Money on the table: tickets in progress, tickets not started, and both together.
   const inProgress = bets.filter((b) => phaseOf(b) === 'live');
   const sum = (list: Bet[], f: (b: Bet) => number) => list.reduce((acc, b) => acc + f(b), 0);
-  const money = (n: number) => formatAmount(n, settings);
+  // Big totals drop the cents so the columns don't run together.
+  const money = (n: number) => {
+    const t = formatAmount(n, settings);
+    return Math.abs(n) >= 10000 ? t.replace(/\.\d\d$/, '') : t;
+  };
   const rows = [
     { label: '🔴 Live', list: inProgress },
     { label: '◷ Upcoming', list: upcoming },
@@ -117,9 +121,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   tCell: { color: colors.text, fontSize: 15, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  tName: { flex: 1.5 },
-  tNum: { flex: 0.8, textAlign: 'center' },
-  tMoney: { flex: 1.3, textAlign: 'right' },
+  tName: { flex: 1.3 },
+  tNum: { flex: 0.6, textAlign: 'center' },
+  tMoney: { flex: 1.5, textAlign: 'right', paddingLeft: 6 },
   bold: { fontWeight: '800' },
   payout: { color: colors.textDim, fontSize: 13, marginTop: space.sm, textAlign: 'center' },
   summary: {
