@@ -206,6 +206,20 @@ function Main() {
   const anyLive = [...games.values()].some((g) => g.state === 'in');
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('dashboard');
+  // Tabs opened from a box (e.g. Dashboard -> Upcoming) remember where they
+  // came from, so a Back bar can return there. Tapping the tab bar clears it.
+  const [backTo, setBackTo] = useState<Tab[]>([]);
+  const goTo = (t: Tab) => {
+    if (t === tab) return;
+    setBackTo((h) => [...h, tab]);
+    setTab(t);
+  };
+  const goBack = () => {
+    const prev = backTo[backTo.length - 1];
+    if (!prev) return;
+    setBackTo((h) => h.slice(0, -1));
+    setTab(prev);
+  };
   // undefined = closed, null = new bet, Bet = editing
   const [editing, setEditing] = useState<Bet | null | undefined>(undefined);
   const plansOpen = usePlansOpen();
@@ -251,16 +265,21 @@ function Main() {
         <ImportBanner link={link} />
       </SafeAreaView>
 
+      {backTo.length ? (
+        <Pressable onPress={goBack} style={styles.backBar} accessibilityRole="button">
+          <Text style={styles.backText}>‹ Back to {TABS.find((x) => x.key === backTo[backTo.length - 1])?.label}</Text>
+        </Pressable>
+      ) : null}
       <View style={{ flex: 1 }}>
         {tab === 'dashboard' && (
           <DashboardScreen
             onEditBet={openBet}
             onViewBet={(b) => setViewing(b.id)}
-            onOpenSettings={() => setTab('settings')}
-            onOpenTab={setTab}
+            onOpenSettings={() => goTo('settings')}
+            onOpenTab={goTo}
           />
         )}
-        {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} onOpenLive={() => setTab('live')} />}
+        {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} onOpenLive={() => goTo('live')} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
         {tab === 'settings' && <SettingsScreen onAddBet={startAdd} onEditBet={openBet} />}
@@ -324,6 +343,7 @@ function Main() {
               key={t.key}
               onPress={() => {
                 setAddMenu(false);
+                setBackTo([]);
                 setTab(t.key);
               }}
               style={styles.tab}
@@ -403,6 +423,7 @@ function Main() {
             <PlansScreen
               onSignIn={() => {
                 setEditing(undefined);
+                setBackTo([]);
                 setTab('settings');
               }}
             />
@@ -487,6 +508,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
+  backBar: { paddingHorizontal: space.lg, paddingVertical: 10, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
   fabText: { color: colors.bg, fontSize: 34, fontWeight: '600', marginTop: -3 },
   menuBackdrop: {
     position: 'absolute',
