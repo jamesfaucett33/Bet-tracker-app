@@ -5,7 +5,7 @@ import { BetaSignupPitch } from './BetaBanner';
 import { openPlans, useScanStatus } from '../scanStatus';
 import { useSync } from '../sync';
 import { colors, radius, space } from '../theme';
-import { Button, Card, SectionTitle } from './ui';
+import { Button, Card } from './ui';
 
 function ago(ms: number | null): string {
   if (!ms) return 'not yet';
@@ -115,7 +115,6 @@ export function AccountCard() {
 
   return (
     <>
-      <SectionTitle>Account & Cloud Backup</SectionTitle>
       <Card style={{ gap: space.md }}>
         {sync.email ? (
           <>

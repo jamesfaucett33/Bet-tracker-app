@@ -70,6 +70,8 @@ type SyncState = 'off' | 'idle' | 'syncing' | 'error';
 interface SyncCtx {
   configured: boolean;
   email: string | null;
+  /** Full name given at sign-up (null for older accounts). */
+  name: string | null;
   state: SyncState;
   lastSync: number | null;
   error: string | null;
@@ -312,6 +314,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     () => ({
       configured: cloudConfigured(),
       email: session?.user?.email ?? null,
+      name: (session?.user?.user_metadata?.full_name as string | undefined) || null,
       state,
       lastSync,
       error,

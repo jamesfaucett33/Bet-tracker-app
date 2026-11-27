@@ -34,7 +34,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'upcoming', label: 'Upcoming', icon: '◷' },
   { key: 'live', label: 'Live', icon: '◉' },
   { key: 'bets', label: 'Past', icon: '☰' },
-  { key: 'settings', label: 'Settings', icon: '⚙' },
+  { key: 'settings', label: 'Profile', icon: '👤' },
 ];
 
 /**
@@ -208,7 +208,7 @@ function Main() {
         {tab === 'upcoming' && <UpcomingScreen onEditBet={openBet} />}
         {tab === 'live' && <LiveScreen onEditBet={openBet} />}
         {tab === 'bets' && <BetsScreen onEditBet={openBet} />}
-        {tab === 'settings' && <SettingsScreen />}
+        {tab === 'settings' && <SettingsScreen onAddBet={() => setEditing(null)} />}
       </View>
 
       {tab !== 'settings' ? (
@@ -242,6 +242,7 @@ function Main() {
                   styles.tabIcon,
                   active && { color: colors.accent },
                   t.key === 'live' && anyLive && { color: colors.loss },
+                  t.key === 'settings' && !active && { opacity: 0.45 }, // emoji ignores color
                 ]}
               >
                 {t.icon}
