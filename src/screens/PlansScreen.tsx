@@ -18,8 +18,8 @@ import { closePlans, useScanStatus } from '../scanStatus';
 import { getCloudClient, useSync } from '../sync';
 import { colors, radius, space } from '../theme';
 
-// Most popular first, then bigger plans, then the cheapest.
-const PAID = ['pro', 'allpro', 'mvp', 'starter'].map((id) => findPlan(id));
+// Cheapest to biggest: Starter ($0.99), Pro (most popular), All-Pro, MVP.
+const PAID = ['starter', 'pro', 'allpro', 'mvp'].map((id) => findPlan(id));
 const BEST_SAVING = Math.max(...PAID.map(yearlySavings));
 
 interface Purchase {

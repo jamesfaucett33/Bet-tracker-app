@@ -63,11 +63,12 @@ export const PLANS: Plan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    tagline: 'For the weekend bettor',
+    tagline: 'Less than a dollar a month',
     scans: 25,
     monthly: 0.99,
     yearly: 9.99,
-    perks: [{ text: 'Everything in Rookie' }],
+    badge: 'Best start',
+    perks: [{ text: 'Everything in Rookie' }, { text: 'Perfect for the weekend bettor' }],
   },
   {
     id: 'pro',
