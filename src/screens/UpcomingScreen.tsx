@@ -32,8 +32,17 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [bets, phaseOf, games, legGames],
   );
-  const staked = upcoming.reduce((s, b) => s + b.stake, 0);
-  const toWin = upcoming.reduce((s, b) => s + betToWin(b), 0);
+  // Money on the table: tickets in progress, tickets not started, and both together.
+  const inProgress = bets.filter((b) => phaseOf(b) === 'live');
+  const sum = (list: Bet[], f: (b: Bet) => number) => list.reduce((acc, b) => acc + f(b), 0);
+  const money = (n: number) => formatAmount(n, settings);
+  const rows = [
+    { label: '🔴 Live', list: inProgress },
+    { label: '◷ Upcoming', list: upcoming },
+  ];
+  const open = [...inProgress, ...upcoming];
+  const totalStake = sum(open, (b) => b.stake);
+  const totalWin = sum(open, betToWin);
 
   return (
     <FlatList
@@ -41,22 +50,38 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
       keyExtractor={(b) => b.id}
       contentContainerStyle={styles.container}
       ListHeaderComponent={
-        upcoming.length ? (
+        open.length ? (
           <View style={styles.summary}>
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>Tickets</Text>
-              <Text style={styles.statValue}>{upcoming.length}</Text>
+            <View style={styles.tRow}>
+              <Text style={[styles.tHead, styles.tName]}> </Text>
+              <Text style={[styles.tHead, styles.tNum]}>Tickets</Text>
+              <Text style={[styles.tHead, styles.tMoney]}>Wagered</Text>
+              <Text style={[styles.tHead, styles.tMoney]}>Could win</Text>
             </View>
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>Wagered</Text>
-              <Text style={styles.statValue}>{formatAmount(staked, settings)}</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>Could win</Text>
-              <Text style={[styles.statValue, { color: colors.accent }]}>
-                {formatAmount(toWin, settings)}
+            {rows.map((r) => (
+              <View key={r.label} style={styles.tRow}>
+                <Text style={[styles.tCell, styles.tName]}>{r.label}</Text>
+                <Text style={[styles.tCell, styles.tNum]}>{r.list.length}</Text>
+                <Text style={[styles.tCell, styles.tMoney]}>{money(sum(r.list, (b) => b.stake))}</Text>
+                <Text style={[styles.tCell, styles.tMoney, { color: colors.accent }]}>
+                  {money(sum(r.list, betToWin))}
+                </Text>
+              </View>
+            ))}
+            <View style={[styles.tRow, styles.tTotal]}>
+              <Text style={[styles.tCell, styles.tName, styles.bold]}>Total open</Text>
+              <Text style={[styles.tCell, styles.tNum, styles.bold]}>{open.length}</Text>
+              <Text style={[styles.tCell, styles.tMoney, styles.bold]}>{money(totalStake)}</Text>
+              <Text style={[styles.tCell, styles.tMoney, styles.bold, { color: colors.accent }]}>
+                {money(totalWin)}
               </Text>
             </View>
+            <Text style={styles.payout}>
+              Total payout if everything cashes:{' '}
+              <Text style={{ color: colors.accent, fontWeight: '800' }}>
+                {money(totalStake + totalWin)}
+              </Text>
+            </Text>
           </View>
         ) : undefined
       }
@@ -77,13 +102,33 @@ export function UpcomingScreen({ onEditBet }: { onEditBet: (bet: Bet) => void })
 
 const styles = StyleSheet.create({
   container: { padding: space.lg, paddingBottom: 120 },
+  tRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
+  tTotal: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    marginTop: 4,
+    paddingTop: 9,
+  },
+  tHead: {
+    color: colors.textFaint,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  tCell: { color: colors.text, fontSize: 15, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  tName: { flex: 1.5 },
+  tNum: { flex: 0.8, textAlign: 'center' },
+  tMoney: { flex: 1.3, textAlign: 'right' },
+  bold: { fontWeight: '800' },
+  payout: { color: colors.textDim, fontSize: 13, marginTop: space.sm, textAlign: 'center' },
   summary: {
-    flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     paddingVertical: space.md,
+    paddingHorizontal: space.md,
     marginBottom: space.lg,
   },
   stat: { flex: 1, alignItems: 'center' },
