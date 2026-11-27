@@ -9,6 +9,7 @@ Things to add once the core app is fine-tuned.
 - [ ] **BetKeyper-branded email templates** (confirm email, reset password).
 - [ ] **Forgot password** link on the sign-in screen (needs the email setup above).
 - [ ] Add the Resend + Supabase steps to the GoDaddy instructions so Claude on the computer can do them.
+- [ ] **Sign in with Google + Sign in with Apple** through Supabase (free). Apple requires its own sign-in if Google is offered; it comes with the $99/yr Apple Developer account. Google needs a free Google Cloud OAuth client.
 
 ## App Store
 - [ ] In-app **Delete account** (Supabase Edge Function). Apple requires it.
