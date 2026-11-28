@@ -1,8 +1,7 @@
 # BetKeyper pricing
 
 Plans live in `src/plans.ts` (the app and the scan server both read them).
-Only **AI scans** count. Manual entry and screenshots the phone reads by
-itself (about 20% of scans) are free and unlimited on every plan.
+Only **bet uploads** (photos or screenshots read by Claude) count. Manual entry is free and unlimited on every plan. (The free on-phone reader was turned off on Nov 28: it could save wrong tickets.)
 
 ## Beta
 While `BETA_SCANS` (src/plans.ts) is 50, every account gets at least 50 slip

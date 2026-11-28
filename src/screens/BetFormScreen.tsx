@@ -22,7 +22,6 @@ import {
   betToWin,
   potentialProfit,
 } from '../odds';
-import { canReadOnDevice } from '../ocr';
 import { deriveTrackerUrl } from '../qr';
 import { duplicateMessage, findDuplicate, sameTicket } from '../dupes';
 import { cheer } from '../cheer';
@@ -372,11 +371,8 @@ export function BetFormScreen({
     // With an AI key, Claude reads the slip; without one, the phone reads it
     // itself (free, less accurate) so a photo always does something.
     const useAI = !!settings.anthropicApiKey.trim();
-    if (!useAI && !canReadOnDevice() && !(await canScanInCloud())) {
-      notify(
-        'Set up scanning',
-        'Photo reading is unavailable right now. Try again in a minute, or enter the bet manually.',
-      );
+    if (!useAI && !(await canScanInCloud())) {
+      notify('Sign in to scan', 'Sign in (Profile) to read bet slips, or enter the bet manually.');
       return;
     }
     try {
